@@ -1,0 +1,12 @@
+[
+  {
+    "code": "jira/external-image-embedded",
+    "severity": "info",
+    "message": "Jira shows the image https://example.com/d.png by fetching that URL, so it must stay reachable for anyone reading the comment."
+  },
+  {
+    "code": "jira/external-image-embedded",
+    "severity": "info",
+    "message": "Jira shows the image https://site.atlassian.net/rest/api/3/attachment/content/1 by fetching that URL, so it must stay reachable for anyone reading the comment."
+  }
+]

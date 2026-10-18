@@ -1,0 +1,16 @@
+[
+  {
+    "code": "jira/blockquote-child-rejected",
+    "severity": "error",
+    "nodeType": "heading",
+    "path": "doc.content[1].content[0]",
+    "message": "Jira refuses a heading inside a quote, so the whole comment would be lost. Move it out of the quote. A quote can hold: paragraph, bulleted list, numbered list, code block, image."
+  },
+  {
+    "code": "jira/blockquote-child-rejected",
+    "severity": "error",
+    "nodeType": "table",
+    "path": "doc.content[1].content[1]",
+    "message": "Jira refuses a table inside a quote, so the whole comment would be lost. Move it out of the quote. A quote can hold: paragraph, bulleted list, numbered list, code block, image."
+  }
+]

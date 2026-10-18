@@ -1,0 +1,6 @@
+{
+  "name": "draftgate-atlassian-tokens",
+  "private": true,
+  "description": "Dev instrument. Reads Atlassian's published light/dark token values so jira.css can claim them. Not a dependency, not in the plugin tree.",
+  "dependencies": { "@atlaskit/tokens": "^16.11.2" }
+}

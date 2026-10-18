@@ -1,0 +1,158 @@
+/*
+ * The vendor faces this window draws a destination in, declared HERE rather than imported from a
+ * package's own sheet -- because the package's sheet is not the right file.
+ *
+ * Each face is the one the destination itself serves, checked against the destination's own file
+ * by `surface/harness/fontFile.ts` (family, version, variation axes, italic, read off the font's tables):
+ * the extractor records the vendor's, `surface/harness/tokens.test.ts` reads ours and compares.
+ * A family NAME proves nothing here: a face called "Lato" or "Inter" can be the wrong font file.
+ *
+ * `@font-face` cannot be scoped to a destination, so these are global; only the destination sheets
+ * NAME them.
+ */
+
+/*
+ * Linear: Inter variable, with the `opsz` and `wght` axes Linear serves
+ * (`static.linear.app/fonts/InterVariable.woff2`, recorded as `client.face` in
+ * `tools/linear-tokens/tokens.json`).
+ *
+ * Not the static `@fontsource/inter` instances: those are pinned at opsz 14, so every heading
+ * draws 1-4% wider than Linear's (opsz follows the font size: `font-optical-sizing` is `auto` and
+ * Linear sets no override), and the body cannot reach Linear's 450, since CSS resolves 450 against
+ * static 400/500 up to 500. These are `@fontsource-variable/inter`'s latin and latin-ext `opsz`
+ * files, each `@font-face` that package's block verbatim. Latin-ext because Czech and Polish
+ * letters (č, ř, ł) sit outside latin and would draw mid-word in the next face down the stack. The
+ * package's `opsz.css` is not imported: it declares all seven subsets and Vite would bundle all
+ * seven. Linear's own file is whole (2937 glyphs), so a character in neither subset (`→`) still
+ * falls back here and not there.
+ */
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/inter/files/inter-latin-opsz-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/inter/files/inter-latin-ext-opsz-normal.woff2') format('woff2-variations');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/*
+ * And the ITALIC twins: Linear serves `InterVariable-Italic.woff2` under the same
+ * family with `font-style: italic` (recorded as `client.italicFace`), so `*text*` there is Inter's
+ * own italic -- a single-storey `a`, a descending `f`. With no italic face declared here the engine
+ * slants the upright glyphs instead, and nothing on screen says so. The package's `opsz-italic.css`
+ * blocks, verbatim, for the same two subsets and for the same reason as above.
+ */
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: italic;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/inter/files/inter-latin-opsz-italic.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: italic;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/inter/files/inter-latin-ext-opsz-italic.woff2') format('woff2-variations');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/*
+ * Slack: Lato 2.015, the version Slack serves as `Slack-Lato` (`a.slack-edge.com/.../lato-*`,
+ * recorded as `face` in `tools/slack-tokens/tokens.json`). Not `@fontsource/lato`, which is Lato
+ * 1.104 (Google Fonts' build of the 2011 release): 2.0 redrew the family, and the spacing differs
+ * enough that a paragraph breaks at different words than in Slack.
+ *
+ * From the `lato-font` package (per its README the official 2.015 web build), unmodified and whole
+ * (~180 KB a weight, against ~23 KB for a latin subset). Not subset, because of the licence: Lato
+ * 2's OFL reserves the name "Lato" (name ID 0: 'with Reserved Font Name "Lato"'), and OFL-FAQ 2.6
+ * counts a subset as a Modified Version, which may not carry it.
+ *
+ * Not Slack's own file either, a different build of 2.015: `ttfautohint (v1.8.1)` in its version
+ * string, 354 KB of glyph data against 236, a `post` table stripped to 32 bytes; changed font data
+ * is a Modified Version too (OFL-FAQ 2.2.1). In this window's engine (WebKit 22625 on macOS 27.0;
+ * `bun run fonts:lato` measures it on any Mac) the two advance identically at 13, 15, 18 and 30px
+ * on all 136 characters measured (ASCII and the common Latin accents and punctuation), and with
+ * kerning off a paragraph draws the same pixels in both. What differs is the kerning after `A` and
+ * `a`: 63 of 5,625 pairs, each looser in this build, by up to 1.86px at 15px (`aT`), so a sentence
+ * runs up to 0.36px wider at 15px. A paragraph broke at the same words as in Slack's file in 15 of
+ * 16 boxes (four sizes, four widths); the one that moved was at 30px.
+ *
+ * The three weights `slack.css` names: 400 body, 700 bold and h3..h6, 900 h1/h2, each upright and
+ * italic, since `*text*` can sit at any of them and Slack serves `Slack-Lato` italic at all three.
+ * Without the italic faces the engine slants the upright glyphs: different letterforms and the
+ * upright's advances, a run 5.8-6.8% wider than Lato's own italic at 15px (`fonts:lato`, three
+ * sentences). The slant wrapped a paragraph at a different word than Slack's italic in all four
+ * boxes tested; the real italic measures the same as Slack's and wrapped where it did in all four.
+ * Whole, for the licence reason above: about 575 KB more.
+ */
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url('lato-font/fonts/lato-normal/lato-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url('lato-font/fonts/lato-bold/lato-bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 900;
+  src: url('lato-font/fonts/lato-black/lato-black.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Lato';
+  font-style: italic;
+  font-display: swap;
+  font-weight: 400;
+  src: url('lato-font/fonts/lato-normal-italic/lato-normal-italic.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Lato';
+  font-style: italic;
+  font-display: swap;
+  font-weight: 700;
+  src: url('lato-font/fonts/lato-bold-italic/lato-bold-italic.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Lato';
+  font-style: italic;
+  font-display: swap;
+  font-weight: 900;
+  src: url('lato-font/fonts/lato-black-italic/lato-black-italic.woff2') format('woff2');
+}
+
+/*
+ * Slack's code face: Roboto Mono, served as `Slack-Roboto-Mono`, the head of its
+ * `--font-family-monospace` (`pre, code { font-family: var(--font-family-monospace) !important }`,
+ * so inline code too). Declared under Slack's alias so `slack.css` carries its stack verbatim. The
+ * file is `@fontsource-variable/roboto-mono`'s latin `wght` block verbatim: Roboto Mono 3.001 on
+ * `wght 100..700`, 228 glyphs, against the 3.000, 229 glyphs, Slack serves (`monoFace` in
+ * `tools/slack-tokens/tokens.json`). A latin subset is fine, unlike Lato: the package is OFL-1.1
+ * and the copyright string reserves no font name.
+ */
+@font-face {
+  font-family: 'Slack-Roboto-Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 700;
+  src: url('@fontsource-variable/roboto-mono/files/roboto-mono-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}

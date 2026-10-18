@@ -1,0 +1,10 @@
+{
+  "@atlaskit/editor-plugin-toolbar-lists-indentation/src/ui/toolbar-components/TaskListMenuItem": "./stubs/editor-plugin-toolbar-lists-indentation__src__ui__toolbar-components__TaskListMenuItem.ts",
+  "@atlaskit/feature-gate-js-client/persistent-override-adapter": "./stubs/feature-gate-js-client__persistent-override-adapter.ts",
+  "@atlaskit/media-client/test-helpers": "./stubs/media-client__test-helpers.ts",
+  "@atlaskit/media-svg/media-svg-error": "./stubs/media-svg__media-svg-error.ts",
+  "@atlaskit/popper/src/popper": "./stubs/popper__src__popper.ts",
+  "@atlaskit/react-ufo/use-error-handler": "./stubs/react-ufo__use-error-handler.ts",
+  "@atlaskit/theme/typography": "./stubs/theme__typography.ts",
+  "@atlaskit/user-picker/option-to-selectable-option": "./stubs/user-picker__option-to-selectable-option.ts"
+}

@@ -1,0 +1,21 @@
+{
+  "name": "draftgate-demo-video",
+  "private": true,
+  "version": "0.0.0",
+  "description": "The README's demo, rendered with Remotion from the review window's own components. A dev tool: not a dependency, not in the plugin tree, installed only by `bun install` in this directory. Remotion is source-available and free for individuals; a contributor at a company of four or more people needs a Remotion licence to re-render.",
+  "scripts": {
+    "request": "bun request.ts",
+    "record": "sh record/record.sh",
+    "terminal": "bun terminal.ts",
+    "demo": "bun request.ts && remotion render src/index.ts Demo dist/demo.mp4",
+    "gif": "bun request.ts && remotion render src/index.ts Demo ../../docs/demo.gif --codec=gif --scale=0.5 --every-nth-frame=3",
+    "studio": "bun request.ts && remotion studio src/index.ts"
+  },
+  "devDependencies": {
+    "@remotion/cli": "4.0.532",
+    "@xterm/headless": "6.0.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.532"
+  }
+}

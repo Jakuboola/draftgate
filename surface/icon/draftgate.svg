@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!--
+    draftgate's app icon: a message on hold. A yellow speech bubble with a pause sign, on black,
+    like a gate sign at night.
+    The source of truth. `bun run icon:build` renders it into draftgate.icns beside it, at every
+    size but 16 and 32 px, which draftgate-small.svg draws.
+    Apple's grid: a 1024 canvas with an 824 body, a rounded rectangle of radius 185.4, drawn as
+    circular arcs. 185.4 is the radius whose continuous corners match, to a pixel, the outline of an
+    .icns macOS draws as it is (zoom's 1024 px slot, measured).
+    A rounded rectangle because macOS 26 and newer draws an .icns whose outline is too far from its
+    own small, on a grey rounded square: `cli/test/icon.test.ts` holds what was measured.
+    Shapes only, no type, so every renderer draws the same thing.
+  -->
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2A2A2A"/><stop offset="1" stop-color="#121212"/></linearGradient>
+    <linearGradient id="sign" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD84A"/><stop offset="1" stop-color="#F5C21B"/></linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".07"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%"><feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity=".32"/></filter>
+  </defs>
+  <path d="M285.4 100 H738.6 A185.4 185.4 0 0 1 924 285.4 V738.6 A185.4 185.4 0 0 1 738.6 924 H285.4 A185.4 185.4 0 0 1 100 738.6 V285.4 A185.4 185.4 0 0 1 285.4 100 Z" fill="url(#body)" filter="url(#shadow)"/>
+  <path d="M285.4 100 H738.6 A185.4 185.4 0 0 1 924 285.4 V738.6 A185.4 185.4 0 0 1 738.6 924 H285.4 A185.4 185.4 0 0 1 100 738.6 V285.4 A185.4 185.4 0 0 1 285.4 100 Z" fill="url(#sheen)"/>
+  <path fill="url(#sign)" d="M332 250 H692 A110 110 0 0 1 802 360 V560 A110 110 0 0 1 692 670 H434 L314 772 L332 670 A110 110 0 0 1 222 560 V360 A110 110 0 0 1 332 250 Z"/>
+  <rect x="418" y="362" width="66" height="196" rx="22" fill="#151515"/>
+  <rect x="540" y="362" width="66" height="196" rx="22" fill="#151515"/>
+</svg>

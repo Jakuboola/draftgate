@@ -1,0 +1,291 @@
+/*
+ * GitHub body styling, MEASURED off GitHub's own rendered comment surface.
+ *
+ * Every number and colour is read out of Chromium by `tools/github-ruler/`: it renders `fixture.md`
+ * through GitHub's renderer (`POST /markdown`, `mode=gfm`), wraps the result in the class list
+ * GitHub serves a comment with, links GitHub's real stylesheets, and asks `getComputedStyle`. The
+ * same read off a live github.com page (a different DOM, ancestors and origin, sharing only the
+ * stylesheets) is the cross-check and reports any unexpected disagreement.
+ * `tools/github-ruler/README.md` has the caveats; `measured-github.json` is the unedited output.
+ *
+ * The value this has to get right: `.markdown-body` declares `font-size: 16px`, but a comment
+ * renders at 14px. The element also carries `comment-body`, declared in another bundle at equal
+ * specificity, and that one wins. Headings are in `em`, so a sheet built from `.markdown-body`'s
+ * declaration (what a `tools/*-tokens` style fetch would produce) would draw all six 14% too large,
+ * h1 at 32px against a real 28px. CLAUDE.md's rule covers it: query the live DOM for the class
+ * before trusting a rule found by name.
+ *
+ * The face is the system one (SF on macOS, Segoe UI on Windows), not Mona Sans. GitHub's
+ * `--fontStack-sansSerif` begins `"Mona Sans VF"`, but no stylesheet has an `@font-face` for it and
+ * Chromium falls through to `-apple-system`. `getComputedStyle`'s `font-family` is the declared
+ * list, not the face (the trap `main.tsx` records), and bundling Mona Sans would break paragraphs at
+ * different words. The rasteriser answers (`CSS.getPlatformFontsForNode`: `.SF NS` on the assembled
+ * page, on live issues, and in a signed-in view, where `"Mona Sans VF"` measures identical to a
+ * family that does not exist). The ruler records that read as `faces`, and `tokens.test.ts` holds
+ * this sheet to it.
+ *
+ * Not drawn: GitHub is `preview-only`, the markdown is the payload, and drawing a rendering the
+ * source does not contain would make the two disagree (the call `slack.css` makes about checkbox
+ * coercion). The profile reports each in words:
+ *  - `> [!NOTE]` renders as a coloured callout with the marker line gone; drawn as the blockquote it
+ *    is written as (`github/alert-becomes-callout`);
+ *  - raw HTML renders (`github/html-rendered`) or is deleted (`github/html-stripped`); drawn as
+ *    source text;
+ *  - `:tada:` becomes an emoji; drawn as written, with no warning (`github.ts` says why a
+ *    shape-only rule is the wrong trade).
+ * Syntax-highlight token colours (GitHub's `.pl-*` classes) are not drawn either: they are
+ * measurable only for the languages a fixture contains, a claim about the fixture, as `slack.css`
+ * records.
+ *
+ * The four `li p` / `th p` / `td p` / `blockquote p` margins and the two task-list layout rules are
+ * byte-identical in all four sheets and duplicated, not shared: a bare `.ProseMirror ...` loses on
+ * specificity to `[data-destination="x"] .ProseMirror ...` (CLAUDE.md, "Do not put shared rules in a
+ * shared stylesheet"). `SHARED_STRUCTURE` in `surface/harness/probe.ts` is the guard. The task-list
+ * pair is the one place this sheet uses no measured GitHub number: GitHub indents a checklist 28px
+ * and hangs a real `<input>` on a -19.6px margin, while the editor draws a TipTap
+ * `ul[data-type="taskList"]` GitHub's DOM does not have, in draftgate's own flex rule. That is
+ * chrome, so it matches its siblings.
+ */
+
+/* GitHub's own Primer tokens, from the `light-*.css` and `dark-*.css` themes github.com serves --
+   the two it serves by default (`data-light-theme="light"`, `data-dark-theme="dark"`). Each one is
+   asserted against `tools/github-ruler/measured-github.json` by `surface/harness/tokens.test.ts`,
+   which compares the COMPUTED colour this sheet produces with the computed colour GitHub produced,
+   so a wrong token fails rather than merely looking plausible. */
+[data-destination="github"] {
+  --gh-fg: #1f2328;
+  --gh-fg-muted: #59636e;
+  --gh-border: #d1d9e0;
+  --gh-border-muted: #d1d9e0b3;
+  --gh-accent: #0969da;
+  /* Primer's checkbox: `--borderColor-emphasis` and `--bgColor-accent-emphasis`, from these themes but
+     not asserted against the ruler, whose render has no such box. See the task-list rule. */
+  --gh-border-emphasis: #818b98;
+  --gh-accent-emphasis: #0969da;
+  --gh-canvas: #ffffff;
+  --gh-canvas-muted: #f6f8fa;
+  --gh-neutral-muted: #818b981f;
+  --gh-success-emphasis: #1f883d;
+  --gh-success-hover: #1c8139;
+  --gh-on-emphasis: #ffffff;
+  --gh-control-hover: #818b981a;
+  --gh-overlay: #ffffff;
+}
+[data-destination="github"][data-theme="dark"] {
+  --gh-fg: #f0f6fc;
+  --gh-fg-muted: #9198a1;
+  --gh-border: #3d444d;
+  --gh-border-muted: #3d444db3;
+  --gh-accent: #4493f8;
+  --gh-border-emphasis: #656c76;
+  --gh-accent-emphasis: #1f6feb;
+  --gh-canvas: #0d1117;
+  --gh-canvas-muted: #151b23;
+  --gh-neutral-muted: #656c7633;
+  --gh-success-emphasis: #238636;
+  --gh-success-hover: #29903b;
+  --gh-on-emphasis: #ffffff;
+  --gh-control-hover: #656c7633;
+  --gh-overlay: #010409;
+}
+
+/* GitHub's own two stacks, read off the rendered comment, with nothing bundled for either: GitHub
+   loads no face for `"Mona Sans VF"`, so it resolves to nothing here as there and the system face
+   draws the comment. Kept first because it is GitHub's list (a machine with a local "Mona Sans VF"
+   gets it on github.com too). */
+[data-destination="github"] {
+  --gh-sans: "Mona Sans VF", -apple-system, system-ui, "Segoe UI", "Noto Sans",
+    Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  /* The ONE deviation from GitHub's own stack: `ui-monospace` is left out. WebKit draws it as SF
+     Mono and Chromium ignores it and draws Menlo -- which is what Chrome readers see, so the
+     preview draws Menlo too. Measured in the host: with it out, the next name WebKit can resolve
+     is Menlo. `tokens.test.ts` holds the rest verbatim. */
+  --gh-mono: SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+[data-destination="github"] .ProseMirror {
+  outline: none;
+  color: var(--gh-fg);
+  /* 14px/21px is the `.comment-body` cascade winning over `.markdown-body`'s 16px. See the header:
+     this single value is the reason this destination has a ruler rather than a token fetch. */
+  font: 400 14px/21px var(--gh-sans);
+}
+
+/* `margin-top: 0` with the whole gap below is GitHub's own shape for every block element, which is
+   why nothing here needs a top margin except the headings. */
+[data-destination="github"] .ProseMirror p { margin: 0 0 16px; }
+
+/* Underlined at rest, and STILL underlined on hover -- GitHub serves
+   `data-a11y-link-underlines="true"` and draws the rule in both states. That is a third answer
+   again: Jira underlines and drops it on hover, Slack and Linear do the opposite. `probe.ts`
+   asserts the pair, so a sheet that loses either half fails instead of agreeing with itself. */
+[data-destination="github"] .ProseMirror a { color: var(--gh-accent); text-decoration: underline; }
+[data-destination="github"] .ProseMirror a:hover { text-decoration: underline; }
+
+/* GitHub sets SEMIBOLD, not the browser's bold -- `.markdown-body strong` is
+   `var(--base-text-weight-semibold, 600)`, and the ruler measured 600. Without this rule the UA's
+   700 applies and every bold word in the preview is heavier than the one GitHub draws. No face is
+   bundled for either weight: the comment draws in the system face, which has both. */
+[data-destination="github"] .ProseMirror strong { font-weight: 600; }
+
+/* A mention or an issue reference. GitHub draws both as ordinary links, not pills, so this is the
+   link colour only; `dg-mtok` marks the token, and marking it further would diverge from GitHub. */
+[data-destination="github"] .ProseMirror .dg-mtok { color: var(--gh-accent); }
+
+/* All six, measured: 2 / 1.5 / 1.25 / 1 / .875 / .85 em of a 14px body, line-height 1.25 flat,
+   semibold throughout, 24px above and 16px below. h6 is muted, the only thing separating it from h5
+   at 0.35px apart. */
+[data-destination="github"] .ProseMirror h1,
+[data-destination="github"] .ProseMirror h2,
+[data-destination="github"] .ProseMirror h3,
+[data-destination="github"] .ProseMirror h4,
+[data-destination="github"] .ProseMirror h5,
+[data-destination="github"] .ProseMirror h6 {
+  font-family: var(--gh-sans);
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 24px 0 16px;
+}
+/* h1 and h2 alone carry a rule under them, at .3em of their own size. Grouped because the two
+   declarations are byte-identical (the no-sharing rule is about sheets, not within one). */
+[data-destination="github"] .ProseMirror h1,
+[data-destination="github"] .ProseMirror h2 {
+  padding-bottom: .3em;
+  border-bottom: 1px solid var(--gh-border-muted);
+}
+[data-destination="github"] .ProseMirror h1 { font-size: 28px; }
+[data-destination="github"] .ProseMirror h2 { font-size: 21px; }
+[data-destination="github"] .ProseMirror h3 { font-size: 17.5px; }
+[data-destination="github"] .ProseMirror h4 { font-size: 14px; }
+[data-destination="github"] .ProseMirror h5 { font-size: 12.25px; }
+[data-destination="github"] .ProseMirror h6 { font-size: 11.9px; color: var(--gh-fg-muted); }
+
+/* The first block has no top margin and the last has no bottom one -- GitHub's
+   `.markdown-body > :first-child` / `> :last-child`, both `!important` in its own sheet. Kept
+   because without them a draft opens with 24px of dead space above a leading heading. */
+[data-destination="github"] .ProseMirror > :first-child { margin-top: 0; }
+[data-destination="github"] .ProseMirror > :last-child { margin-bottom: 0; }
+
+/* .85em of the body, on a translucent neutral so it sits on either canvas. */
+[data-destination="github"] .ProseMirror :not(pre) > code {
+  font-family: var(--gh-mono);
+  font-size: 11.9px;
+  background: var(--gh-neutral-muted);
+  border-radius: 6px;
+  padding: .2em .4em;
+}
+[data-destination="github"] .ProseMirror pre {
+  font: 400 11.9px/17.255px var(--gh-mono);
+  color: var(--gh-fg);
+  background: var(--gh-canvas-muted);
+  border-radius: 6px;
+  padding: 16px;
+  margin: 0 0 16px;
+  overflow-x: auto;
+}
+[data-destination="github"] .ProseMirror pre code { background: none; padding: 0; font: inherit; }
+
+[data-destination="github"] .ProseMirror blockquote {
+  border-left: 3px solid var(--gh-border);
+  margin: 0 0 16px;
+  padding-left: 14px;
+  color: var(--gh-fg-muted);
+}
+
+/* 28px of indent, and a nested list adds no vertical space of its own. */
+[data-destination="github"] .ProseMirror ul,
+[data-destination="github"] .ProseMirror ol { padding-left: 28px; margin: 0 0 16px; }
+[data-destination="github"] .ProseMirror li + li { margin-top: .25em; }
+[data-destination="github"] .ProseMirror ul ul,
+[data-destination="github"] .ProseMirror ul ol,
+[data-destination="github"] .ProseMirror ol ol,
+[data-destination="github"] .ProseMirror ol ul { margin-top: 0; margin-bottom: 0; }
+
+/* Four of the six shared rules. Duplicated, not shared -- see the header. */
+[data-destination="github"] .ProseMirror li p,
+[data-destination="github"] .ProseMirror th p,
+[data-destination="github"] .ProseMirror td p,
+[data-destination="github"] .ProseMirror blockquote p { margin: 0; }
+
+/* And the other two: draftgate's own checklist layout, identical in all four sheets. */
+[data-destination="github"] .ProseMirror ul[data-type="taskList"] { list-style: none; padding-left: 2px; }
+[data-destination="github"] .ProseMirror ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 8px; }
+/* The box a logged-in GitHub draws a task list with. Its React task list hides the native checkbox
+   (`.TaskListItems-module__task-list-item-checkbox { visibility: hidden }`) and draws Primer's
+   `.prc-Checkbox` at `width: 1em; height: 1em` (`.TaskListItem-module__taskStatusCheckbox`), so 14px
+   in a comment, not Primer's 16px: a 1px `--control-borderColor-emphasis` border on a 3px radius,
+   on the page's ground; checked, `--control-checked-bgColor-rest` under Primer's checkmark at 75% of
+   the box, in `--fgColor-onEmphasis` (white in both themes; a `data:` URI cannot read a variable).
+   Captures of a live comment agree on the size (13.9px fitted at 90% zoom), the radius and both
+   colours. Centred on the 21px line, as GitHub centres it on its first. (The ruler's static
+   `POST /markdown` render carries the native 13px `.task-list-item-checkbox`.) */
+[data-destination="github"] .ProseMirror ul[data-type="taskList"] input[type="checkbox"] {
+  appearance: none;
+  display: block;
+  width: 14px;
+  height: 14px;
+  margin: 3.5px 0 0;
+  border: 1px solid var(--gh-border-emphasis);
+  border-radius: 3px;
+  background: var(--gh-canvas);
+}
+[data-destination="github"] .ProseMirror ul[data-type="taskList"] input[type="checkbox"]:checked {
+  background: var(--gh-accent-emphasis) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='9' viewBox='0 0 12 9'%3E%3Cpath fill='white' fill-rule='evenodd' d='M11.78.22a.75.75 0 0 1 0 1.061L4.52 8.541a.75.75 0 0 1-1.062 0L.202 5.285a.75.75 0 0 1 1.061-1.061l2.725 2.723L10.718.22a.75.75 0 0 1 1.062 0' clip-rule='evenodd'/%3E%3C/svg%3E") center / 10.5px auto no-repeat;
+  border-color: var(--gh-accent-emphasis);
+}
+
+/* `display: block` with `width: max-content` is GitHub's own rule, and it is what makes a wide
+   table scroll inside the comment instead of stretching it. `tabular-nums` is the same rule
+   (`.markdown-body table { font-variant: tabular-nums }`): digits in a table are equal width, so
+   `1.11` and `8.88` line up in GitHub and must here. */
+[data-destination="github"] .ProseMirror table {
+  font-variant-numeric: tabular-nums;
+  border-collapse: collapse;
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: auto;
+  margin: 0 0 16px;
+}
+[data-destination="github"] .ProseMirror th,
+[data-destination="github"] .ProseMirror td {
+  border: 1px solid var(--gh-border);
+  padding: 6px 13px;
+  vertical-align: top;
+}
+/* No `text-align` on either cell: GitHub's sheet sets none, so the browser's own stand, a header cell
+   centred and a body cell at its start, as the ruler reads them. */
+[data-destination="github"] .ProseMirror th { font-weight: 600; }
+/* Zebra striping, which only GitHub does: odd rows on the canvas, even rows on the muted one. */
+[data-destination="github"] .ProseMirror tr { background: var(--gh-canvas); border-top: 1px solid var(--gh-border-muted); }
+[data-destination="github"] .ProseMirror tr:nth-child(2n) { background: var(--gh-canvas-muted); }
+
+/* Filled, not a border: GitHub's own `.markdown-body hr { height: 1px }`, as the ruler reads it on a
+   comment. */
+[data-destination="github"] .ProseMirror hr {
+  height: 1px;
+  border: 0;
+  padding: 0;
+  background: var(--gh-border);
+  margin: 24px 0;
+}
+
+[data-destination="github"] .ProseMirror img { max-width: 100%; box-sizing: content-box; }
+
+/* The window's own chrome, in GitHub's colours. `--dg-accent` is the primary button's green
+   (`--bgColor-success-emphasis`), not the link blue: on GitHub the green button commits an action,
+   which is what Approve does. */
+:root[data-destination="github"] {
+  --dg-accent: var(--gh-success-emphasis);
+  --dg-accent-hover: var(--gh-success-hover);
+  --dg-accent-ink: var(--gh-on-emphasis);
+  --dg-btn-hover: var(--gh-control-hover);
+  --dg-bubble-bg: var(--gh-overlay);
+  --dg-bubble-ink: var(--gh-fg);
+  --dg-bubble-edge: var(--gh-border);
+  --dg-bubble-hover: var(--gh-control-hover);
+  --dg-bubble-radius: 6px;
+  --dg-frame: var(--gh-border);
+  --dg-frame-bg: var(--gh-canvas);
+  --dg-frame-radius: 6px;
+}

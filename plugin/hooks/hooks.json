@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^(?:mcp__claude_ai_Atlassian_Rovo__addCommentToJiraIssue|mcp__claude_ai_Atlassian_Rovo__addWorklogToJiraIssue|mcp__claude_ai_Atlassian_Rovo__createJiraIssue|mcp__claude_ai_Atlassian_Rovo__editJiraIssue|mcp__claude_ai_Github_MCP__add_comment_to_pending_review|mcp__claude_ai_Github_MCP__add_issue_comment|mcp__claude_ai_Github_MCP__add_reply_to_pull_request_comment|mcp__claude_ai_Github_MCP__create_pull_request|mcp__claude_ai_Github_MCP__issue_write|mcp__claude_ai_Github_MCP__pull_request_review_write|mcp__claude_ai_Github_MCP__update_pull_request|mcp__claude_ai_Linear__save_comment|mcp__claude_ai_Linear__save_customer_need|mcp__claude_ai_Linear__save_diff_comment|mcp__claude_ai_Linear__save_issue|mcp__claude_ai_Linear__save_status_update|mcp__claude_ai_Slack__slack_schedule_message|mcp__claude_ai_Slack__slack_send_message|mcp__(?:[A-Za-z0-9.-]+(?:_[A-Za-z0-9.-]+)*)__(?:addCommentToJiraIssue|addWorklogToJiraIssue|add_comment_to_pending_review|add_issue_comment|add_reply_to_pull_request_comment|createJiraIssue|create_pull_request|editJiraIssue|issue_write|pull_request_review_write|save_comment|save_customer_need|save_diff_comment|save_issue|save_status_update|slack_schedule_message|slack_send_message|update_pull_request))$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/sh -c 'h=\"$1/adapters/hook/src/main.ts\"; b=; for c in \"$(command -v bun 2>/dev/null)\" \"$HOME/.bun/bin/bun\" /opt/homebrew/bin/bun /usr/local/bin/bun; do if [ -f \"$c\" ] && [ -x \"$c\" ]; then b=$c; break; fi; done; export DRAFTGATE_PLUGIN_ROOT=\"$1\"; set -- \"$b\" \"$h\" \"$2\" \"$3\" \"$4\"; o=$(mktemp \"${TMPDIR:-/tmp}/draftgate-hook.XXXXXX\" || mktemp /tmp/draftgate-hook.XXXXXX) || { printf \"%s\\n\" \"$5\"; exit 0; }; { rm -f \"$o\"; if \"$1\" \"$2\" >&3 3>&- 4<&-; then cat <&4 3>&- 4<&-; exit 0; fi; } 3>\"$o\" 4<\"$o\"; if [ ! -f \"$2\" ]; then printf \"%s\\n\" \"$3\"; elif [ ! -x \"$1\" ]; then printf \"%s\\n\" \"$4\"; else printf \"%s\\n\" \"$5\"; fi; exit 0' draftgate-hook \"${CLAUDE_PLUGIN_ROOT}\" '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"draftgate: not reviewed -- its plugin files are incomplete: the hook is missing or cannot be read. Approving sends it as written.\\nInstall the draftgate plugin again (`/plugin`), then run `/reload-plugins`.\",\"additionalContext\":\"draftgate did not review this tool call: its plugin files are incomplete: the hook is missing or cannot be read. It went ahead without that review, so do not send it again to have it reviewed.\"},\"systemMessage\":\"draftgate: not reviewed -- its plugin files are incomplete: the hook is missing or cannot be read.\"}' '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"draftgate: not reviewed -- it needs bun, and no bun was found (on PATH, in ~/.bun/bin, /opt/homebrew/bin or /usr/local/bin). Approving sends it as written.\\nInstall bun in a terminal (`curl -fsSL https://bun.sh/install | bash`), then start a new session.\",\"additionalContext\":\"draftgate did not review this tool call: it needs bun, and no bun was found (on PATH, in ~/.bun/bin, /opt/homebrew/bin or /usr/local/bin). It went ahead without that review, so do not send it again to have it reviewed.\"},\"systemMessage\":\"draftgate: not reviewed -- it needs bun, and no bun was found (on PATH, in ~/.bun/bin, /opt/homebrew/bin or /usr/local/bin).\"}' '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"draftgate: not reviewed -- its hook stopped without answering. Approving sends it as written.\\nTo see why, ask Claude Code to run `draftgate doctor`.\",\"additionalContext\":\"draftgate did not review this tool call: its hook stopped without answering. It went ahead without that review, so do not send it again to have it reviewed.\"},\"systemMessage\":\"draftgate: not reviewed -- its hook stopped without answering.\"}'",
+            "timeout": 3660,
+            "statusMessage": "Waiting for draftgate review"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/sh -c 'exec >/dev/null 2>&1; l=\"${DRAFTGATE_HOME:-$HOME/.draftgate}/plugin\"; [ -L \"$l\" ] && [ -f \"$1/adapters/hook/src/main.ts\" ] || exit 0; [ \"$(readlink \"$l\")\" = \"$1\" ] && exit 0; t=\"$l.$$\"; rm -f \"$t\"; ln -s \"$1\" \"$t\" && mv -fh \"$t\" \"$l\" || rm -f \"$t\"; exit 0' draftgate-session \"${CLAUDE_PLUGIN_ROOT}\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,519 @@
+/*
+ * Jira body styling.
+ *
+ * Every value is either a real Atlassian design token (recovered from the `var(--ds-x, FALLBACK)`
+ * pairs that @atlaskit/editor-core inlines into its built CSS) or a computed style read off a live
+ * render via `getComputedStyle`. Nothing is eyeballed, which is why its preview makes a fidelity
+ * claim (`previewFidelity: 'probe-derived'`).
+ *
+ * Every rule is prefixed with `[data-destination="jira"]`, set on the root by `App`, so the
+ * destination sheets share one bundle without leaking. Page chrome is `shell.css`'s.
+ *
+ * Computed values are taken from editor-core (tools/jira-ruler/probe-styles.cjs) and checked
+ * against the reader's surface, `@atlaskit/renderer` on live public issues
+ * (`tools/jira-ruler/probe-renderer.cjs`), because a posted comment is drawn by the renderer and
+ * the preview follows the reader where the two differ:
+ *   p    14px / 400 / lh 1.714 (23.996px)   h1  24px / 600 / lh 28px
+ *   h2   20px / 600 / lh 24px               th  #f0f1f2 bg, weight 400, padding 8px
+ *   td   white bg, padding 8px              th/td border 1px solid #dddee1, OPAQUE
+ *   code block   neutral panel, tinted number column (logged-in Jira), 8px radius, no label
+ *
+ * Where the reader's value differs from the editor's, its rule says so and cites the source. Do not
+ * take code sizes from the ruler: it reads 14px/24px off `div.code-block`, the container, and its
+ * `<code>` readings are the UA default `font-family: monospace` because the ruler applies no
+ * Atlassian code style to that element; its "no background, padding 0" for inline code is the same
+ * stub.
+ */
+/*
+ * Atlassian's colour tokens, GENERATED: do not hand-edit. Regenerate with `bun run tokens:jira`;
+ * raw values are committed as `tools/atlassian-tokens/tokens.json`, which
+ * `surface/harness/tokens.test.ts` checks this block against. `@atlaskit/tokens` is an instrument
+ * installed under `tools/`, git-ignored, and none of its code ships; its values do, under
+ * Apache-2.0, credited in `docs/NOTICE`. `--ds-text-subtlest` (#6B6E76) also matches an independent
+ * ruler measurement of Jira's line numbers.
+ *
+ * `--ds-border` is the real token and it is translucent (#0B120E24, alpha 0.141). Do not flatten it
+ * to the `#dddee1` it looks like over white: on the dark surface that is wrong. (A table cell's
+ * border is a different, opaque token; see the table rule.)
+ */
+[data-destination="jira"] {
+  --ds-text: #292A2E;
+  --ds-text-subtlest: #6B6E76;
+  --ds-link: #1868DB;
+  --ds-surface: #FFFFFF;
+  --ds-border: #0B120E24;
+  --ds-background-neutral: #0515240F;
+  --ds-text-accent-blue: #1558BC;
+  --ds-text-accent-green: #216E4E;
+  --ds-text-accent-teal: #206A83;
+  --ds-text-accent-purple: #803FA5;
+  --ds-text-accent-red: #AE2E24;
+  --ds-text-accent-yellow: #7F5F01;
+  --ds-background-brand-bold: #1868DB;
+  --ds-background-brand-bold-hovered: #1558BC;
+  --ds-text-inverse: #FFFFFF;
+  --ds-background-neutral-subtle-hovered: #0515240F;
+  --ds-background-input: #FFFFFF;
+  --ds-border-input: #8C8F97;
+  --ds-background-accent-yellow-subtlest: #FEF7C8;
+  --ds-text-subtle: #505258;
+  --ds-background-neutral-hovered: #0B120E24;
+  --ds-background-accent-gray-subtlest: #F0F1F2;
+  --ds-background-accent-gray-subtler: #DDDEE1;
+}
+
+
+[data-destination="jira"][data-theme="dark"] {
+  --ds-text: #CECFD2;
+  --ds-text-subtlest: #96999E;
+  --ds-link: #669DF1;
+  --ds-surface: #1F1F21;
+  --ds-border: #E3E4F21F;
+  --ds-background-neutral: #CECED912;
+  --ds-text-accent-blue: #8FB8F6;
+  --ds-text-accent-green: #7EE2B8;
+  --ds-text-accent-teal: #9DD9EE;
+  --ds-text-accent-purple: #D8A0F7;
+  --ds-text-accent-red: #FD9891;
+  --ds-text-accent-yellow: #EED12B;
+  --ds-background-brand-bold: #669DF1;
+  --ds-background-brand-bold-hovered: #8FB8F6;
+  --ds-text-inverse: #1F1F21;
+  --ds-background-neutral-subtle-hovered: #CECED912;
+  --ds-background-input: #242528;
+  --ds-border-input: #7E8188;
+  --ds-background-accent-yellow-subtlest: #332E1B;
+  --ds-text-subtle: #A9ABAF;
+  --ds-background-neutral-hovered: #E3E4F21F;
+  --ds-background-accent-gray-subtlest: #303134;
+  --ds-background-accent-gray-subtler: #4B4D51;
+}
+
+
+/*
+ * Hand-authored, because these are NOT in Atlassian's colour token set.
+ *
+ * Fonts and radii are theme-independent. A header cell's colour is not here: `@atlaskit/renderer`
+ * 144.1.1 names `color.background.accent.gray.subtlest` for it, so it is generated above.
+ */
+[data-destination="jira"] {
+  --ds-font-sans: "Atlassian Sans", ui-sans-serif, -apple-system, system-ui, "Segoe UI", Ubuntu, "Helvetica Neue", sans-serif;
+  /* The ONE deviation from Jira's own stack: `ui-monospace` is left out. WebKit draws it as SF Mono
+     and Chromium ignores it and draws Menlo -- which is what Chrome readers see, so the preview
+     draws Menlo too. Measured in the host: with it out, the next name WebKit can resolve is Menlo.
+     `tokens.test.ts` holds it to that deviation. */
+  --ds-font-mono: "Atlassian Mono", Menlo, "Segoe UI Mono", "Ubuntu Mono", monospace;
+  --ds-radius-small: 3px;
+  /* The code block's panel radius, `--ds-radius-large` in `@atlaskit/code` 20.0.0. */
+  --ds-radius-large: 8px;
+  /* Theme-independent, and not colours, so `tokens:jira` cannot supply them. Both are the values
+     `@atlaskit/mention` inlines beside these exact token names -- see the mention rule below. */
+  --ds-border-width: 1px;
+  --ds-font-weight-regular: 400;
+  /* The code block's panel, the reader's token. Dark is MEASURED, below. */
+  --jira-code-panel: var(--ds-background-neutral);
+}
+/* MEASURED, not a token: logged-in Jira's dark code panel is #333337 in two captures of the
+   dark theme, on two different grounds (32 and 46), so it is opaque. No Atlassian token is that
+   colour. */
+[data-destination="jira"][data-theme="dark"] {
+  --jira-code-panel: #333337;
+}
+
+/*
+ * An internal note renders on a yellow ground, and this preview must too. MEASURED off a real JSM
+ * ticket screenshotted in both themes, with a public comment above the note for contrast: the
+ * note's band sampled #FEF7C8 in light and #332E1B in dark, exactly the two values of
+ * `--ds-background-accent-yellow-subtlest` in `@atlaskit/tokens`, so the screenshot says which token
+ * and the token supplies the value. Jira's `previewFidelity` is `probe-derived`; drawing the note on
+ * white would show the reviewer something its reader will not see.
+ *
+ * On `.dg-body`, "the only region a destination stylesheet touches", scoped with `[data-audience]`
+ * from the root: `(0,3,0)` against the shared sheet's `.dg-body` at `(0,1,0)`, so it wins on
+ * specificity, not import order (CLAUDE.md, "Do not put shared rules in a shared stylesheet").
+ *
+ * Not the banner's amber: in this window amber means "a customer will read this", and `shell.css`
+ * argues that spending it elsewhere costs the confirmed case its legibility. Jira's yellow means
+ * nobody outside the team sees this. The banner stays draftgate's signal; the body is the
+ * destination's own rendering.
+ */
+[data-destination="jira"][data-audience="internal"] .dg-body {
+  background: var(--ds-background-accent-yellow-subtlest);
+}
+
+/* 14px is Jira's body size, the pane's base as well as every `p`'s: Atlassian writes code in `em`
+   (0.875em, below) against a 14px parent, so without it the pane inherits the shell's 13px and a
+   bare `0.875em` computes 11.375px. A paragraph's leading is `1.714`, the renderer's
+   `editor.font.body` (`normal 400 1em/1.714`, @atlaskit/editor-common 125.3.0), computed as 23.996px
+   on a live comment; the ruler read 24px off the editor. Taken because it is the reader's number. */
+[data-destination="jira"] .ProseMirror { outline: none; font-size: 14px; }
+[data-destination="jira"] .ProseMirror p { margin: 12px 0 0; font: 400 14px/1.714 var(--ds-font-sans); }
+[data-destination="jira"] .ProseMirror h1 { font: 600 24px/28px var(--ds-font-sans); margin: 35px 0 0; }
+[data-destination="jira"] .ProseMirror h2 { font: 600 20px/24px var(--ds-font-sans); margin: 28px 0 0; }
+[data-destination="jira"] .ProseMirror h3 { font: 600 16px/20px var(--ds-font-sans); margin: 21px 0 0; }
+
+/*
+ * h4-h6: MEASURED (`tools/jira-ruler/probe-headings.cjs`), not derived from the `--ds-font-heading-*`
+ * token ladder. editor-core does not style headings from it, and the ladder puts h4's line-height at
+ * 20px (really 16px), h6 at 12px (really 11px) and every heading's margin-top wrong. editor-core
+ * uses its own em-relative family against a 14px base:
+ *
+ *   h1 1.71429em/1.16667   h2 1.42857em/1.2      h3 1.14286em/1.25
+ *   h4 1em/1.14286         h5 .857143em/1.33333  h6 .785714em/1.45455
+ *
+ * The wrong ladder gives the same answer as the right one for h1-h3, so checking those cannot tell
+ * them apart. `surface/harness/probe.ts` asserts all six sizes and line-heights.
+ *
+ * The margins are the reader's, not the editor's. TOP: h4 is 20px (`@atlaskit/renderer` 144.1.1,
+ * `headingsSharedStyles`: `var(--ds-space-250, 20px)`, read on a live h4); h5 and h6 are 17.5px,
+ * shared by editor and renderer. BOTTOM: 0, so the shorthand. editor-core sets no bottom margin on
+ * h4-h6 and keeps the browser's 1.33em-2.33em (`probe-headings.cjs` measured 18.62/20.04/25.63px),
+ * but the reader's page has none: Jira's own page CSS (AUI) sets `p, ul, ol, dl, h1, h2, h3, h4,
+ * h5, h6, blockquote, pre, ... { margin: 10px 0 0 }` around the renderer. Measured 0 on a live h4,
+ * and on h5 and h6 injected into live descriptions.
+ */
+[data-destination="jira"] .ProseMirror h4 { font: 600 14px/16px var(--ds-font-sans); margin: 20px 0 0; }
+[data-destination="jira"] .ProseMirror h5 { font: 600 12px/16px var(--ds-font-sans); margin: 17.5px 0 0; }
+[data-destination="jira"] .ProseMirror h6 { font: 600 11px/16px var(--ds-font-sans); margin: 17.5px 0 0; }
+
+/*
+ * Links: colour and underline from editor-core's shipped CSS, confirmed on the renderer. The
+ * ruler's live render cannot answer (it returns the browser default `rgb(0,0,238)` underlined,
+ * because it stubs the link provider), so this is the stylesheet:
+ *
+ *   `.ProseMirror a[data-prosemirror-mark-name=link] { text-decoration-line: underline }`
+ *   `.ProseMirror a[data-prosemirror-mark-name=link]:hover { text-decoration-line: none }`
+ *
+ * Jira underlines links and removes the underline on hover. Colour is `--ds-link` (#1868db), not
+ * #1558bc, which is `--ds-link-pressed`. The renderer agrees in both themes: `getComputedStyle` on
+ * the anchors of a real posted comment, logged in:
+ *
+ *   dark:   color rgb(102, 157, 241)  text-decoration-line underline
+ *   light:  color rgb(24, 104, 219)   text-decoration-line underline
+ *   hover:  underline vanishes (both themes)
+ *
+ * These are the `#669DF1` and `#1868DB` declared for `--ds-link` in the dark and light blocks above.
+ *
+ * Guard: `surface/harness/tokens.test.ts` asserts the hover rule for every destination (Jira removes
+ * the underline, Slack and Linear add one), so it is not a guard on this file alone. It reads the
+ * rule as declared, which catches deletion and a changed value, not a cascade problem. None of this
+ * is reachable by REST: `expand=renderedBody` is a legacy wiki renderer.
+ */
+[data-destination="jira"] .ProseMirror a {
+  color: var(--ds-link);
+  text-decoration: underline;
+}
+[data-destination="jira"] .ProseMirror a:hover { text-decoration: none; }
+
+/*
+ * The mention chip, from `@atlaskit/mention`'s own stylesheet, not the render. Every declaration is
+ * copied from that package's `mention-style.js` and `PrimitiveMention.js` (v28.0.7), the component
+ * Jira's editor and renderer both use: when the render cannot tell you, the stylesheet often can,
+ * and `tools/jira-ruler` wires no `mentionProvider`, so probing editor-core returns a stub.
+ * Corroborated: the two tokens only this rule uses resolve through `bun run tokens:jira` to #505258
+ * and #0B120E24, byte-for-byte the fallbacks `mention-style.js` inlines beside the same token names.
+ *
+ * DEFAULT, not SELF, which is what a screenshot will show. `mention-style.js` declares four states.
+ * `SELF` is a bold blue chip with inverse text (`--ds-background-brand-bold` / `--ds-text-inverse`);
+ * a reviewer screenshotting their own name in Jira sees it and will not see this one. DEFAULT is the
+ * only state draftgate can honestly draw: SELF means the reader is the person mentioned, and the
+ * reader of a preview is the sender, who is least likely to be addressed. RESTRICTED and DISABLED
+ * report a permission fact about a resolved account, and draftgate resolves nothing.
+ *
+ * Two departures, because this is an editor and not a reader. `cursor: pointer` is dropped: the chip
+ * opens a profile in Jira and nothing here (`Editor.tsx` sets `link.openOnClick: false`). `:active`
+ * is dropped with it, the pressed half of a click this window does not implement. `:hover` is kept
+ * and asserted: the probe forces it in the real engine (`wkForceHover`) and reads it back.
+ *
+ * Jira only, with a guard. A `mention` node reaches the editor only where the profile sets
+ * `structuralMentions: true` (it gates `decodeMentions` in `toEditorDoc`), and Jira is the only
+ * profile that does, so a Slack or Linear rule would style nothing and would have to invent values.
+ * `surface/harness/tokens.test.ts` asserts both halves: this rule exists here, and Jira is still the
+ * only destination with the flag. A new destination, or Slack flipping it, fails that test and not
+ * silently into an unstyled mention, which looks like prose.
+ */
+[data-destination="jira"] .ProseMirror span[data-type="mention"] {
+  display: inline;
+  border: var(--ds-border-width) solid transparent;
+  background: var(--ds-background-neutral);
+  color: var(--ds-text-subtle);
+  border-radius: 20px;
+  padding: 0 0.3em 2px 0.23em;
+  line-height: 1.714;
+  font-size: 1em;
+  font-weight: var(--ds-font-weight-regular);
+  word-break: break-word;
+}
+[data-destination="jira"] .ProseMirror span[data-type="mention"]:hover {
+  background: var(--ds-background-neutral-hovered);
+}
+
+/*
+ * Code is drawn smaller than the prose around it, as the recipient sees it. Both rules are
+ * `@atlaskit/renderer` 144.1.1, which draws a posted comment, and a live Jira Cloud page agrees
+ * (hibernate.atlassian.net: code block text 12.25px/18.375px, inline code 12.25px on a neutral chip):
+ *
+ *   ui/Renderer/RendererStyleContainer.js, codeMarkSharedStyles:
+ *     .code { font-size: 0.875em; background-color: var(--ds-background-neutral);
+ *             padding: 2px 0.5ch; border-radius: var(--ds-radius-small); box-decoration-break: clone }
+ *   react/nodes/codeBlock/components/codeBlockContainer.js, denseModeOverrides -- applied
+ *   UNCONDITIONALLY after the 14px/1.5rem base rule:
+ *     .code-block { font-size: 0.875em; line-height: 1.5em }
+ *
+ * `em`, as Atlassian writes it: inline code in an h1 is 21px in Jira, not 12.25. The logged-in
+ * comment editor may still draw 14px (editor-core's em-unit code styles look flag-gated); the
+ * recipient reads through the renderer, so the renderer wins. At the editor's 14px a 7-line block
+ * measures 184px tall at 1x against Jira's 144.63, and fits 66 characters to a 560px line against
+ * Jira's 75.
+ */
+[data-destination="jira"] .ProseMirror :not(pre) > code {
+  font-family: var(--ds-font-mono); font-size: 0.875em; color: var(--ds-text);
+  background-color: var(--ds-background-neutral); padding: 2px 0.5ch;
+  border-radius: var(--ds-radius-small); box-decoration-break: clone;
+}
+
+/*
+ * The code block: a panel, `--jira-code-panel`, with its number column tinted, as logged-in Jira
+ * draws it (captured in both themes; the anonymous reader draws one untinted panel, and the preview
+ * follows a signed-in recipient). An 8px radius (`--ds-radius-large`), no border, and 8px above and
+ * below the code, on the `code` as `@atlaskit/code` 20.0.0 puts it, so the column beside it runs
+ * the panel's full height.
+ *
+ * No language label: the renderer draws none (the block's only chrome is a copy and a wrap button,
+ * invisible until hover) and none of the thirteen live blocks with a language showed its name. A
+ * label at the top right is editor-core's language picker, an authoring control.
+ *
+ * `flex`, so the line-number column is as wide as its widest number, as `@atlaskit/code` sizes it
+ * (`min-width: calc(<digits>ch + 16px)` on each number, border-box). Measured: code text starts
+ * 31.36px in with one digit and 38.69px with two; a fixed gutter could match only one.
+ *
+ * The size is the reader's dense override (`codeBlockContainer.js`, `denseModeOverrides`, applied
+ * after the 14px/1.5rem base): 0.875em on 1.5em lines, 12.25px / 18.375px. The `0.875em` is of the
+ * container, `div.code-block` at 14px; a TipTap `<pre>` is container and code in one, so here it is
+ * of the pane, also 14px.
+ */
+[data-destination="jira"] .ProseMirror pre {
+  display: flex; background: var(--jira-code-panel); border-radius: var(--ds-radius-large);
+  font-family: var(--ds-font-mono); font-size: 0.875em; line-height: 1.5em;
+  margin: 12px 0 0; padding: 0 8px 0 0; overflow-x: auto;
+}
+/* No `min-width: 0`: a flex item's automatic minimum is its longest line, so a line wider than the
+   pane widens the code and the block scrolls with its 8px right padding intact, as in block flow.
+   With it, the text overflows a shrunk box and the scroll ends flush at the last glyph.
+   `white-space: pre`, as the reader's code is (`bun run measure:renderer`, `codeGeometry`: panel,
+   code and number all `pre`): a long line SCROLLS. TipTap's own `pre-wrap` wraps it onto two rows beside
+   a column of one number per logical line, so every later number would sit beside the wrong line. */
+[data-destination="jira"] .ProseMirror pre code {
+  flex: 1 1 auto; background: none; padding: 8px 0; font: inherit; white-space: pre;
+}
+/*
+ * Line numbers: `@atlaskit/code`'s `.linenumber`, right-aligned, `--ds-text-subtlest`, 8px either
+ * side and 8px before the code (`padding-inline: var(--ds-space-100)`, `margin-inline-end:
+ * var(--ds-space-100)`), on the block's own leading; every value read off a live block. `font:
+ * inherit` keeps the numbers on their lines whatever the block's size. The column is tinted
+ * (`--ds-background-neutral` over the panel): a flex item, so it stretches to the panel's height,
+ * and its 8px padding matches the code's. The panel's radius clips its corners, and a long line
+ * scrolls it away with the code, as `@atlaskit/code`'s band does.
+ */
+[data-destination="jira"] .ProseMirror .dg-linenos {
+  display: block;
+  flex: none;
+  padding: 8px;
+  margin-right: 8px;
+  background: var(--ds-background-neutral);
+  text-align: right;
+  font: inherit;
+  color: var(--ds-text-subtlest);
+  user-select: none;
+}
+[data-destination="jira"] .ProseMirror .dg-linenos span { display: block; line-height: inherit; }
+
+/* Prism/highlight.js token colours, mapped 1:1 to the palette editor-core ships */
+[data-destination="jira"] .hljs-comment, [data-destination="jira"] .hljs-quote, [data-destination="jira"] .hljs-meta { color: var(--ds-text-subtlest); }
+[data-destination="jira"] .hljs-keyword,
+[data-destination="jira"] .hljs-built_in,
+[data-destination="jira"] .hljs-literal,
+[data-destination="jira"] .hljs-number,
+[data-destination="jira"] .hljs-selector-tag { color: var(--ds-text-accent-blue); }
+[data-destination="jira"] .hljs-string, [data-destination="jira"] .hljs-addition { color: var(--ds-text-accent-green); }
+[data-destination="jira"] .hljs-title,
+[data-destination="jira"] .hljs-section,
+[data-destination="jira"] .hljs-attribute { color: var(--ds-text-accent-purple); }
+[data-destination="jira"] .hljs-type,
+[data-destination="jira"] .hljs-attr,
+[data-destination="jira"] .hljs-variable,
+[data-destination="jira"] .hljs-symbol,
+[data-destination="jira"] .hljs-regexp,
+[data-destination="jira"] .hljs-params { color: var(--ds-text-accent-teal); }
+[data-destination="jira"] .hljs-deletion { color: var(--ds-text-accent-red); }
+[data-destination="jira"] .hljs-doctag, [data-destination="jira"] .hljs-strong { color: var(--ds-text-accent-yellow); }
+[data-destination="jira"] .hljs-punctuation, [data-destination="jira"] .hljs-operator { color: var(--ds-text); }
+/* A FUNCTION name is plain text in the reader: Prism's `token function` computes `--ds-text` on
+   every live block that had one, while `class-name` is purple. `.hljs-title.function_` is hljs's
+   spelling of the same thing, so it takes the text colour -- and outranks `.hljs-title` above. */
+[data-destination="jira"] .hljs-title.function_ { color: var(--ds-text); }
+
+/* MEASURED: bar is the translucent token, and there is NO bottom margin. The padding is a COMMENT's
+   (`bun run measure:renderer`; a description's has none above and below): the preview follows a
+   comment, as the lists below do. */
+[data-destination="jira"] .ProseMirror blockquote {
+  border-left: 2px solid var(--ds-border); margin: 12px 0 0; padding: 10px 20px 10px 16px;
+}
+
+/* tables: collapse, 1px #dddee1, header #f0f1f2 at weight 400, 8px padding */
+/* MEASURED: 24px above, nothing below. The renderer agrees
+   (`.pm-table-wrapper > table { margin-top: var(--ds-space-300, 24px) }`, live).
+
+   The cell BORDER is `--ds-background-accent-gray-subtler`, which is OPAQUE, and the header ground
+   `--ds-background-accent-gray-subtlest` -- both named by `@atlaskit/renderer` 144.1.1's own table
+   rules and read back on live tables as #DDDEE1 and #F0F1F2. Not `--ds-border`, which is
+   translucent: identical on white, and a different line on the dark surface.
+
+   `width: 100%; table-layout: fixed` is the reader's own: equal columns at the document's width
+   (`bun run measure:renderer`, `table.layout`). */
+[data-destination="jira"] .ProseMirror table {
+  border-collapse: collapse; margin: 24px 0 0; width: 100%; table-layout: fixed;
+}
+[data-destination="jira"] .ProseMirror th, [data-destination="jira"] .ProseMirror td {
+  border: 1px solid var(--ds-background-accent-gray-subtler); padding: 8px; text-align: left; vertical-align: top;
+  font: 400 14px/24px var(--ds-font-sans);
+}
+[data-destination="jira"] .ProseMirror th { background: var(--ds-background-accent-gray-subtlest); }
+/* MEASURED as explicit white, not transparent. Identical on a white pane, but it is the real value
+   and it is what keeps cells opaque if the surrounding chrome ever changes colour. */
+[data-destination="jira"] .ProseMirror td { background: var(--ds-surface); }
+
+/*
+ * Lists are spaced as a comment's reader sees them (the ruler's 14px above and below is
+ * editor-core's). Every value is from Jira's own page CSS (AUI) around the renderer, which sets no
+ * list margin itself, each read on a live page with CDP naming the rule:
+ *
+ *   4px above a top-level list after another block. A comment's document sits inside the activity
+ *     feed's list markup, so `ul ol:not(:first-child)` (and its three siblings) match: 4px. A
+ *     description's does not and gets `p, ul, ol, ... { margin: 10px 0 0 }`: 10px. One sheet cannot
+ *     be both, and the preview copies the comment because most gated Jira sends are comments (a
+ *     description preview is 6px tight).
+ *   0 below, in both (the same AUI rule's `0` bottom).
+ *   4px between items (`li + li`) and above a nested list (`ul ul:not(:first-child)`), in both.
+ */
+[data-destination="jira"] .ProseMirror ul, [data-destination="jira"] .ProseMirror ol { padding-left: 24px; margin: 4px 0 0; }
+/* A nested list: 4px above it when something precedes it inside the item, 0 when it opens the item
+   (AUI's `ul ul:not(:first-child)` family, measured 4px on live nested lists). A task list nested
+   anywhere gets the same 4px from the renderer's `div[data-task-list-local-id]
+   div[data-task-list-local-id] { margin-top: 4px }`. A descendant selector, not `li >`, because
+   TipTap wraps a task item's content (`li > label + div > p + ul`) and a child combinator misses
+   every list inside one; it outranks the task list's own 12px, which is for a top-level list. */
+[data-destination="jira"] .ProseMirror li ul, [data-destination="jira"] .ProseMirror li ol { margin: 0; }
+[data-destination="jira"] .ProseMirror li :is(ul, ol):not(:first-child) { margin-top: 4px; }
+
+/*
+ * A paragraph inside a cell, list item or blockquote is a container, not a block: MEASURED at 0.
+ * The `:not(:first-child)` variant is editor-core's own, `.ProseMirror li>p:not(:first-child){margin:4px 0 0}`;
+ * markdown list items usually hold one paragraph, so the first branch normally applies. Scoped here,
+ * not shared, for the reason in CLAUDE.md: in a shared sheet this rule loses on specificity.
+ */
+[data-destination="jira"] .ProseMirror li p,
+[data-destination="jira"] .ProseMirror th p,
+[data-destination="jira"] .ProseMirror td p,
+[data-destination="jira"] .ProseMirror blockquote p { margin: 0; }
+/* A list item's SECOND paragraph is an ordinary paragraph in the reader, 12px above (its
+   `.ak-renderer-document p { margin-top: 0.75rem }`, measured 12px on a live item), not
+   editor-core's 4px (`li>p:not(:first-child)`). */
+[data-destination="jira"] .ProseMirror li > p:not(:first-child) { margin: 12px 0 0; }
+[data-destination="jira"] .ProseMirror li { margin: 0; }
+[data-destination="jira"] .ProseMirror li + li { margin-top: 4px; }
+
+/* Must sit inside this destination's scope to outrank its own `p` and `ul` rules; a shared copy
+   loses on specificity. See CLAUDE.md, "Do not put shared rules in a shared stylesheet". */
+/* A task list is the renderer's own `div[data-task-list-local-id]`: 12px above, nothing below, 4px
+   between items (`div + div`, which `li + li` above reproduces). Measured on a live task list. */
+[data-destination="jira"] .ProseMirror ul[data-type="taskList"] { list-style: none; padding-left: 2px; margin: 12px 0 0; }
+[data-destination="jira"] .ProseMirror ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 8px; }
+/* Jira's OWN box, not the engine's, fitted to captures of logged-in Jira by area coverage in both
+   themes (90% zoom, so to within about a tenth of a pixel): unchecked, a 13.5px ring stroked 1px in
+   `--ds-border-input` on a 1.75px radius; checked, a 14px square on 2px in
+   `--ds-background-brand-bold` with the tick cut out to the ground. That is the anonymous reader's
+   own icon rect (12.5px at 1.75px in a 16px SVG, `rx` 1.25) with the logged-in surface's 1px stroke,
+   where the anonymous reader strokes 1.5px. The ring is a MASK over the colour because a CSS border
+   cannot be 13.5px: the box would snap. A mask clips the focus ring too. Centred on the
+   24px line, as the reader's 24px icon slot centres it. The tick's shape is not Jira's own path,
+   which no public page shows checked. */
+[data-destination="jira"] .ProseMirror ul[data-type="taskList"] input[type="checkbox"] {
+  appearance: none;
+  display: block;
+  width: 14px;
+  height: 14px;
+  margin: 5px 0 0;
+  border-radius: 2px;
+  background: var(--ds-border-input);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Crect x='.75' y='.75' width='12.5' height='12.5' rx='1.25' fill='none' stroke='black' stroke-width='1'/%3E%3C/svg%3E") center / 14px 14px no-repeat;
+}
+[data-destination="jira"] .ProseMirror ul[data-type="taskList"] input[type="checkbox"]:checked {
+  background: var(--ds-background-brand-bold);
+  mask: var(--dg-task-tick) center / 10px 10px no-repeat exclude, linear-gradient(black 0 0);
+}
+
+/* MEASURED: a 2px-tall element with a translucent BACKGROUND, not a border. Same mechanism as the
+   render, so it matches on any pane colour rather than only on white.
+
+   The READER's margins are `1.714em` (`ruleSharedStyles`, `${akEditorLineHeight}em`), 23.996px, and
+   its ends are fully rounded (`--ds-radius-full`, 9999px): both read back off live rules. The ruler's
+   24px and square ends are the editor's. */
+[data-destination="jira"] .ProseMirror hr {
+  border: none; height: 2px; background: var(--ds-border); margin: 1.714em 0; border-radius: 9999px;
+}
+
+/*
+ * The first block carries no top margin, for the block types editor-core lists: a leading heading,
+ * paragraph, blockquote, code block, task list or rule (and panels, expands and layout sections,
+ * which draftgate cannot produce). `table` is in none of those rules, so a draft that opens with a
+ * table keeps its 24px above it; a blanket `> :first-child` would flatten it, and the torture
+ * fixture always opens with an h1, so it cannot show the difference.
+ *
+ * A leading list is zeroed too, because the reader does: editor-core keeps 14px above one, and a
+ * list injected first into a live comment and a live description computes 0 in both.
+ *
+ * It sits after every block-margin rule it overrides and wins on order where it ties them (the task
+ * list's 12px rule is (0,3,1), exactly this one). Moving it above them would win only by listing
+ * `ul[data-type='taskList']` beside `ul` in `:is()`. `jira-leads-tasklist` guards it.
+ */
+[data-destination="jira"] .ProseMirror
+  > :is(h1, h2, h3, h4, h5, h6, p, blockquote, pre, hr, ul, ol):first-child {
+  margin-top: 0;
+}
+
+/*
+ * Images: a layout guard, not a fidelity claim. Nothing here is measured: the ruler stubs
+ * `mediaProvider`, so editor-core never renders the fixture's image, and its CSS has no `img` radius
+ * rule, so no radius is drawn. `max-width` and `height` stay because an image at natural size can
+ * push the pane wider than the window.
+ */
+[data-destination="jira"] .ProseMirror img { max-width: 100%; height: auto; }
+
+/*
+ * draftgate's own controls, in Jira's idiom, from the generated tokens. `:root[data-destination="jira"]`
+ * is (0,2,0) and beats shell.css's `:root` (0,1,0) on specificity, not stylesheet order (CLAUDE.md,
+ * "Do not put shared rules in a shared stylesheet"); the dark variant is (0,3,0). Jira's composer
+ * toolbar (`Suggest reply`, a lock, history, a mic) is not copied: Reject and Approve get Jira's
+ * button treatment. `--dg-accent-ink` is #FFFFFF in light and #1F1F21 in dark, because Jira's dark
+ * brand button is a light blue that needs dark text.
+ */
+:root[data-destination="jira"] {
+  --dg-accent: var(--ds-background-brand-bold);
+  --dg-accent-hover: var(--ds-background-brand-bold-hovered);
+  --dg-accent-ink: var(--ds-text-inverse);
+  --dg-btn-hover: var(--ds-background-neutral-subtle-hovered);
+  /* The selection toolbar, from the same generated tokens -- so it follows light/dark with no
+     second palette. Atlassian's floating toolbars sit on `surface` with a real border rather than
+     being a dark slab, which is why this overrides the shared default rather than inheriting it. */
+  --dg-bubble-bg: var(--ds-surface);
+  --dg-bubble-ink: var(--ds-text);
+  --dg-bubble-edge: var(--ds-border);
+  --dg-bubble-hover: var(--ds-background-neutral-subtle-hovered);
+  --dg-bubble-active: var(--ds-background-brand-bold);
+  --dg-bubble-active-ink: var(--ds-text-inverse);
+  --dg-bubble-radius: var(--ds-radius-small);
+  --dg-frame: var(--ds-border-input);
+  --dg-frame-bg: var(--ds-background-input);
+  --dg-frame-radius: var(--ds-radius-small);
+}

@@ -1,0 +1,6 @@
+{
+  "owner": "Jakuboola",
+  "repo": "draftgate",
+  "issue_number": 30,
+  "body": "## What I found\n\nThe retry loop was dropping the last batch. Fix is in `worker/queue.ts`.\n\n- [x] Reproduced locally\n- [ ] Backfill the three missed rows\n\n> [!NOTE]\n> This also affects #27, which is why the two land together.\n\nThanks @Jakuboola for the report.\n"
+}

@@ -1,0 +1,3 @@
+{
+  "markdown": "# Deploy postmortem\n\nShort para with **bold**, *italic*, `inline code`, ~~strike~~, and a [link](https://example.org).\n\n## Timeline\n\n| Time | Event | Owner |\n| --- | --- | --- |\n| 09:12 | Alert fired | Jakub |\n| 09:20 | Rolled back | on-call |\n\n## Steps taken\n\n1. Checked the queue table\n2. Found dedup logic looping\n   - nested bullet\n   - second nested with `code`\n3. Patched and redeployed\n\n- [ ] Unchecked task\n- [x] Checked task\n\n> Blockquote with **bold** inside.\n> Second line.\n\n```python\ndef foo(x: int) -> str:\n    return f\"{x}\"\n```\n\nHorizontal rule below.\n\n---\n\nTrailing para with a bare URL [https://example.com](https://example.com) and an ![image](https://example.com/a.png)."
+}

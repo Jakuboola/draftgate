@@ -1,0 +1,47 @@
+{
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "types": ["vite/client", "bun-types"],
+    "verbatimModuleSyntax": false
+  },
+  // `core` in full, because the renderer runs it; but from `cli` ONLY the wire contract.
+  //
+  // Not because the rest of `cli/src` would fail here: `bun-types` is in this config's `types` and
+  // declares every `node:` module and `process`, so `../cli/src/**/*.ts` typechecks with zero
+  // errors. This list is a statement of INTENT: it declares what the renderer bundle is allowed to
+  // reach, and `windowProtocol.ts` -- data only, versioned, no I/O -- is the whole of it. It does
+  // not enforce anything on its own, because tsc follows imports whether or not `include` names
+  // them: a `surface/src` file importing `cli/src/audit` would typecheck fine and quietly pull
+  // `node:fs` into a browser bundle. What enforces it is `surface/harness/rendererImports.test.ts`.
+  //
+  // `*.ts` at this level is a GLOB, not a list: everything directly under `surface/` is DOM-typed,
+  // because everything node-flavoured lives in `surface/harness/` and belongs to the ROOT config.
+  // So neither config names a file the other might also name, and adding a file on either side
+  // needs no config change.
+  //
+  // `*.ts` and not `*.test.ts`: a non-test module beside `geometry.cjs` -- a helper factored out of
+  // one of these tests, say -- would then match NEITHER config and go silently unchecked, which is
+  // the precise failure this split exists to prevent. So the glob is as wide as the directory, and a
+  // node-flavoured file put here by mistake fails loudly against these DOM settings, which is the
+  // right way round. `*.tsx` beside `*.ts` for the same reason: a test that MOUNTS the React tree
+  // (`window.test.tsx`) is a `.tsx`. `harness/tsconfigCoverage.test.ts` fails if any file matches
+  // neither config. The configs exist because `bun test` drops `type` imports, so a type error in a
+  // test is invisible to it.
+  //
+  // `bun-types` is here for `bun:test`. It costs ~0.17s of the 2.1s typecheck, because its
+  // declarations load a second time; a hand-written `bun:test` stub would save that and create a
+  // second copy of something to drift.
+  "include": [
+    "src/**/*.ts", "src/**/*.tsx", "*.ts", "*.tsx",
+    "../core/src/**/*.ts", "../cli/src/surfaces/windowProtocol.ts"
+  ],
+  "exclude": ["../core/src/adf/__tests__"]
+}

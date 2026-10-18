@@ -1,0 +1,30 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+.env
+
+# the jira-ruler's built editor-core: 17 MB, and the instrument's SUBJECT rather than its source.
+# Keep a built copy locally: rebuilding it means reinstalling the editor's ~1 GB dependency tree.
+tools/*/node_modules/
+tools/*/dist/
+
+# the jira-ruler's run output: each probe's `measured-*.json` and a ruler run's `ruler-result/`.
+# Nothing in the repo reads them; a run reproduces them.
+tools/jira-ruler/measured-*.json
+tools/jira-ruler/ruler-result/
+
+# the github-ruler's assembled surfaces: rebuilt on every run from GitHub's own renderer and its
+# own stylesheets, so they are the instrument's OUTPUT rather than its source. `measured-github.json`
+# beside them IS committed -- it is the evidence.
+tools/github-ruler/page-*.html
+
+# built review window; rebuild with `bun run build:surface`
+surface/dist/
+surface/probe-result/
+
+# the window build lock; one per checkout, held with flock(2)
+surface/.build.lock
+
+# the native WebKit host, compiled on this Mac; rebuild with `bun run build:host`
+surface/host/build/

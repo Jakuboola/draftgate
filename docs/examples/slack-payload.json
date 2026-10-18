@@ -1,0 +1,6 @@
+{
+  "channel_id": "C0321ZYXWVU",
+  "thread_ts": "1788287522.311099",
+  "message": "Deploy rolled back at 09:20. Details in **SUPPORT-123**.\n\n- [x] rollback done\n- [ ] postmortem\n\nSee ![diagram](https://example.com/timeline.png)",
+  "unfurl_app_links": true
+}

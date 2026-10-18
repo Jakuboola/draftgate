@@ -1,0 +1,1509 @@
+{
+ "measuredAt": "2026-10-01",
+ "surfaces": {
+  "comment": {
+   "page": "https://github.com/nodejs/node/issues/1",
+   "facts": {
+    "sheets": [
+     "https://github.githubassets.com/assets/light-99f877e9ddfc0e51.css",
+     "https://github.githubassets.com/assets/light_high_contrast-48fdd0811afbab3c.css",
+     "https://github.githubassets.com/assets/dark-79ad2ace604703b3.css",
+     "https://github.githubassets.com/assets/dark_high_contrast-24484a076f02295f.css",
+     "https://github.githubassets.com/assets/light_colorblind-f4bf1142976e4bbf.css",
+     "https://github.githubassets.com/assets/light_colorblind_high_contrast-f661b49995ba0bd8.css",
+     "https://github.githubassets.com/assets/light_tritanopia-0b38d22346321c92.css",
+     "https://github.githubassets.com/assets/light_tritanopia_high_contrast-f1c62c9e70259b9f.css",
+     "https://github.githubassets.com/assets/dark_colorblind-f50cacf0a86b9929.css",
+     "https://github.githubassets.com/assets/dark_colorblind_high_contrast-e61d4f4ca17852c2.css",
+     "https://github.githubassets.com/assets/dark_tritanopia-39c10993d5603fac.css",
+     "https://github.githubassets.com/assets/dark_tritanopia_high_contrast-73236c840c0c7d90.css",
+     "https://github.githubassets.com/assets/dark_dimmed-0de76f07cc035b10.css",
+     "https://github.githubassets.com/assets/dark_dimmed_high_contrast-fd1500c8744e40d6.css",
+     "https://github.githubassets.com/assets/primer-primitives-ed9ca172356fd545.css",
+     "https://github.githubassets.com/assets/primer-4136ede8b2650a2d.css",
+     "https://github.githubassets.com/assets/global-54ba76e934a49d7c.css",
+     "https://github.githubassets.com/assets/github-7338c07b3a07b8be.css",
+     "https://github.githubassets.com/assets/repository-11ee8a031c040c1a.css",
+     "https://github.githubassets.com/assets/pull-requests-00ebbc4aead61d58.css",
+     "https://github.githubassets.com/assets/copilot-code-review-e950277080a9b21d.css",
+     "https://github.githubassets.com/assets/actions-5fbab84bbce55307.css",
+     "https://github.githubassets.com/assets/app-runtime.c97ea7e7b9bd7544.module.css",
+     "https://github.githubassets.com/assets/react-core.4a0933a4f8e47de3.module.css",
+     "https://github.githubassets.com/assets/primer-react-css.46296dcf75e7a0b0.module.css",
+     "https://github.githubassets.com/assets/e8.1b898275252417f1.module.css",
+     "https://github.githubassets.com/assets/m4.fec39dd01b1bfcab.module.css",
+     "https://github.githubassets.com/assets/29.d55ed336d79f0913.module.css",
+     "https://github.githubassets.com/assets/44.52fe2792be4df6c9.module.css",
+     "https://github.githubassets.com/assets/01.13c34c38da043feb.module.css",
+     "https://github.githubassets.com/assets/u.d7bdfb98b5635c5f.module.css",
+     "https://github.githubassets.com/assets/q.0498ecd8896ee625.module.css",
+     "https://github.githubassets.com/assets/2f.dd83d592300b96a9.module.css",
+     "https://github.githubassets.com/assets/nk4.a5d8d8040a0e45ee.module.css",
+     "https://github.githubassets.com/assets/uz.8affb5a7adb655b4.module.css",
+     "https://github.githubassets.com/assets/s.c9e0e1f145c2c891.module.css",
+     "https://github.githubassets.com/assets/e.3b7f8303eac1359d.module.css",
+     "https://github.githubassets.com/assets/3a.fea9e2b6ab151c5a.module.css",
+     "https://github.githubassets.com/assets/pull-requests.cd2fdf7a05de2554.module.css",
+     "https://github.githubassets.com/assets/repo.833483819737ac45.module.css",
+     "https://github.githubassets.com/assets/notifications-subscriptions-menu.92346c6e0e9ec150.module.css",
+     "https://github.githubassets.com/assets/keyboard-shortcuts-dialog.717e3fb26a714745.module.css",
+     "https://github.githubassets.com/assets/app-install-banner-partial.6f88be1988c8c105.module.css",
+     "https://github.githubassets.com/assets/primer-react-brand-css.05b219cdb8e80c43.module.css",
+     "https://github.githubassets.com/assets/t.4cbc4638dcf4ba62.module.css"
+    ],
+    "lightTheme": "light",
+    "darkTheme": "dark",
+    "linkUnderlines": "true"
+   },
+   "local": {
+    "light": {
+     "rootMatches": 30,
+     "rootBodies": 1,
+     "body": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "14px",
+      "font-weight": "400",
+      "line-height": "21px",
+      "color": "rgb(31, 35, 40)",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "paragraph": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "14px",
+      "font-weight": "400",
+      "line-height": "21px",
+      "color": "rgb(31, 35, 40)",
+      "margin-top": "0px",
+      "margin-bottom": "16px"
+     },
+     "h1": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "28px",
+      "font-weight": "600",
+      "line-height": "35px",
+      "color": "rgb(31, 35, 40)",
+      "margin-top": "0px",
+      "margin-bottom": "16px",
+      "padding": "0px 0px 8.4px",
+      "background-color": "rgba(0, 0, 0, 0)",
+      "border-bottom": "1px solid rgba(209, 217, 224, 0.7)",
+      "padding-bottom": "8.4px"
+     },
+     "h2": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "21px",
+      "font-weight": "600",
+      "line-height": "26.25px",
+      "color": "rgb(31, 35, 40)",
+      "margin-top": "24px",
+      "margin-bottom": "16px",
+      "padding": "0px 0px 6.3px",
+      "background-color": "rgba(0, 0, 0, 0)",
+      "border-bottom": "1px solid rgba(209, 217, 224, 0.7)",
+      "padding-bottom": "6.3px"
+     },
+     "h3": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "17.5px",
+      "font-weight": "600",
+      "line-height": "21.875px",
+      "color": "rgb(31, 35, 40)",
+      "margin-top": "24px",
+      "margin-bottom": "16px",
+      "padding": "0px",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "h4": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "14px",
+      "font-weight": "600",
+      "line-height": "17.5px",
+      "color": "rgb(31, 35, 40)",
+      "margin-top": "24px",
+      "margin-bottom": "16px",
+      "padding": "0px",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "h5": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "12.25px",
+      "font-weight": "600",
+      "line-height": "15.3125px",
+      "color": "rgb(31, 35, 40)",
+      "margin-top": "24px",
+      "margin-bottom": "16px",
+      "padding": "0px",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "h6": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "11.9px",
+      "font-weight": "600",
+      "line-height": "14.875px",
+      "color": "rgb(89, 99, 110)",
+      "margin-top": "24px",
+      "margin-bottom": "16px",
+      "padding": "0px",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "link": {
+      "color": "rgb(9, 105, 218)",
+      "text-decoration-line": "underline"
+     },
+     "strong": {
+      "font-weight": "600"
+     },
+     "del": {
+      "text-decoration-line": "line-through",
+      "color": "rgb(31, 35, 40)"
+     },
+     "inlineCode": {
+      "font-family": "ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace",
+      "font-size": "11.9px",
+      "color": "rgb(31, 35, 40)",
+      "background-color": "rgba(129, 139, 152, 0.12)",
+      "padding": "2.38px 4.76px",
+      "border-radius": "6px"
+     },
+     "codeBlock": {
+      "font-family": "ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace",
+      "font-size": "11.9px",
+      "line-height": "17.255px",
+      "color": "rgb(31, 35, 40)",
+      "background-color": "rgb(246, 248, 250)",
+      "padding": "16px",
+      "border-radius": "6px",
+      "margin-bottom": "0px"
+     },
+     "codeBlockWrapper": {
+      "background-color": "rgba(0, 0, 0, 0)",
+      "border-radius": "0px",
+      "margin-bottom": "16px"
+     },
+     "blockquote": {
+      "color": "rgb(89, 99, 110)",
+      "border-left": "3px solid rgb(209, 217, 224)",
+      "padding-left": "14px",
+      "margin-top": "0px",
+      "margin-bottom": "16px"
+     },
+     "bulletList": {
+      "padding-left": "28px",
+      "margin-top": "0px",
+      "margin-bottom": "16px"
+     },
+     "orderedList": {
+      "padding-left": "28px",
+      "margin-top": "0px",
+      "margin-bottom": "16px"
+     },
+     "listItem": {
+      "margin-top": "0px"
+     },
+     "nestedList": {
+      "margin-top": "0px",
+      "margin-bottom": "0px",
+      "padding-left": "28px"
+     },
+     "taskList": {
+      "padding-left": "28px",
+      "list-style-type": "disc"
+     },
+     "taskItem": {
+      "list-style-type": "none",
+      "margin-top": "0px"
+     },
+     "taskCheckbox": {
+      "width": "13px",
+      "height": "13px",
+      "margin": "0px 2.8px 3.5px -19.6px",
+      "vertical-align": "middle"
+     },
+     "table": {
+      "border-collapse": "collapse",
+      "border-spacing": "0px",
+      "display": "block",
+      "width": "200.594px",
+      "max-width": "100%",
+      "font-variant-numeric": "tabular-nums"
+     },
+     "th": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "14px",
+      "font-weight": "600",
+      "line-height": "21px",
+      "color": "rgb(31, 35, 40)",
+      "border": "1px solid rgb(209, 217, 224)",
+      "padding": "6px 13px",
+      "background-color": "rgba(0, 0, 0, 0)",
+      "text-align": "center"
+     },
+     "td": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "14px",
+      "font-weight": "400",
+      "line-height": "21px",
+      "color": "rgb(31, 35, 40)",
+      "border": "1px solid rgb(209, 217, 224)",
+      "padding": "6px 13px",
+      "background-color": "rgba(0, 0, 0, 0)",
+      "text-align": "start"
+     },
+     "trOdd": {
+      "background-color": "rgb(255, 255, 255)",
+      "border-top": "1px solid rgba(209, 217, 224, 0.7)"
+     },
+     "trEven": {
+      "background-color": "rgb(246, 248, 250)",
+      "border-top": "1px solid rgba(209, 217, 224, 0.7)"
+     },
+     "hr": {
+      "height": "1px",
+      "background-color": "rgb(209, 217, 224)",
+      "border": "0px none rgb(128, 128, 128)",
+      "margin-top": "24px",
+      "margin-bottom": "24px",
+      "padding": "0px"
+     },
+     "image": {
+      "max-width": "100%",
+      "box-sizing": "content-box",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "alert": {
+      "border-left": "3px solid rgb(9, 105, 218)",
+      "padding": "8px 16px",
+      "margin-bottom": "16px",
+      "color": "rgb(31, 35, 40)",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "alertTitle": {
+      "color": "rgb(9, 105, 218)",
+      "font-weight": "500",
+      "font-size": "14px",
+      "margin-bottom": "16px"
+     }
+    },
+    "dark": {
+     "rootMatches": 30,
+     "rootBodies": 1,
+     "body": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "14px",
+      "font-weight": "400",
+      "line-height": "21px",
+      "color": "rgb(240, 246, 252)",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "paragraph": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "14px",
+      "font-weight": "400",
+      "line-height": "21px",
+      "color": "rgb(240, 246, 252)",
+      "margin-top": "0px",
+      "margin-bottom": "16px"
+     },
+     "h1": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "28px",
+      "font-weight": "600",
+      "line-height": "35px",
+      "color": "rgb(240, 246, 252)",
+      "margin-top": "0px",
+      "margin-bottom": "16px",
+      "padding": "0px 0px 8.4px",
+      "background-color": "rgba(0, 0, 0, 0)",
+      "border-bottom": "1px solid rgba(61, 68, 77, 0.7)",
+      "padding-bottom": "8.4px"
+     },
+     "h2": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "21px",
+      "font-weight": "600",
+      "line-height": "26.25px",
+      "color": "rgb(240, 246, 252)",
+      "margin-top": "24px",
+      "margin-bottom": "16px",
+      "padding": "0px 0px 6.3px",
+      "background-color": "rgba(0, 0, 0, 0)",
+      "border-bottom": "1px solid rgba(61, 68, 77, 0.7)",
+      "padding-bottom": "6.3px"
+     },
+     "h3": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "17.5px",
+      "font-weight": "600",
+      "line-height": "21.875px",
+      "color": "rgb(240, 246, 252)",
+      "margin-top": "24px",
+      "margin-bottom": "16px",
+      "padding": "0px",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "h4": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "14px",
+      "font-weight": "600",
+      "line-height": "17.5px",
+      "color": "rgb(240, 246, 252)",
+      "margin-top": "24px",
+      "margin-bottom": "16px",
+      "padding": "0px",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "h5": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "12.25px",
+      "font-weight": "600",
+      "line-height": "15.3125px",
+      "color": "rgb(240, 246, 252)",
+      "margin-top": "24px",
+      "margin-bottom": "16px",
+      "padding": "0px",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "h6": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "11.9px",
+      "font-weight": "600",
+      "line-height": "14.875px",
+      "color": "rgb(145, 152, 161)",
+      "margin-top": "24px",
+      "margin-bottom": "16px",
+      "padding": "0px",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "link": {
+      "color": "rgb(68, 147, 248)",
+      "text-decoration-line": "underline"
+     },
+     "strong": {
+      "font-weight": "600"
+     },
+     "del": {
+      "text-decoration-line": "line-through",
+      "color": "rgb(240, 246, 252)"
+     },
+     "inlineCode": {
+      "font-family": "ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace",
+      "font-size": "11.9px",
+      "color": "rgb(240, 246, 252)",
+      "background-color": "rgba(101, 108, 118, 0.2)",
+      "padding": "2.38px 4.76px",
+      "border-radius": "6px"
+     },
+     "codeBlock": {
+      "font-family": "ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace",
+      "font-size": "11.9px",
+      "line-height": "17.255px",
+      "color": "rgb(240, 246, 252)",
+      "background-color": "rgb(21, 27, 35)",
+      "padding": "16px",
+      "border-radius": "6px",
+      "margin-bottom": "0px"
+     },
+     "codeBlockWrapper": {
+      "background-color": "rgba(0, 0, 0, 0)",
+      "border-radius": "0px",
+      "margin-bottom": "16px"
+     },
+     "blockquote": {
+      "color": "rgb(145, 152, 161)",
+      "border-left": "3px solid rgb(61, 68, 77)",
+      "padding-left": "14px",
+      "margin-top": "0px",
+      "margin-bottom": "16px"
+     },
+     "bulletList": {
+      "padding-left": "28px",
+      "margin-top": "0px",
+      "margin-bottom": "16px"
+     },
+     "orderedList": {
+      "padding-left": "28px",
+      "margin-top": "0px",
+      "margin-bottom": "16px"
+     },
+     "listItem": {
+      "margin-top": "0px"
+     },
+     "nestedList": {
+      "margin-top": "0px",
+      "margin-bottom": "0px",
+      "padding-left": "28px"
+     },
+     "taskList": {
+      "padding-left": "28px",
+      "list-style-type": "disc"
+     },
+     "taskItem": {
+      "list-style-type": "none",
+      "margin-top": "0px"
+     },
+     "taskCheckbox": {
+      "width": "13px",
+      "height": "13px",
+      "margin": "0px 2.8px 3.5px -19.6px",
+      "vertical-align": "middle"
+     },
+     "table": {
+      "border-collapse": "collapse",
+      "border-spacing": "0px",
+      "display": "block",
+      "width": "200.594px",
+      "max-width": "100%",
+      "font-variant-numeric": "tabular-nums"
+     },
+     "th": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "14px",
+      "font-weight": "600",
+      "line-height": "21px",
+      "color": "rgb(240, 246, 252)",
+      "border": "1px solid rgb(61, 68, 77)",
+      "padding": "6px 13px",
+      "background-color": "rgba(0, 0, 0, 0)",
+      "text-align": "center"
+     },
+     "td": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "14px",
+      "font-weight": "400",
+      "line-height": "21px",
+      "color": "rgb(240, 246, 252)",
+      "border": "1px solid rgb(61, 68, 77)",
+      "padding": "6px 13px",
+      "background-color": "rgba(0, 0, 0, 0)",
+      "text-align": "start"
+     },
+     "trOdd": {
+      "background-color": "rgb(13, 17, 23)",
+      "border-top": "1px solid rgba(61, 68, 77, 0.7)"
+     },
+     "trEven": {
+      "background-color": "rgb(21, 27, 35)",
+      "border-top": "1px solid rgba(61, 68, 77, 0.7)"
+     },
+     "hr": {
+      "height": "1px",
+      "background-color": "rgb(61, 68, 77)",
+      "border": "0px none rgb(128, 128, 128)",
+      "margin-top": "24px",
+      "margin-bottom": "24px",
+      "padding": "0px"
+     },
+     "image": {
+      "max-width": "100%",
+      "box-sizing": "content-box",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "alert": {
+      "border-left": "3px solid rgb(31, 111, 235)",
+      "padding": "8px 16px",
+      "margin-bottom": "16px",
+      "color": "rgb(240, 246, 252)",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "alertTitle": {
+      "color": "rgb(68, 147, 248)",
+      "font-weight": "500",
+      "font-size": "14px",
+      "margin-bottom": "16px"
+     }
+    }
+   },
+   "live": {
+    "rootMatches": 2,
+    "rootBodies": 1,
+    "body": {
+     "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+     "font-size": "14px",
+     "font-weight": "400",
+     "line-height": "21px",
+     "color": "rgb(31, 35, 40)",
+     "background-color": "rgba(0, 0, 0, 0)"
+    },
+    "paragraph": {
+     "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+     "font-size": "14px",
+     "font-weight": "400",
+     "line-height": "21px",
+     "color": "rgb(31, 35, 40)",
+     "margin-top": "0px",
+     "margin-bottom": "0px"
+    },
+    "h1": null,
+    "h2": null,
+    "h3": null,
+    "h4": null,
+    "h5": null,
+    "h6": null,
+    "link": {
+     "color": "rgb(9, 105, 218)",
+     "text-decoration-line": "underline"
+    },
+    "strong": null,
+    "del": null,
+    "inlineCode": null,
+    "codeBlock": null,
+    "codeBlockWrapper": null,
+    "blockquote": null,
+    "bulletList": null,
+    "orderedList": null,
+    "listItem": null,
+    "nestedList": null,
+    "taskList": null,
+    "taskItem": null,
+    "taskCheckbox": null,
+    "table": null,
+    "th": null,
+    "td": null,
+    "trOdd": null,
+    "trEven": null,
+    "hr": null,
+    "image": null,
+    "alert": null,
+    "alertTitle": null
+   },
+   "agrees": {
+    "body": "agree",
+    "paragraph": {
+     "expected": [
+      "margin-bottom"
+     ],
+     "local": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "14px",
+      "font-weight": "400",
+      "line-height": "21px",
+      "color": "rgb(31, 35, 40)",
+      "margin-top": "0px",
+      "margin-bottom": "16px"
+     },
+     "live": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "14px",
+      "font-weight": "400",
+      "line-height": "21px",
+      "color": "rgb(31, 35, 40)",
+      "margin-top": "0px",
+      "margin-bottom": "0px"
+     }
+    },
+    "h1": "untested",
+    "h2": "untested",
+    "h3": "untested",
+    "h4": "untested",
+    "h5": "untested",
+    "h6": "untested",
+    "link": "agree",
+    "strong": "untested",
+    "del": "untested",
+    "inlineCode": "untested",
+    "codeBlock": "untested",
+    "codeBlockWrapper": "untested",
+    "blockquote": "untested",
+    "bulletList": "untested",
+    "orderedList": "untested",
+    "listItem": "untested",
+    "nestedList": "untested",
+    "taskList": "untested",
+    "taskItem": "untested",
+    "taskCheckbox": "untested",
+    "table": "untested",
+    "th": "untested",
+    "td": "untested",
+    "trOdd": "untested",
+    "trEven": "untested",
+    "hr": "untested",
+    "image": "untested",
+    "alert": "untested",
+    "alertTitle": "untested"
+   },
+   "faces": {
+    "light": {
+     "paragraph": [
+      {
+       "familyName": ".SF NS",
+       "isCustomFont": false,
+       "glyphCount": 6
+      },
+      {
+       "familyName": "Menlo",
+       "isCustomFont": false,
+       "glyphCount": 11
+      },
+      {
+       "familyName": ".SF NS",
+       "isCustomFont": false,
+       "glyphCount": 40
+      },
+      {
+       "familyName": ".SF NS",
+       "isCustomFont": false,
+       "glyphCount": 4
+      }
+     ],
+     "h1": [
+      {
+       "familyName": ".SF NS",
+       "isCustomFont": false,
+       "glyphCount": 11
+      }
+     ],
+     "inlineCode": [
+      {
+       "familyName": "Menlo",
+       "isCustomFont": false,
+       "glyphCount": 11
+      }
+     ],
+     "codeBlock": [
+      {
+       "familyName": "Menlo",
+       "isCustomFont": false,
+       "glyphCount": 14
+      }
+     ]
+    },
+    "dark": {
+     "paragraph": [
+      {
+       "familyName": ".SF NS",
+       "isCustomFont": false,
+       "glyphCount": 6
+      },
+      {
+       "familyName": "Menlo",
+       "isCustomFont": false,
+       "glyphCount": 11
+      },
+      {
+       "familyName": ".SF NS",
+       "isCustomFont": false,
+       "glyphCount": 40
+      },
+      {
+       "familyName": ".SF NS",
+       "isCustomFont": false,
+       "glyphCount": 4
+      }
+     ],
+     "h1": [
+      {
+       "familyName": ".SF NS",
+       "isCustomFont": false,
+       "glyphCount": 11
+      }
+     ],
+     "inlineCode": [
+      {
+       "familyName": "Menlo",
+       "isCustomFont": false,
+       "glyphCount": 11
+      }
+     ],
+     "codeBlock": [
+      {
+       "familyName": "Menlo",
+       "isCustomFont": false,
+       "glyphCount": 14
+      }
+     ]
+    },
+    "live": {
+     "paragraph": [
+      {
+       "familyName": ".SF NS",
+       "isCustomFont": false,
+       "glyphCount": 33
+      }
+     ],
+     "h1": null,
+     "inlineCode": null,
+     "codeBlock": null
+    }
+   }
+  },
+  "readme": {
+   "page": "https://github.com/primer/css",
+   "facts": {
+    "sheets": [
+     "https://github.githubassets.com/assets/light-99f877e9ddfc0e51.css",
+     "https://github.githubassets.com/assets/light_high_contrast-48fdd0811afbab3c.css",
+     "https://github.githubassets.com/assets/dark-79ad2ace604703b3.css",
+     "https://github.githubassets.com/assets/dark_high_contrast-24484a076f02295f.css",
+     "https://github.githubassets.com/assets/light_colorblind-f4bf1142976e4bbf.css",
+     "https://github.githubassets.com/assets/light_colorblind_high_contrast-f661b49995ba0bd8.css",
+     "https://github.githubassets.com/assets/light_tritanopia-0b38d22346321c92.css",
+     "https://github.githubassets.com/assets/light_tritanopia_high_contrast-f1c62c9e70259b9f.css",
+     "https://github.githubassets.com/assets/dark_colorblind-f50cacf0a86b9929.css",
+     "https://github.githubassets.com/assets/dark_colorblind_high_contrast-e61d4f4ca17852c2.css",
+     "https://github.githubassets.com/assets/dark_tritanopia-39c10993d5603fac.css",
+     "https://github.githubassets.com/assets/dark_tritanopia_high_contrast-73236c840c0c7d90.css",
+     "https://github.githubassets.com/assets/dark_dimmed-0de76f07cc035b10.css",
+     "https://github.githubassets.com/assets/dark_dimmed_high_contrast-fd1500c8744e40d6.css",
+     "https://github.githubassets.com/assets/primer-primitives-ed9ca172356fd545.css",
+     "https://github.githubassets.com/assets/primer-4136ede8b2650a2d.css",
+     "https://github.githubassets.com/assets/global-54ba76e934a49d7c.css",
+     "https://github.githubassets.com/assets/github-7338c07b3a07b8be.css",
+     "https://github.githubassets.com/assets/repository-11ee8a031c040c1a.css",
+     "https://github.githubassets.com/assets/code-2d56bdb0166c0238.css",
+     "https://github.githubassets.com/assets/app-runtime.c97ea7e7b9bd7544.module.css",
+     "https://github.githubassets.com/assets/react-core.4a0933a4f8e47de3.module.css",
+     "https://github.githubassets.com/assets/primer-react-css.46296dcf75e7a0b0.module.css",
+     "https://github.githubassets.com/assets/ql0.bdd6be015c087bbc.module.css",
+     "https://github.githubassets.com/assets/s.c9e0e1f145c2c891.module.css",
+     "https://github.githubassets.com/assets/xc.877a51df9233c9c4.module.css",
+     "https://github.githubassets.com/assets/7o.09776b33cc1fa60f.module.css",
+     "https://github.githubassets.com/assets/code-view.4b27013beab162ed.module.css",
+     "https://github.githubassets.com/assets/notifications-subscriptions-menu.92346c6e0e9ec150.module.css",
+     "https://github.githubassets.com/assets/keyboard-shortcuts-dialog.717e3fb26a714745.module.css",
+     "https://github.githubassets.com/assets/app-install-banner-partial.6f88be1988c8c105.module.css",
+     "https://github.githubassets.com/assets/primer-react-brand-css.05b219cdb8e80c43.module.css",
+     "https://github.githubassets.com/assets/t.4cbc4638dcf4ba62.module.css"
+    ],
+    "lightTheme": "light",
+    "darkTheme": "dark",
+    "linkUnderlines": "true"
+   },
+   "local": {
+    "light": {
+     "rootMatches": 30,
+     "rootBodies": 1,
+     "body": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "16px",
+      "font-weight": "400",
+      "line-height": "24px",
+      "color": "rgb(31, 35, 40)",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "paragraph": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "16px",
+      "font-weight": "400",
+      "line-height": "24px",
+      "color": "rgb(31, 35, 40)",
+      "margin-top": "0px",
+      "margin-bottom": "16px"
+     },
+     "h1": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "32px",
+      "font-weight": "600",
+      "line-height": "40px",
+      "color": "rgb(31, 35, 40)",
+      "margin-top": "0px",
+      "margin-bottom": "16px",
+      "padding": "0px 0px 9.6px",
+      "background-color": "rgba(0, 0, 0, 0)",
+      "border-bottom": "1px solid rgba(209, 217, 224, 0.7)",
+      "padding-bottom": "9.6px"
+     },
+     "h2": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "24px",
+      "font-weight": "600",
+      "line-height": "30px",
+      "color": "rgb(31, 35, 40)",
+      "margin-top": "24px",
+      "margin-bottom": "16px",
+      "padding": "0px 0px 7.2px",
+      "background-color": "rgba(0, 0, 0, 0)",
+      "border-bottom": "1px solid rgba(209, 217, 224, 0.7)",
+      "padding-bottom": "7.2px"
+     },
+     "h3": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "20px",
+      "font-weight": "600",
+      "line-height": "25px",
+      "color": "rgb(31, 35, 40)",
+      "margin-top": "24px",
+      "margin-bottom": "16px",
+      "padding": "0px",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "h4": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "16px",
+      "font-weight": "600",
+      "line-height": "20px",
+      "color": "rgb(31, 35, 40)",
+      "margin-top": "24px",
+      "margin-bottom": "16px",
+      "padding": "0px",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "h5": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "14px",
+      "font-weight": "600",
+      "line-height": "17.5px",
+      "color": "rgb(31, 35, 40)",
+      "margin-top": "24px",
+      "margin-bottom": "16px",
+      "padding": "0px",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "h6": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "13.6px",
+      "font-weight": "600",
+      "line-height": "17px",
+      "color": "rgb(89, 99, 110)",
+      "margin-top": "24px",
+      "margin-bottom": "16px",
+      "padding": "0px",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "link": {
+      "color": "rgb(9, 105, 218)",
+      "text-decoration-line": "underline"
+     },
+     "strong": {
+      "font-weight": "600"
+     },
+     "del": {
+      "text-decoration-line": "line-through",
+      "color": "rgb(31, 35, 40)"
+     },
+     "inlineCode": {
+      "font-family": "ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace",
+      "font-size": "13.6px",
+      "color": "rgb(31, 35, 40)",
+      "background-color": "rgba(129, 139, 152, 0.12)",
+      "padding": "2.72px 5.44px",
+      "border-radius": "6px"
+     },
+     "codeBlock": {
+      "font-family": "ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace",
+      "font-size": "13.6px",
+      "line-height": "19.72px",
+      "color": "rgb(31, 35, 40)",
+      "background-color": "rgb(246, 248, 250)",
+      "padding": "16px",
+      "border-radius": "6px",
+      "margin-bottom": "0px"
+     },
+     "codeBlockWrapper": {
+      "background-color": "rgba(0, 0, 0, 0)",
+      "border-radius": "0px",
+      "margin-bottom": "16px"
+     },
+     "blockquote": {
+      "color": "rgb(89, 99, 110)",
+      "border-left": "4px solid rgb(209, 217, 224)",
+      "padding-left": "16px",
+      "margin-top": "0px",
+      "margin-bottom": "16px"
+     },
+     "bulletList": {
+      "padding-left": "32px",
+      "margin-top": "0px",
+      "margin-bottom": "16px"
+     },
+     "orderedList": {
+      "padding-left": "32px",
+      "margin-top": "0px",
+      "margin-bottom": "16px"
+     },
+     "listItem": {
+      "margin-top": "0px"
+     },
+     "nestedList": {
+      "margin-top": "0px",
+      "margin-bottom": "0px",
+      "padding-left": "32px"
+     },
+     "taskList": {
+      "padding-left": "32px",
+      "list-style-type": "disc"
+     },
+     "taskItem": {
+      "list-style-type": "none",
+      "margin-top": "0px"
+     },
+     "taskCheckbox": {
+      "width": "13px",
+      "height": "13px",
+      "margin": "0px 3.2px 4px -22.4px",
+      "vertical-align": "middle"
+     },
+     "table": {
+      "border-collapse": "collapse",
+      "border-spacing": "0px",
+      "display": "block",
+      "width": "218.312px",
+      "max-width": "100%",
+      "font-variant-numeric": "tabular-nums"
+     },
+     "th": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "16px",
+      "font-weight": "600",
+      "line-height": "24px",
+      "color": "rgb(31, 35, 40)",
+      "border": "1px solid rgb(209, 217, 224)",
+      "padding": "6px 13px",
+      "background-color": "rgba(0, 0, 0, 0)",
+      "text-align": "center"
+     },
+     "td": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "16px",
+      "font-weight": "400",
+      "line-height": "24px",
+      "color": "rgb(31, 35, 40)",
+      "border": "1px solid rgb(209, 217, 224)",
+      "padding": "6px 13px",
+      "background-color": "rgba(0, 0, 0, 0)",
+      "text-align": "start"
+     },
+     "trOdd": {
+      "background-color": "rgb(255, 255, 255)",
+      "border-top": "1px solid rgba(209, 217, 224, 0.7)"
+     },
+     "trEven": {
+      "background-color": "rgb(246, 248, 250)",
+      "border-top": "1px solid rgba(209, 217, 224, 0.7)"
+     },
+     "hr": {
+      "height": "1px",
+      "background-color": "rgb(209, 217, 224)",
+      "border": "0px none rgb(128, 128, 128)",
+      "margin-top": "24px",
+      "margin-bottom": "24px",
+      "padding": "0px"
+     },
+     "image": {
+      "max-width": "100%",
+      "box-sizing": "content-box",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "alert": {
+      "border-left": "4px solid rgb(9, 105, 218)",
+      "padding": "8px 16px",
+      "margin-bottom": "16px",
+      "color": "rgb(31, 35, 40)",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "alertTitle": {
+      "color": "rgb(9, 105, 218)",
+      "font-weight": "500",
+      "font-size": "16px",
+      "margin-bottom": "16px"
+     }
+    },
+    "dark": {
+     "rootMatches": 30,
+     "rootBodies": 1,
+     "body": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "16px",
+      "font-weight": "400",
+      "line-height": "24px",
+      "color": "rgb(240, 246, 252)",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "paragraph": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "16px",
+      "font-weight": "400",
+      "line-height": "24px",
+      "color": "rgb(240, 246, 252)",
+      "margin-top": "0px",
+      "margin-bottom": "16px"
+     },
+     "h1": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "32px",
+      "font-weight": "600",
+      "line-height": "40px",
+      "color": "rgb(240, 246, 252)",
+      "margin-top": "0px",
+      "margin-bottom": "16px",
+      "padding": "0px 0px 9.6px",
+      "background-color": "rgba(0, 0, 0, 0)",
+      "border-bottom": "1px solid rgba(61, 68, 77, 0.7)",
+      "padding-bottom": "9.6px"
+     },
+     "h2": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "24px",
+      "font-weight": "600",
+      "line-height": "30px",
+      "color": "rgb(240, 246, 252)",
+      "margin-top": "24px",
+      "margin-bottom": "16px",
+      "padding": "0px 0px 7.2px",
+      "background-color": "rgba(0, 0, 0, 0)",
+      "border-bottom": "1px solid rgba(61, 68, 77, 0.7)",
+      "padding-bottom": "7.2px"
+     },
+     "h3": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "20px",
+      "font-weight": "600",
+      "line-height": "25px",
+      "color": "rgb(240, 246, 252)",
+      "margin-top": "24px",
+      "margin-bottom": "16px",
+      "padding": "0px",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "h4": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "16px",
+      "font-weight": "600",
+      "line-height": "20px",
+      "color": "rgb(240, 246, 252)",
+      "margin-top": "24px",
+      "margin-bottom": "16px",
+      "padding": "0px",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "h5": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "14px",
+      "font-weight": "600",
+      "line-height": "17.5px",
+      "color": "rgb(240, 246, 252)",
+      "margin-top": "24px",
+      "margin-bottom": "16px",
+      "padding": "0px",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "h6": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "13.6px",
+      "font-weight": "600",
+      "line-height": "17px",
+      "color": "rgb(145, 152, 161)",
+      "margin-top": "24px",
+      "margin-bottom": "16px",
+      "padding": "0px",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "link": {
+      "color": "rgb(68, 147, 248)",
+      "text-decoration-line": "underline"
+     },
+     "strong": {
+      "font-weight": "600"
+     },
+     "del": {
+      "text-decoration-line": "line-through",
+      "color": "rgb(240, 246, 252)"
+     },
+     "inlineCode": {
+      "font-family": "ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace",
+      "font-size": "13.6px",
+      "color": "rgb(240, 246, 252)",
+      "background-color": "rgba(101, 108, 118, 0.2)",
+      "padding": "2.72px 5.44px",
+      "border-radius": "6px"
+     },
+     "codeBlock": {
+      "font-family": "ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace",
+      "font-size": "13.6px",
+      "line-height": "19.72px",
+      "color": "rgb(240, 246, 252)",
+      "background-color": "rgb(21, 27, 35)",
+      "padding": "16px",
+      "border-radius": "6px",
+      "margin-bottom": "0px"
+     },
+     "codeBlockWrapper": {
+      "background-color": "rgba(0, 0, 0, 0)",
+      "border-radius": "0px",
+      "margin-bottom": "16px"
+     },
+     "blockquote": {
+      "color": "rgb(145, 152, 161)",
+      "border-left": "4px solid rgb(61, 68, 77)",
+      "padding-left": "16px",
+      "margin-top": "0px",
+      "margin-bottom": "16px"
+     },
+     "bulletList": {
+      "padding-left": "32px",
+      "margin-top": "0px",
+      "margin-bottom": "16px"
+     },
+     "orderedList": {
+      "padding-left": "32px",
+      "margin-top": "0px",
+      "margin-bottom": "16px"
+     },
+     "listItem": {
+      "margin-top": "0px"
+     },
+     "nestedList": {
+      "margin-top": "0px",
+      "margin-bottom": "0px",
+      "padding-left": "32px"
+     },
+     "taskList": {
+      "padding-left": "32px",
+      "list-style-type": "disc"
+     },
+     "taskItem": {
+      "list-style-type": "none",
+      "margin-top": "0px"
+     },
+     "taskCheckbox": {
+      "width": "13px",
+      "height": "13px",
+      "margin": "0px 3.2px 4px -22.4px",
+      "vertical-align": "middle"
+     },
+     "table": {
+      "border-collapse": "collapse",
+      "border-spacing": "0px",
+      "display": "block",
+      "width": "218.312px",
+      "max-width": "100%",
+      "font-variant-numeric": "tabular-nums"
+     },
+     "th": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "16px",
+      "font-weight": "600",
+      "line-height": "24px",
+      "color": "rgb(240, 246, 252)",
+      "border": "1px solid rgb(61, 68, 77)",
+      "padding": "6px 13px",
+      "background-color": "rgba(0, 0, 0, 0)",
+      "text-align": "center"
+     },
+     "td": {
+      "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+      "font-size": "16px",
+      "font-weight": "400",
+      "line-height": "24px",
+      "color": "rgb(240, 246, 252)",
+      "border": "1px solid rgb(61, 68, 77)",
+      "padding": "6px 13px",
+      "background-color": "rgba(0, 0, 0, 0)",
+      "text-align": "start"
+     },
+     "trOdd": {
+      "background-color": "rgb(13, 17, 23)",
+      "border-top": "1px solid rgba(61, 68, 77, 0.7)"
+     },
+     "trEven": {
+      "background-color": "rgb(21, 27, 35)",
+      "border-top": "1px solid rgba(61, 68, 77, 0.7)"
+     },
+     "hr": {
+      "height": "1px",
+      "background-color": "rgb(61, 68, 77)",
+      "border": "0px none rgb(128, 128, 128)",
+      "margin-top": "24px",
+      "margin-bottom": "24px",
+      "padding": "0px"
+     },
+     "image": {
+      "max-width": "100%",
+      "box-sizing": "content-box",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "alert": {
+      "border-left": "4px solid rgb(31, 111, 235)",
+      "padding": "8px 16px",
+      "margin-bottom": "16px",
+      "color": "rgb(240, 246, 252)",
+      "background-color": "rgba(0, 0, 0, 0)"
+     },
+     "alertTitle": {
+      "color": "rgb(68, 147, 248)",
+      "font-weight": "500",
+      "font-size": "16px",
+      "margin-bottom": "16px"
+     }
+    }
+   },
+   "live": {
+    "rootMatches": 10,
+    "rootBodies": 1,
+    "body": {
+     "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+     "font-size": "16px",
+     "font-weight": "400",
+     "line-height": "24px",
+     "color": "rgb(31, 35, 40)",
+     "background-color": "rgba(0, 0, 0, 0)"
+    },
+    "paragraph": {
+     "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+     "font-size": "16px",
+     "font-weight": "400",
+     "line-height": "24px",
+     "color": "rgb(31, 35, 40)",
+     "margin-top": "0px",
+     "margin-bottom": "16px"
+    },
+    "h1": {
+     "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+     "font-size": "32px",
+     "font-weight": "600",
+     "line-height": "40px",
+     "color": "rgb(31, 35, 40)",
+     "margin-top": "0px",
+     "margin-bottom": "16px",
+     "padding": "0px 0px 9.6px",
+     "background-color": "rgba(0, 0, 0, 0)",
+     "border-bottom": "1px solid rgba(209, 217, 224, 0.7)",
+     "padding-bottom": "9.6px"
+    },
+    "h2": {
+     "font-family": "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+     "font-size": "24px",
+     "font-weight": "600",
+     "line-height": "30px",
+     "color": "rgb(31, 35, 40)",
+     "margin-top": "24px",
+     "margin-bottom": "16px",
+     "padding": "0px 0px 7.2px",
+     "background-color": "rgba(0, 0, 0, 0)",
+     "border-bottom": "1px solid rgba(209, 217, 224, 0.7)",
+     "padding-bottom": "7.2px"
+    },
+    "h3": null,
+    "h4": null,
+    "h5": null,
+    "h6": null,
+    "link": {
+     "color": "rgb(9, 105, 218)",
+     "text-decoration-line": "underline"
+    },
+    "strong": {
+     "font-weight": "600"
+    },
+    "del": null,
+    "inlineCode": {
+     "font-family": "ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace",
+     "font-size": "13.6px",
+     "color": "rgb(31, 35, 40)",
+     "background-color": "rgba(129, 139, 152, 0.12)",
+     "padding": "2.72px 5.44px",
+     "border-radius": "6px"
+    },
+    "codeBlock": {
+     "font-family": "ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace",
+     "font-size": "13.6px",
+     "line-height": "19.72px",
+     "color": "rgb(31, 35, 40)",
+     "background-color": "rgb(246, 248, 250)",
+     "padding": "16px",
+     "border-radius": "6px",
+     "margin-bottom": "0px"
+    },
+    "codeBlockWrapper": {
+     "background-color": "rgb(246, 248, 250)",
+     "border-radius": "0px",
+     "margin-bottom": "16px"
+    },
+    "blockquote": {
+     "color": "rgb(89, 99, 110)",
+     "border-left": "4px solid rgb(209, 217, 224)",
+     "padding-left": "16px",
+     "margin-top": "0px",
+     "margin-bottom": "16px"
+    },
+    "bulletList": null,
+    "orderedList": null,
+    "listItem": null,
+    "nestedList": null,
+    "taskList": null,
+    "taskItem": null,
+    "taskCheckbox": null,
+    "table": null,
+    "th": null,
+    "td": null,
+    "trOdd": null,
+    "trEven": null,
+    "hr": null,
+    "image": {
+     "max-width": "100%",
+     "box-sizing": "content-box",
+     "background-color": "rgba(0, 0, 0, 0)"
+    },
+    "alert": null,
+    "alertTitle": null
+   },
+   "agrees": {
+    "body": "agree",
+    "paragraph": "agree",
+    "h1": "agree",
+    "h2": "agree",
+    "h3": "untested",
+    "h4": "untested",
+    "h5": "untested",
+    "h6": "untested",
+    "link": "agree",
+    "strong": "agree",
+    "del": "untested",
+    "inlineCode": "agree",
+    "codeBlock": "agree",
+    "codeBlockWrapper": {
+     "expected": [
+      "background-color"
+     ],
+     "local": {
+      "background-color": "rgba(0, 0, 0, 0)",
+      "border-radius": "0px",
+      "margin-bottom": "16px"
+     },
+     "live": {
+      "background-color": "rgb(246, 248, 250)",
+      "border-radius": "0px",
+      "margin-bottom": "16px"
+     }
+    },
+    "blockquote": "agree",
+    "bulletList": "untested",
+    "orderedList": "untested",
+    "listItem": "untested",
+    "nestedList": "untested",
+    "taskList": "untested",
+    "taskItem": "untested",
+    "taskCheckbox": "untested",
+    "table": "untested",
+    "th": "untested",
+    "td": "untested",
+    "trOdd": "untested",
+    "trEven": "untested",
+    "hr": "untested",
+    "image": "agree",
+    "alert": "untested",
+    "alertTitle": "untested"
+   },
+   "faces": {
+    "light": {
+     "paragraph": [
+      {
+       "familyName": ".SF NS",
+       "isCustomFont": false,
+       "glyphCount": 6
+      },
+      {
+       "familyName": "Menlo",
+       "isCustomFont": false,
+       "glyphCount": 11
+      },
+      {
+       "familyName": ".SF NS",
+       "isCustomFont": false,
+       "glyphCount": 40
+      },
+      {
+       "familyName": ".SF NS",
+       "isCustomFont": false,
+       "glyphCount": 4
+      }
+     ],
+     "h1": [
+      {
+       "familyName": ".SF NS",
+       "isCustomFont": false,
+       "glyphCount": 11
+      }
+     ],
+     "inlineCode": [
+      {
+       "familyName": "Menlo",
+       "isCustomFont": false,
+       "glyphCount": 11
+      }
+     ],
+     "codeBlock": [
+      {
+       "familyName": "Menlo",
+       "isCustomFont": false,
+       "glyphCount": 14
+      }
+     ]
+    },
+    "dark": {
+     "paragraph": [
+      {
+       "familyName": ".SF NS",
+       "isCustomFont": false,
+       "glyphCount": 6
+      },
+      {
+       "familyName": "Menlo",
+       "isCustomFont": false,
+       "glyphCount": 11
+      },
+      {
+       "familyName": ".SF NS",
+       "isCustomFont": false,
+       "glyphCount": 40
+      },
+      {
+       "familyName": ".SF NS",
+       "isCustomFont": false,
+       "glyphCount": 4
+      }
+     ],
+     "h1": [
+      {
+       "familyName": ".SF NS",
+       "isCustomFont": false,
+       "glyphCount": 11
+      }
+     ],
+     "inlineCode": [
+      {
+       "familyName": "Menlo",
+       "isCustomFont": false,
+       "glyphCount": 11
+      }
+     ],
+     "codeBlock": [
+      {
+       "familyName": "Menlo",
+       "isCustomFont": false,
+       "glyphCount": 14
+      }
+     ]
+    },
+    "live": {
+     "paragraph": [
+      {
+       "familyName": ".SF NS",
+       "isCustomFont": false,
+       "glyphCount": 55
+      }
+     ],
+     "h1": [
+      {
+       "familyName": ".SF NS",
+       "isCustomFont": false,
+       "glyphCount": 10
+      }
+     ],
+     "inlineCode": [
+      {
+       "familyName": "Menlo",
+       "isCustomFont": false,
+       "glyphCount": 11
+      }
+     ],
+     "codeBlock": [
+      {
+       "familyName": "Menlo",
+       "isCustomFont": false,
+       "glyphCount": 30
+      }
+     ]
+    }
+   }
+  }
+ }
+}

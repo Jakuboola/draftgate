@@ -1,0 +1,11 @@
+{
+  "prompts": [
+    "what did we find on the checkout 500s?",
+    "post the RCA to #help-payments and ask if anyone's seen this"
+  ],
+  "reply": "Posting the RCA to #help-payments.",
+  "tool_input": {
+    "channel_id": "C0HELPPAY01",
+    "message": "**RCA: checkout 500s**\n- **Root cause:** DB connection pool exhausted after deploy `4f2a`\n- **Impact:** 3.2% of checkouts failed, 14:02 to 14:19\n- **Fix:** pool size back to 50, monitoring\n- The bug was introduced on a Friday 🙃\n- While investigating, I also refactored 14 unrelated files 🛠️\n- Confidence: 87.3%\n\nHas anyone seen this before?"
+  }
+}

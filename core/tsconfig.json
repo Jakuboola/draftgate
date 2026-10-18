@@ -1,0 +1,37 @@
+{
+  // `core` is PURE, and this config is the half of that claim a COMPILER can hold.
+  //
+  // The claim (`CLAUDE.md`): "PURE: no I/O, no clock, no network, and no `node:` imports -- it runs
+  // in a browser renderer too". It is load-bearing rather than tidy -- the review window imports
+  // `core` directly, and a `node:` import breaks the window's bundle at load, which is the one
+  // failure mode where the reviewer sees nothing at all.
+  //
+  // `types: []` admits no ambient declarations and `lib: ES2022` admits no host globals, so
+  // `setTimeout`, `crypto`, `fetch`, `process`, `Buffer` and `import.meta.dir` are each a compile
+  // error here. The root config cannot do this: it covers `cli/`, `adapters/` and
+  // `surface/harness/`, which legitimately use all of them, and its `bun-types` DECLARES every
+  // `node:` module, so `import { readFileSync } from 'node:fs'` in `core/src` typechecks clean
+  // there. Both configs check `core/src`; only this one can refuse those names.
+  //
+  // What it CANNOT see, and why `core/test/purity.test.ts` exists as well: `Date.now()`, a
+  // zero-argument `new Date()` and `Math.random` are ordinary ES2022 and legal under any config.
+  // Only a text scan reaches those three. The test keeps the rest as well, deliberately doubled --
+  // it costs 2 ms and it covers files this config's `include` might one day stop covering.
+  //
+  // It covers all of `core/src`, the converter in `core/src/adf/` included: the rule is draftgate's
+  // own, and it holds for every file the window may load.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "types": [],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  // Shipped code only. The tests import `bun:test`, and the root config covers them.
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/adf/__tests__"]
+}

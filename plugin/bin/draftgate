@@ -1,0 +1,10 @@
+#!/bin/sh
+# draftgate, on the Bash tool's PATH while the plugin is enabled. Generated from
+# adapters/hook/src/pluginHooks.ts; it finds bun the way the plugin's hook does.
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P) || exit 1
+b=; for c in "$(command -v bun 2>/dev/null)" "$HOME/.bun/bin/bun" /opt/homebrew/bin/bun /usr/local/bin/bun; do if [ -f "$c" ] && [ -x "$c" ]; then b=$c; break; fi; done
+if [ -z "$b" ]; then
+  printf '%s\n' 'draftgate: bun is not installed, and draftgate runs on it. In a terminal, run `curl -fsSL https://bun.sh/install | bash`, then start a new Claude Code session.' >&2
+  exit 1
+fi
+DRAFTGATE_PLUGIN_ROOT=$root exec "$b" "$root/cli/src/main.ts" "$@"
