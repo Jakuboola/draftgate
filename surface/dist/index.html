@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!--
+      A copy of the policy the host's draftgate:// scheme handler serves as a real response header
+      (`surface/host/draftgate.m`). Both, on purpose: the header is authoritative, and this tag
+      means a build opened by anything other than the draftgate:// handler is still constrained.
+      The window renders agent-written content, so everything is `'none'` but two trades:
+      `style-src 'unsafe-inline'`, because ProseMirror injects a <style> element and inline style
+      attributes (table column widths) with no nonce path; and `img-src https:`, because a draft's
+      remote image must be able to render once the reviewer asks for it (`src/deferredImage.ts`
+      holds every one back until then).
+
+      DO NOT EDIT THIS STRING BY HAND. It must match `surface/contract.json` exactly, which is the
+      one place either policy is defined; `surface/harness/contract.test.ts` fails if they diverge. HTML
+      cannot import JSON, so this copy is unavoidable -- the test is what makes it safe.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; form-action 'none'; base-uri 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+      NO <title>. The window title is composed per review in `windowTitle.cjs` and set on the
+      window by the host: `draftgate review -> jira - editJiraIssue`. A WKWebView never retitles
+      its window, and `surface:host` measures that (the page retitles itself and the bar keeps the
+      composed title), so a <title> here would cost nothing; it is left out because it would say
+      less than the bar does.
+    -->
+    <script type="module" crossorigin src="/assets/index-nGjDTsrM.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-HkpONcZT.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

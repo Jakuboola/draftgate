@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["bun-types"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": false
+  },
+  // `surface/harness/**` is the node-flavoured half of `surface/`: the verifiers, their shared
+  // fixtures, and the tests that read source text rather than import DOM code. The DIRECTORY
+  // carries the flavour, so coverage follows from where a file lives and a new harness file cannot
+  // be born unchecked. No file name appears both here and in `surface/tsconfig.json`.
+  //
+  // `surface/*.ts` and `surface/src/**` are NOT here: React, DOM-typed, and `surface/tsconfig.json`
+  // globs both.
+  "include": [
+    "core/**/*.ts", "cli/**/*.ts", "adapters/**/*.ts", "surface/harness/**/*.ts",
+    // Repo-wide invariants that belong to no one package.
+    "test/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
+}

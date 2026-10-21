@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!--
+    draftgate's app icon at 16 and 32 px: draftgate.svg redrawn for a few pixels. At 16 px its two
+    pause bars blur into one block, so here they are thicker and taller, the tail is smaller and
+    there is no sheen.
+    The source of truth for those sizes. `bun run icon:build` renders it into draftgate.icns.
+    The body is draftgate.svg's. Everything else sits on a 64-unit grid, one pixel at 16 px and two
+    at 32, so every edge lands on a pixel: the bars are 2 px wide with a 2 px gap at 16 px.
+  -->
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2A2A2A"/><stop offset="1" stop-color="#121212"/></linearGradient>
+    <linearGradient id="sign" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD84A"/><stop offset="1" stop-color="#F5C21B"/></linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%"><feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity=".32"/></filter>
+  </defs>
+  <path d="M285.4 100 H738.6 A185.4 185.4 0 0 1 924 285.4 V738.6 A185.4 185.4 0 0 1 738.6 924 H285.4 A185.4 185.4 0 0 1 100 738.6 V285.4 A185.4 185.4 0 0 1 285.4 100 Z" fill="url(#body)" filter="url(#shadow)"/>
+  <path fill="url(#sign)" d="M288 256 H736 A96 96 0 0 1 832 352 V608 A96 96 0 0 1 736 704 H416 L304 784 L320 704 H288 A96 96 0 0 1 192 608 V352 A96 96 0 0 1 288 256 Z"/>
+  <rect x="320" y="320" width="128" height="320" rx="16" fill="#151515"/>
+  <rect x="576" y="320" width="128" height="320" rx="16" fill="#151515"/>
+</svg>
