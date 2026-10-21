@@ -88,6 +88,8 @@ import {
   DEFAULT_TOOL_MAP,
   matcherFor,
   mergeToolConfig,
+  restates,
+  shadowLine,
   ToolMapError,
   type ToolConfig,
   type ToolMap,
@@ -107,6 +109,20 @@ export function loadToolConfig(env: NodeJS.ProcessEnv = process.env): ToolConfig
   const path = join(draftgateHome(env), CONFIG_BASENAME);
   if (!existsSync(path)) return mergeToolConfig(DEFAULT_TOOL_MAP, {}, path);
   return toolConfigFrom(readFileSync(path, 'utf8'), path);
+}
+
+/**
+ * The operator's `tools.json` as it is, under `draftgateHome`, or `{}` when there is none (a broken
+ * file never gets here: `loadToolConfig` refused it first).
+ */
+function existingToolsJson(toolsPath: string): Record<string, unknown> {
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(toolsPath, 'utf8'));
+    if (isPlainObject(parsed)) return parsed;
+  } catch {
+    // Absent.
+  }
+  return {};
 }
 
 /** A `tools.json`'s text as reviews load it, or the `ToolMapError` that refuses it. */
@@ -949,20 +965,24 @@ async function writeToolsAnswer(o: {
     );
     return 1;
   }
-  const text = answeredToolsJson(o.reconciliation, o.existing, o.answer) + '\n';
-  let written: ToolConfig;
-  try {
-    written = toolConfigFrom(text, o.toolsPath);
-  } catch (e) {
-    process.stderr.write(`draftgate: the answer would make a tools.json reviews cannot load, so nothing was written. ${(e as Error).message}\n`);
-    return 1;
-  }
-  const failed = writePrivateFile(realpathOrNull(o.toolsPath) ?? o.toolsPath, text);
-  if (failed) {
-    process.stderr.write(`draftgate: could not write ${o.toolsPath} (${failed.message}). It was not changed.\n`);
-    return 1;
-  }
+  const written = writeToolsFile(answeredToolsJson(o.reconciliation, o.existing, o.answer), o.toolsPath, 'the answer');
+  if (written === null) return 1;
   const lines = [`draftgate: wrote ${o.toolsPath} (${o.answer.length} tool(s) declined).`];
+  const { restated } = o.reconciliation;
+  if (restated.length > 0) {
+    lines.push('', "Dropped from tools.json, since each said just what draftgate's own entry says:", ...restated.map((name) => `  ${oneLine(name)}`));
+  }
+  // Never dropped unasked: what differs may be on purpose. Setup asks, and `--drop` drops.
+  const overrides = written.shadows.filter((s) => !restates(s));
+  if (overrides.length > 0) {
+    lines.push(
+      '',
+      `${OVERRIDES}:`,
+      ...overrides.map((s) => `  ${oneLine(shadowLine(s))}`),
+      '',
+      `${REMEDY.dropToolEntries} with their names drops them, so draftgate's own entry applies.`
+    );
+  }
   const root = pluginRootOf(process.env, HOOK, realpathOrNull);
   const registered = registrationHere(written.map, root);
   const uncovered = inspectHere(written, process.cwd(), process.env, root).unregistered;
@@ -999,6 +1019,70 @@ async function writeToolsAnswer(o: {
   return 0;
 }
 
+/** The words `/draftgate:setup` asks about overriding entries on (`plugin/skills/setup/SKILL.md`). */
+export const OVERRIDES = "tools.json overrides draftgate's own entry for these";
+
+/**
+ * Write `text` as `tools.json`, after checking that reviews can load it, through a symlink. The
+ * config it makes, or null when nothing was written (and stderr says why). `what` names the change.
+ */
+function writeToolsFile(text: string, toolsPath: string, what: string): ToolConfig | null {
+  let written: ToolConfig;
+  try {
+    written = toolConfigFrom(text + '\n', toolsPath);
+  } catch (e) {
+    process.stderr.write(`draftgate: ${what} would make a tools.json reviews cannot load, so nothing was written. ${(e as Error).message}\n`);
+    return null;
+  }
+  const failed = writePrivateFile(realpathOrNull(toolsPath) ?? toolsPath, text + '\n');
+  if (failed) {
+    process.stderr.write(`draftgate: could not write ${toolsPath} (${failed.message}). It was not changed.\n`);
+    return null;
+  }
+  return written;
+}
+
+/**
+ * `--propose-tools --drop <name>...`: take out `tools.json` entries that replace a default entry of
+ * the same name, so the default applies. Any other name is refused, and nothing is written: an
+ * alias or a tool of the operator's own taken out would change what is reviewed.
+ */
+async function dropToolEntries(names: string[], toolsPath: string): Promise<number> {
+  if (names.length === 0) {
+    process.stderr.write(`draftgate: --drop needs the tools.json entries to drop, by their full names.\n`);
+    return 1;
+  }
+  // One read, both for what may be dropped and for what is written back: a second read that failed
+  // or saw another write would write back something else, `{}` at worst.
+  let tools: ToolConfig;
+  let existing: Record<string, unknown>;
+  try {
+    const text = readFileSync(toolsPath, 'utf8');
+    tools = toolConfigFrom(text, toolsPath);
+    existing = JSON.parse(text) as Record<string, unknown>;
+  } catch (e) {
+    process.stderr.write(`draftgate: could not read ${toolsPath} (${(e as Error).message}), so nothing was dropped.\n`);
+    return 1;
+  }
+  const shadowing = new Set(tools.shadows.map((s) => s.name));
+  const stray = names.filter((name) => !shadowing.has(name));
+  if (stray.length > 0) {
+    process.stderr.write(
+      `draftgate: ${stray.map((n) => `"${oneLine(n)}"`).join(', ')} is not a tools.json entry for one of ` +
+        "draftgate's own tools, so nothing was dropped. --drop takes only those, since dropping any other " +
+        'entry changes what is reviewed.\n'
+    );
+    return 1;
+  }
+  const dropped = new Set(names);
+  const kept = Object.fromEntries(Object.entries(existing).filter(([name]) => !dropped.has(name)));
+  if (writeToolsFile(JSON.stringify(kept, null, 2), toolsPath, 'dropping them') === null) return 1;
+  await printStdout(
+    [`draftgate: dropped from ${toolsPath}, so draftgate's own entry applies to:`, ...[...dropped].sort().map((n) => `  ${oneLine(n)}`)].join('\n') + '\n'
+  );
+  return 0;
+}
+
 /** The words `/draftgate:setup` asks about an old entry on (`plugin/skills/setup/SKILL.md`). */
 export const OLD_ENTRY = "Claude Code's user settings hold a draftgate entry the plugin does not need";
 
@@ -1019,7 +1103,7 @@ async function replacedByRegister(block: HookBlock | null): Promise<string[]> {
  * `draftgate propose-tools` passes its arguments as they are, and an `--unregister` among them would
  * otherwise run that mode.
  */
-const PROPOSE_FLAGS = ['--propose-tools', '--decline', '--write', '--known'];
+const PROPOSE_FLAGS = ['--propose-tools', '--decline', '--write', '--known', '--drop'];
 
 export async function main(argv: string[]): Promise<number> {
   if (argv.includes('--propose-tools')) {
@@ -1028,8 +1112,8 @@ export async function main(argv: string[]): Promise<number> {
       // Refused, not skipped: `--decline=x` skipped would drop the answer and exit 0.
       process.stderr.write(
         `draftgate: ${REMEDY.proposeTools} does not take ${other}. Pass tool names after it ` +
-          'and tool halves after --decline, space-separated, --write to write the answer, or --known ' +
-          'alone to list the tool halves it knows.\n'
+          'and tool halves after --decline, space-separated, --write to write the answer, --known ' +
+          'alone to list the tool halves it knows, or --drop and the tools.json entries to drop.\n'
       );
       return 1;
     }
@@ -1086,9 +1170,10 @@ export async function main(argv: string[]): Promise<number> {
     // `~/.claude.json` has no claude.ai-managed connectors.
     //
     // Each flag owns the bare arguments after it, in either order: tool names after
-    // `--propose-tools`, tool halves after `--decline`. `--write` owns none.
+    // `--propose-tools`, tool halves after `--decline`, entries after `--drop`. `--write` owns none.
     let names: string[] = [];
     let chosen: string[] | undefined;
+    let dropping: string[] | undefined;
     let into: string[] | undefined;
     let write = false;
     let known = false;
@@ -1097,7 +1182,17 @@ export async function main(argv: string[]): Promise<number> {
       else if (arg === '--known') known = true;
       else if (arg === '--propose-tools') into = names;
       else if (arg === '--decline') into = chosen ??= [];
+      else if (arg === '--drop') into = dropping ??= [];
       else into?.push(arg);
+    }
+    const toolsPath = join(draftgateHome(), CONFIG_BASENAME);
+    // Alone, like `--known`: it needs no names, and beside an answer one of the two would be lost.
+    if (dropping !== undefined) {
+      if (names.length > 0 || chosen !== undefined || write || known) {
+        process.stderr.write('draftgate: --drop takes nothing else: only the tools.json entries to drop.\n');
+        return 1;
+      }
+      return dropToolEntries(dropping, toolsPath);
     }
     // The halves a name must end in to matter (`knownHalves`), one per line. Alone: beside names or
     // an answer it would drop them while exiting 0.
@@ -1134,16 +1229,9 @@ export async function main(argv: string[]): Promise<number> {
         return 1;
       }
     }
-    // The operator's current file, under `draftgateHome`: the report prints it with the proposals
-    // added, since only the new entries would invite deleting the aliases already there.
-    const toolsPath = join(draftgateHome(), CONFIG_BASENAME);
-    let existing: Record<string, unknown> = {};
-    try {
-      const parsed: unknown = JSON.parse(readFileSync(toolsPath, 'utf8'));
-      if (isPlainObject(parsed)) existing = parsed;
-    } catch {
-      // Absent: `loadToolConfig` already refused a broken file.
-    }
+    // The operator's current file: the report prints it with the proposals added, since only the
+    // new entries would invite deleting the aliases already there.
+    const existing = existingToolsJson(toolsPath);
     const reconciliation = reconcileTools(names, toolMap, tools);
     let answer: string[] | undefined;
     if (chosen !== undefined) {
@@ -1203,6 +1291,7 @@ export async function main(argv: string[]): Promise<number> {
       declined: tools.declined,
       declinedUnrouted: tools.declinedUnrouted,
       dormant: tools.dormant,
+      shadows: tools.shadows,
       expectedMatchers: registeredMatchers(registered, toolMap),
       configPath: config.path,
       configPresent: config.present,

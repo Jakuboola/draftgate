@@ -377,6 +377,7 @@ settings. It takes no options.
 
   'propose-tools': `draftgate propose-tools <tool name>... [--decline <tool>...] [--write]
 draftgate propose-tools --known
+draftgate propose-tools --drop <tool name>...
 
 Compare a session's MCP tool names with the tools draftgate reviews, and list the ones you can
 choose not to review. ${SETUP} runs it.
@@ -386,7 +387,11 @@ choose not to review. ${SETUP} runs it.
   --decline <tool>...   the tools not to review, by the short names the list prints. --decline
                         alone reviews every one
   --write               write that answer to ~/.draftgate/tools.json. Needs --decline. With no
-                        tool names, it takes the ones the last run in this Claude Code session kept
+                        tool names, it takes the ones the last run in this Claude Code session kept.
+                        It drops the entries that say just what draftgate's own entry says, and
+                        names the ones that override it
+  --drop <tool name>... take these entries out of ~/.draftgate/tools.json, so draftgate's own entry
+                        for the tool applies. Only an entry for one of draftgate's own tools
 `,
 
   review: `draftgate review --dest <name> --in <path> [options]

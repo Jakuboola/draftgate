@@ -12,9 +12,9 @@ import { toolAudienceProbed } from '../../../core/src/index';
 import type { DestinationName } from '../../../core/src/index';
 import { oneLine } from '../../../cli/src/text';
 import type { RegisteredHook, RegistrationReport } from './registration';
-import { matcherCovers } from './toolMap';
+import { matcherCovers, restates, shadowLine } from './toolMap';
 import { asSeconds, clampRemedy, type Deadline } from './reviewTimeout';
-import type { ToolMap } from './toolMap';
+import type { Shadow, ToolMap } from './toolMap';
 export type { ClassificationState } from '../../../cli/src/classificationStores';
 import { GITHUB_REFRESH, JIRA_REFRESH, type ClassificationState } from '../../../cli/src/classificationStores';
 import { REMEDY } from '../../../core/src/remedies';
@@ -34,6 +34,8 @@ export interface DoctorInput {
   declinedUnrouted?: readonly string[];
   /** `tools.json` entries held dormant by a decline of their half. */
   dormant?: readonly string[];
+  /** `tools.json` entries that replace a default entry of the same name. Absent means none. */
+  shadows?: readonly Shadow[];
   /**
    * The matchers draftgate expects registered: from a checkout, its entry's for the merged map; from
    * the plugin its own file's and the settings entry's for the tools that file cannot match, when
@@ -425,6 +427,22 @@ export function doctorReport(input: DoctorInput): { text: string; ok: boolean } 
     input.dormant,
     'these tools.json entries are kept DORMANT because their tool is declined. They',
     'come back exactly as written if you re-enable it:'
+  );
+  // Notes, not problems: an entry that differs may be the operator's choice, and one that does not
+  // changes nothing today. What is lost is every later change to draftgate's own entry.
+  const shadows = input.shadows ?? [];
+  note(
+    shadows.filter(restates).map((s) => s.name),
+    "these tools.json entries say just what draftgate's own entry for the tool says. An",
+    "entry replaces draftgate's whole, so a change draftgate makes to its own never reaches the",
+    `tool. ${REMEDY.pluginSetup} drops them, or ${REMEDY.dropToolEntries} with their names:`
+  );
+  note(
+    shadows.filter((s) => !restates(s)).map(shadowLine),
+    "these tools.json entries override draftgate's own entry for the same tool. An entry",
+    "replaces draftgate's whole, so a change draftgate makes to its own never reaches the tool.",
+    'Each line says what yours does differently. Kept on purpose, that is fine; to use',
+    `draftgate's instead, run ${REMEDY.dropToolEntries} with the name:`
   );
   note(
     report.declinedStillMatched,

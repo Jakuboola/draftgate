@@ -57,6 +57,13 @@ Claude Code's `PreToolUse` adapter, wrapping the CLI as a subprocess.
   `--decline ... --write` it writes the answer's `tools.json` itself (the setup skill has only
   `Bash(draftgate *)`) and names the tools no registered matcher covers. `draftgate propose-tools`
   is the same mode.
+- A `tools.json` entry named like a default entry replaces it whole (`mergeToolConfig`), so a
+  field the default gains later, `bodyOptional` say, never reaches that tool. `ToolConfig.shadows`
+  holds each one with what it says differently (`routeDifferences`), and `--doctor` names them in
+  two notes, never a problem: one that differs may be on purpose. `--write` drops the ones that
+  differ in nothing, unasked, since dropping one changes nothing today; it names the rest, setup
+  asks about each, and `--drop` takes out only such an entry: dropping an alias would change what
+  is reviewed.
 - Setup types only the names that matter, once. `--known` prints the halves `reconcileTools` can use
   (`knownHalves`); the agent passes only names ending in one, since the rest change no choice,
   proposal or file. A run keeps its names in `~/.draftgate/setup-names.json` (0600, `setupNames.ts`)

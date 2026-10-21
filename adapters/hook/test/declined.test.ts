@@ -181,7 +181,7 @@ describe('reconcile: the checklist and the answer', () => {
 
   test('a declined half is shown unticked, never proposed', () => {
     const { map, declined, declinedRoutes } = declining('slack_send_message');
-    const r = reconcileTools(NAMES, map, { declined, declinedRoutes });
+    const r = reconcileTools(NAMES, map, { declined, declinedRoutes, shadows: [] });
     expect(r.declined).toEqual([SLACK_ALIAS, SLACK].sort());
     expect(r.proposed.map((p) => p.name)).not.toContain(SLACK_ALIAS);
     expect(r.halves.find((h) => h.half === 'slack_send_message')?.declined).toBe(true);
@@ -191,7 +191,7 @@ describe('reconcile: the checklist and the answer', () => {
   test('the answer is WHOLE for what was shown, and leaves what was not', () => {
     const { map, declined, declinedRoutes } = declining('slack_send_message', 'save_comment');
     // This session has no Linear connector, so `save_comment` was never on the checklist.
-    const r = reconcileTools([SLACK, JIRA], map, { declined, declinedRoutes });
+    const r = reconcileTools([SLACK, JIRA], map, { declined, declinedRoutes, shadows: [] });
     expect(declinedAfter(r, declined, [])).toEqual({ declined: ['save_comment'] });
     expect(declinedAfter(r, declined, ['addCommentToJiraIssue'])).toEqual({
       declined: ['addCommentToJiraIssue', 'save_comment'],
@@ -217,7 +217,7 @@ describe('reconcile: the checklist and the answer', () => {
     // `--propose-tools` proposes `SLACK_ALIAS` before the decline; re-enabling must too, or the tool
     // comes back merely inferred.
     const { map, declined, declinedRoutes } = declining('slack_send_message');
-    const r = reconcileTools([SLACK, SLACK_ALIAS], map, { declined, declinedRoutes });
+    const r = reconcileTools([SLACK, SLACK_ALIAS], map, { declined, declinedRoutes, shadows: [] });
     expect(proposalsFor(r, []).map((p) => p.name)).toEqual([SLACK_ALIAS]);
     expect(proposalsFor(r, ['slack_send_message'])).toEqual([]);
   });
@@ -233,7 +233,7 @@ describe('reconcile: the checklist and the answer', () => {
 
   test('declined names are counted in the header', () => {
     const { map, declined, declinedRoutes } = declining('slack_send_message');
-    const r = reconcileTools([SLACK, SLACK_ALIAS, JIRA], map, { declined, declinedRoutes });
+    const r = reconcileTools([SLACK, SLACK_ALIAS, JIRA], map, { declined, declinedRoutes, shadows: [] });
     expect(describeReconciliation(r, 1, {}, '/t.json')).toContain('reconciled 3 tool name(s)');
   });
 });
