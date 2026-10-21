@@ -9,7 +9,7 @@
  * | ...but its half is in `declined`            | (none)   | only a stale matcher sends a declined tool here; Claude Code's own flow decides |
  * | CLI denial `code: body/missing-field`       | `allow`  | schema drift: warn loudly, fail open |
  * | CLI denial `code: body/preformatted`        | `ask`    | the body is not markdown, so there is nothing to preview |
- * | CLI denial `code: body/patch-unreadable`    | `ask`    | the payload is a delta against content draftgate cannot read |
+ * | CLI denial `code: body/patch-unreadable`    | `ask`    | a delta whose edits draftgate cannot show (a readable one is reviewed) |
  * | `body/unrecognised` on a `bodyOptional` tool | `allow`  | the tool's body is optional and this call omitted it |
  * | CLI exit 0                                  | `allow`  | a human approved; send the complete `updatedInput`, and tell the agent what they changed |
  * | CLI exit 0, payload unreadable              | `ask`    | their approval survived, their edit did not |
@@ -112,8 +112,8 @@ const CODE_POLICY: Record<DenialCode, string> = {
   'body/preformatted':
     'ASK: the body is already converted, so there is nothing this gate can show a reviewer',
   'body/patch-unreadable':
-    'ASK: the payload edits content only the destination holds, so there is no whole message to ' +
-    'show a reviewer',
+    'ASK: the payload edits content only the destination holds, and its edits are not ones the ' +
+    'window can show (a patch it can show is reviewed edit by edit)',
   'body/blocked-after-approval':
     'ASK: the window approved what the CLI reports as blocked, which means a stale window build',
   'body/nested-prose':
@@ -359,12 +359,14 @@ export async function decide(raw: string, opts: DecideOptions): Promise<HookDeci
     });
   }
 
-  // A delta, not a missing message: `patch` is an array and its text is nested, so without its own
-  // code it would read as `body/unrecognised` and point the user at a tool map that is fine.
+  // A delta whose edits the window cannot show, not a missing message: without its own code it
+  // would read as `body/unrecognised` and point the user at a tool map that is fine. The CLI's
+  // reason names what could not be shown.
   if (denial.code === 'body/patch-unreadable') {
     return notReviewed({
-      cause: `a ${word} patch, no whole message to show`,
+      cause: `a ${word} patch whose edits draftgate cannot show`,
       approving: AS_WRITTEN,
+      detail: denial.reason,
       next: 'To have a later edit reviewed, send the full new text of the field instead of a patch.',
     });
   }

@@ -1,13 +1,14 @@
 ---
 paths:
   - "core/src/editor.ts"
+  - "core/src/patch.ts"
   - "core/src/render.ts"
   - "core/src/warnings.ts"
   - "core/src/markdown.ts"
   - "core/src/prosemirror.ts"
   - "core/src/adf/adfToMarkdown.ts"
   - "core/src/adf/markdownToAdf.ts"
-  - "surface/src/{App,Editor,FixDiff,linkEditor}.tsx"
+  - "surface/src/{App,Editor,FixDiff,linkEditor,PatchEdits}.tsx"
   - "surface/src/{useReview,lostHighlight,derivedDecorations,settledWarnings}.ts"
   - "surface/{silencedWarnings,schema,settledWarnings}.test.ts"
   - "surface/window.test.tsx"
@@ -39,6 +40,23 @@ destination.
   guard must be able to fail).
 - A warning can be blocking on `canonical` and absent from the shown body; Approve is then live
   because the sent body is fine, and the silenced row keeps it visible.
+
+## A patch: the edits are the message
+
+- A delta the profile's grammar reads (`core/src/patch.ts`) is reviewed as its edits: one `edit`
+  field per operation at `<field>.<index>.<text key>`, its anchors read-only beside it, no body.
+- **An edit's text never goes through the editor.** A fragment spliced into text the window cannot
+  see is not a document; measured on Linear, the round trip changes 7 of 11 ordinary fragments (the
+  `"\n\n"` that joins one to its neighbours, the space at either end of an inline insertion,
+  `<url>`). A textarea holds the characters, an untouched edit is sent byte for byte, and a read-only
+  preview draws it in the destination's sheet. No line of it may sit out of sight (`probe.ts`), at
+  any window width. A text holding a CR asks: a textarea reports every break as LF, so one keystroke
+  would rewrite each CR unseen.
+- An approval sends the same patch with the changed texts written in (`writePatchEdits`): the same
+  operations, anchors, flags and order. A text the schema refuses empty blocks (`patch/empty-text`);
+  an empty replacement is a deletion and is drawn as one.
+- The log keeps every edit (`AuditRecord.patch`): as shown, and `after` where a person changed it. A
+  patch the window cannot show logs nothing: no concatenation of the ops is the message.
 
 ## What the editor can hold that markdown cannot
 

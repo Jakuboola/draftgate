@@ -83,7 +83,9 @@ export interface WireRequest {
    * Every field of the payload the reviewer may read and edit, in reading order: one list for the
    * body and every other field (`cli/src/reviewPlan.ts`), with `kind` per field. `markdown` is the
    * editor and `render()`, `text` a textarea and `renderPlain()`, `line` a single-line input and
-   * `proseWarnings()` alone. Exactly one entry is `markdown` or `text` (`blockFieldOf`).
+   * `proseWarnings()` alone, `edit` one operation of a patch (`core/src/patch.ts`) with what it
+   * applies at. At most one entry is `markdown` or `text` (`blockFieldOf`), and never beside an
+   * `edit`.
    *
    * A field the payload does not carry is omitted, not sent empty: "leave the title alone" and
    * "blank the title" are different instructions.
@@ -144,7 +146,9 @@ export const MAX_PROSE_LENGTH: number = contract.maxProseLength;
 /**
  * How many fields one decision may report (`contract.json`, like `MAX_PROSE_LENGTH`). It counts the
  * body too: nothing bounds a route's `proseFields`, and a cap that forgot the body would make
- * `parseFields` return `null` on every review of a route at the cap.
+ * `parseFields` return `null` on every review of a route at the cap. A patch reports one field per
+ * edit beside its lines, so the cap clears the largest `DeltaField.maxOps` plus the longest default
+ * route's lines (`cli/test/reviewPlan.test.ts` holds it there).
  */
 export const MAX_DECISION_FIELDS: number = contract.maxDecisionFields;
 

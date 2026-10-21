@@ -15,6 +15,7 @@ import type { RouteFacts } from './routeFacts';
 // Re-exported so a consumer imports the whole vocabulary from "the plan".
 export {
   blockFieldOf,
+  editFieldsOf,
   isBlockField,
   lineFieldsOf,
   reviewFieldsComplaint,

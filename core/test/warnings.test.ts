@@ -10,6 +10,7 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { render, proseWarnings } from '../src/render';
+import { patchWarnings } from '../src/patch';
 import { profiles } from '../src/profiles';
 import { fromEditorDoc, toEditorDoc } from '../src/editor';
 import { WARNING_CODES, type Carried, type Warning, type WarningCode } from '../src/warnings';
@@ -109,7 +110,7 @@ describe('the registry is closed both ways', () => {
 
 describe('reach', () => {
   test('every code declares one', () => {
-    for (const code of CODES) expect(['markdown', 'editor', 'adf', 'prose']).toContain(WARNING_CODES[code].reach);
+    for (const code of CODES) expect(['markdown', 'editor', 'adf', 'prose', 'patch']).toContain(WARNING_CODES[code].reach);
   });
 
   test('every `markdown` code has a minimal body here, and it produces the code', () => {
@@ -164,6 +165,20 @@ describe('reach', () => {
       ['prose/line-break', 'title'],
       ['prose/control-character', 'title'],
     ]);
+  });
+
+  // A `patch` code comes from an edit's text, never from a body or a line; both directions, as above.
+  test('a `patch` code is unreachable from markdown, and IS produced by patchWarnings', () => {
+    const seen = new Set(everyWarning().map(([, w]) => w.code));
+    const patchOnly = CODES.filter((c) => WARNING_CODES[c].reach === 'patch');
+    expect(patchOnly).toEqual(['patch/empty-text']);
+    for (const code of patchOnly) expect(seen.has(code), `${code} was reached from markdown`).toBe(false);
+    const edit = { index: 2, label: 'Insert after', empty: 'refused' as const };
+    const out = patchWarnings([{ field: 'patch.2.text', edit, value: '' }]);
+    expect(out.map((w) => [w.code, w.field, w.severity])).toEqual([['patch/empty-text', 'patch.2.text', 'error']]);
+    expect(proseWarnings([{ field: 'patch.2.text', value: '' }], 'linear').map((w) => w.code)).not.toContain(
+      'patch/empty-text'
+    );
   });
 
   // Jira answers 400 to `"   "` as to `""` (probed), so a rule keyed on `=== ''` would pass it; the
@@ -259,6 +274,7 @@ describe('carries', () => {
     expect(carrying('editorPath')).toEqual(['body/structure-lost', 'body/mark-lost', 'body/text-changed']);
     expect(carrying('field')).toEqual([
       'prose/empty', 'prose/too-long', 'prose/line-break', 'prose/control-character',
+      'patch/empty-text',
     ]);
     expect(carrying('fixes')).toEqual(['slack/url-swallows-next-line']);
     // `path`/`nodeType` are Jira's tree walk and nothing else: they index ADF, not the editor.
@@ -268,12 +284,12 @@ describe('carries', () => {
     expect(carrying('unverified')).toEqual([]);
   });
 
-  test('a field name is only ever on a prose-reach code', () => {
+  test('a field name is only ever on a prose- or patch-reach code', () => {
     // `field` is a tool-input path and `path` a path into converted ADF; a body code carrying `field`
     // would be using one for the other's job.
     for (const code of CODES) {
       if ((WARNING_CODES[code].carries as readonly string[]).includes('field')) {
-        expect(WARNING_CODES[code].reach).toBe('prose');
+        expect(['prose', 'patch']).toContain(WARNING_CODES[code].reach);
       }
     }
   });

@@ -66,6 +66,9 @@ export interface Injected {
   } | null;
   /** Focus the first prose field (a title) and put the caret at its end. */
   focusProseField: () => boolean;
+  focusEditText: (index: number) => boolean;
+  /** Each patch edit's textarea: text out of sight, lines held, inner height. See `editTextFit`. */
+  editTextFit: () => { hidden: number; lines: number; height: number }[];
   /** What the first prose field holds, or null when the review has none. */
   proseFieldValue: () => string | null;
   /** Focus the first prose field and select all of it, so one keystroke can empty it. */

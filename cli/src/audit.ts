@@ -112,6 +112,19 @@ export function writePrivateFile(path: string, text: string): Error | null {
   }
 }
 
+/** One edit of a reviewed patch, in the review log (`AuditRecord.patch`). */
+export interface PatchAuditRow {
+  /** The path the text is written at (`patch.0.new_string`). */
+  field: string;
+  op: string;
+  /** What it applies at, by the payload's key (`old_string`, `anchor`, `from`, `to`). */
+  anchors: Record<string, string>;
+  /** The flags set `true`, by their window label (`every occurrence`); absent when none. */
+  flags?: string[];
+  before: string;
+  after?: string;
+}
+
 /**
  * Everything the log needs, gathered by `runReview` where each fact is known: `main.ts` has the tool
  * input but not the canonical body, the final body or the reason.
@@ -205,6 +218,15 @@ export interface AuditRecord {
    * an edit. Both halves are kept: "Update" -> "Export fails on empty tables" is the signal.
    */
   prose?: { field: string; before: string; after: string }[];
+  /**
+   * A reviewed patch (`extractPatch`): EVERY edit, in order, since the edits are the message and a
+   * patch has no `before`. Each row is the operation as shown (its kind, what it applies at, its
+   * set flags), the agent's text as `before`, and the text sent as `after` when the reviewer
+   * changed it, so what was sent is `after ?? before` per edit, as for the body. Absent on any
+   * review that was not of a patch; a patch draftgate could NOT show records none
+   * (`BODY_FAILURES.delta.logs`), since nobody saw one.
+   */
+  patch?: PatchAuditRow[];
   /** The denial's reason. Absent on approval. */
   reason?: string;
   /**

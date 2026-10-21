@@ -2933,3 +2933,158 @@ describe('the theme choice travels through the CLI', () => {
     expect(c.querySelector('.dg-theme-toggle')).not.toBeNull();
   });
 });
+
+/*
+ * A patch (`PatchEdits.tsx`): no body, one card per edit, the anchors read-only and the new text in
+ * a textarea. Typing is `patch-edit-approve` in `surface/harness/e2e.ts` (React's `onChange` never
+ * fires here; see "prose fields beside the body").
+ */
+describe('a review of a patch', () => {
+  const edit = (
+    index: number,
+    op: string,
+    label: string,
+    anchors: { key: string; label: string; value: string; kept?: true }[],
+    textKey: string,
+    value: string,
+    empty: 'deletes' | 'refused',
+    flags: string[] = [],
+    note?: string
+  ) => ({
+    field: `patch.${index}.${textKey}`,
+    kind: 'edit' as const,
+    edit: { index, op, label, anchors, flags, textKey, empty, ...(note ? { note } : {}) },
+    value,
+  });
+  const EDITS = [
+    edit(0, 'replace', 'Replace', [{ key: 'old_string', label: 'Replaces', value: 'Tuesday' }], 'new_string', 'Thursday', 'deletes'),
+    edit(1, 'replace', 'Replace', [{ key: 'old_string', label: 'Replaces', value: 'TODO' }], 'new_string', '', 'deletes', ['every occurrence']),
+    edit(2, 'append', 'Add at the end', [], 'text', '\n\n## Rollout\n\nShip on **Monday**.', 'refused'),
+    edit(
+      3, 'replace_range', 'Replace a range',
+      [{ key: 'from', label: 'From (replaced)', value: '## Old' }, { key: 'to', label: 'Up to (kept)', value: '## Risks' }],
+      'new_string', 'Gone.', 'deletes', [], 'draftgate cannot see the text in between.'
+    ),
+  ];
+
+  async function mountPatch(edits: ReturnType<typeof edit>[] = EDITS): Promise<HTMLElement> {
+    const { App } = await import('./src/App');
+    const request: WireRequest = {
+      protocol: PROTOCOL_VERSION,
+      destination: 'linear',
+      toolName: 'mcp__claude_ai_Linear__save_issue',
+      context: { id: 'HELP-42' },
+      fields: [{ field: 'title', kind: 'line', value: 'Rollout' }, ...edits],
+      timeoutMs: 600_000,
+    };
+    (window as unknown as { draftgate: unknown }).draftgate = {
+      request: () => Promise.resolve(request),
+      decide: (d: HumanDecision) => decisions.push(d),
+    };
+    return mount(<App />);
+  }
+
+  const cards = (c: HTMLElement) => [...c.querySelectorAll('.dg-edit')] as HTMLElement[];
+
+  test('says it shows the changes, not the whole text, and draws one card per edit in order', async () => {
+    const c = await mountPatch();
+    expect(c.textContent).toContain('which draftgate cannot read');
+    expect(c.textContent).toContain('only what changes');
+    // Not the body-less note: there is something to read.
+    expect(c.textContent).not.toContain('No message body');
+    expect(cards(c).map((e) => e.querySelector('.dg-edit-n')?.textContent)).toEqual(['1', '2', '3', '4']);
+    expect(cards(c).map((e) => e.dataset.op)).toEqual(['replace', 'replace', 'append', 'replace_range']);
+  });
+
+  test('the anchors are read-only text, and the new text is a textarea holding the exact characters', async () => {
+    const c = await mountPatch();
+    const [first, , append, range] = cards(c);
+    expect(first!.querySelector('.dg-edit-anchor-text')?.textContent).toBe('Tuesday');
+    expect(first!.querySelector('.dg-edit-anchor-text')?.tagName).toBe('PRE');
+    expect((first!.querySelector('textarea.dg-edit-text') as HTMLTextAreaElement).value).toBe('Thursday');
+    // Separators included: the editor would drop them.
+    expect((append!.querySelector('textarea.dg-edit-text') as HTMLTextAreaElement).value).toBe(
+      '\n\n## Rollout\n\nShip on **Monday**.'
+    );
+    expect([...range!.querySelectorAll('.dg-edit-anchor-label')].map((l) => l.textContent)).toEqual([
+      'From (replaced)',
+      'Up to (kept)',
+    ]);
+    expect(range!.querySelector('.dg-edit-note')?.textContent).toContain('cannot see');
+    // Each textarea names its path, as a prose field does.
+    expect(first!.querySelector('textarea')?.getAttribute('title')).toBe('patch.0.new_string');
+  });
+
+  test('an empty replacement is drawn as a deletion, with its flag', async () => {
+    const c = await mountPatch();
+    const deletion = cards(c)[1]!;
+    expect(deletion.dataset.deletes).toBe('true');
+    expect(deletion.querySelector('.dg-edit-op')?.textContent).toBe('Delete');
+    expect(deletion.querySelector('.dg-edit-flag')?.textContent).toBe('every occurrence');
+    // The control: a replacement with text is not.
+    expect(cards(c)[0]!.dataset.deletes).toBeUndefined();
+  });
+
+  test("a deleted range strikes what it replaces and not the anchor it keeps", async () => {
+    const c = await mountPatch([
+      edit(
+        0, 'replace_range', 'Replace a range',
+        [{ key: 'from', label: 'From (replaced)', value: '## Old' }, { key: 'to', label: 'Up to (kept)', value: '## Next', kept: true }],
+        'new_string', '', 'deletes'
+      ),
+    ]);
+    const card = cards(c)[0]!;
+    expect(card.dataset.deletes).toBe('true');
+    // The sheet strikes `.dg-edit-anchor:not([data-kept="true"])`; the attribute is what it keys on.
+    expect([...card.querySelectorAll('.dg-edit-anchor')].map((a) => (a as HTMLElement).dataset.kept)).toEqual([
+      undefined,
+      'true',
+    ]);
+  });
+
+  /*
+   * A preview that cannot load (here `render()` overflowing on a 10,000-deep list) is the body
+   * editor's failure one card over: the shell goes, Approve with it (window.md).
+   */
+  test('a preview that cannot load takes Approve away', async () => {
+    decisions = [];
+    const deep = Array.from({ length: 10_000 }, (_, i) => '  '.repeat(i) + '- x').join('\n');
+    const c = await mountPatch([edit(0, 'append', 'Add at the end', [], 'text', deep, 'refused')]);
+    expect(c.textContent).toContain('could not load');
+    expect([...c.querySelectorAll('button')].some((b) => b.textContent?.includes('Approve'))).toBe(false);
+  });
+
+  test('a non-empty edit is previewed as the destination draws it; an empty one is not', async () => {
+    const c = await mountPatch();
+    expect(cards(c).map((e) => e.querySelector('.dg-edit-preview') !== null)).toEqual([true, false, true, true]);
+  });
+
+  test('approving untouched reports every edit, as shown, and no edit by a person', async () => {
+    decisions = [];
+    const c = await mountPatch();
+    expect(c.textContent).toContain('Exactly these edits will be sent');
+    await clickApprove(c);
+    expect(decisions[0]).toMatchObject({ action: 'approve', edited: false, bodyEdited: false });
+    expect((decisions[0] as { fields: Record<string, string> }).fields).toEqual({
+      title: 'Rollout',
+      'patch.0.new_string': 'Thursday',
+      'patch.1.new_string': '',
+      'patch.2.text': '\n\n## Rollout\n\nShip on **Monday**.',
+      'patch.3.new_string': 'Gone.',
+    });
+  });
+
+  test('an empty insertion blocks Approve, naming its edit', async () => {
+    decisions = [];
+    const c = await mountPatch([
+      edit(0, 'insert_after', 'Insert after', [{ key: 'anchor', label: 'After', value: 'x' }], 'text', '', 'refused'),
+    ]);
+    const approve = buttonWithText(c, 'Approve');
+    expect(approve.disabled).toBe(true);
+    expect(c.querySelector('.dg-status')?.getAttribute('data-blocked')).toBe('true');
+    expect(c.textContent).toContain('Edit 1 (Insert after) inserts nothing');
+    approve.click();
+    await settle();
+    expect(decisions).toHaveLength(0);
+  });
+});

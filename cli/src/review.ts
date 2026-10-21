@@ -4,19 +4,19 @@
  */
 
 import {
-  render, renderPlain, renderNoBody, proseWarnings, isBlocking, isLengthRefusal, editorDocFor,
-  audienceFor, destinationLabelFor, ownAnswerFor,
+  render, renderPlain, renderNoBody, fieldWarnings, isBlocking, isLengthRefusal, editorDocFor,
+  audienceFor, destinationLabelFor, ownAnswerFor, type EditFieldValue,
   type AudienceFacts, type DestinationName, type TargetAnswer, type Warning,
 } from '../../core/src/index';
 import {
-  extractBody, extractContext, extractProse, buildUpdatedInput, wireBody, valueAtPath,
-  MissingBodyFieldError, BODY_FAILURES, readContext,
+  extractBody, extractContext, extractPatch, extractProse, buildUpdatedInput, wireBody, valueAtPath,
+  writePatchEdits, MissingBodyFieldError, BODY_FAILURES, readContext, type ReadPatch,
 } from './payload';
 // The line cap: its number is in `contract.json`, and it is enforced here, where lines are known.
 import { MAX_PROSE_LENGTH } from './surfaces/windowProtocol';
 import type { RouteFacts } from './routeFacts';
-import { reviewPlan, blockFieldOf, lineFieldsOf, type ReviewFieldValue } from './reviewPlan';
-import type { AuditRecord } from './audit';
+import { reviewPlan, blockFieldOf, editFieldsOf, lineFieldsOf, type ReviewFieldValue } from './reviewPlan';
+import type { AuditRecord, PatchAuditRow } from './audit';
 import {
   BLOCKED_AFTER_APPROVAL, CONTEXT_UNADDRESSABLE, REVIEW_CRASHED, SURFACE_STALE, SURFACE_UNAVAILABLE,
 } from './types';
@@ -233,7 +233,18 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
       edited = false,
       before,
       warnings = [],
-    }: { exitCode?: 1 | 2; edited?: boolean; before?: string; warnings?: string[] } = {}
+      patch = [],
+    }: {
+      exitCode?: 1 | 2;
+      edited?: boolean;
+      before?: string;
+      warnings?: string[];
+      /**
+       * A patch's edits, as shown or (after an approval) as the surface reported them: nothing was
+       * sent, and `after` is what the reviewer typed where they changed an edit.
+       */
+      patch?: readonly (EditFieldValue & { sent: string })[];
+    } = {}
   ): ReviewOutcome => ({
     exitCode,
     human: surface.human,
@@ -247,6 +258,7 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
       // Absent on a rejection or a timeout, which are not kinds of brokenness (`AuditRecord.code`).
       ...(denial.code ? { code: denial.code } : {}),
       ...audienceRow(),
+      ...(patch.length > 0 ? { patch: patch.map(patchRow) } : {}),
     },
   });
 
@@ -255,8 +267,13 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
   // failure: a title-only `issue_write` or a `create_pull_request` with no description has a
   // message and no draft, so there is no render of a body, no `before` and no body written back.
   let canonical: string | undefined;
+  // A delta draftgate can show: its edits stand in place of the body (`extractPatch`).
+  let patch: ReadPatch | undefined;
   try {
-    canonical = extractBody(destination, toolInput, bodyField, lineFields, contextFields);
+    patch = extractPatch(destination, toolInput, bodyField);
+    if (patch === undefined) {
+      canonical = extractBody(destination, toolInput, bodyField, lineFields, contextFields);
+    }
   } catch (e) {
     // Anything but a body failure is the gate breaking. Read as `unrecognised` it would become
     // `bodyOptional`'s allow; rethrown, it is `runReview`'s crash row, which asks.
@@ -293,6 +310,11 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
   // `format: 'absent'` stops `buildUpdatedInput` writing a body beside prose edits.
   const rendered = canonical === undefined ? renderNoBody(destination) : renderFor(canonical);
 
+  // The patch's edits, one field per operation in the order the destination applies them.
+  const edits = patch?.fields ?? [];
+  // What a denial before an approval logs of them: as shown, nothing sent.
+  const shownPatch = edits.map((f) => ({ ...f, sent: f.value }));
+
   // The codes as first rendered: the verdict on the agent's draft, not what the reviewer saw (that
   // is these minus `silenced`). Every denial carries them too; `audit.ts` says why they are stored.
   const warnings = rendered.warnings.map((w) => w.code);
@@ -306,6 +328,8 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
     ...prose.map((p) => ({ field: p.field, kind: 'line' as const, value: p.value })),
     // No block when the payload carried no body, as for lines: the window reads it as "no draft".
     ...(block === undefined || canonical === undefined ? [] : [{ ...block, value: canonical }]),
+    // A patch has no body; its edits stand where the body would be.
+    ...edits,
   ];
 
   const request: ReviewRequest = {
@@ -343,16 +367,21 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
   }
 
   if (decision.action === 'timeout') {
-    return deny(timeoutDenial(destination, timeoutMs), { exitCode: 2, before: canonical, warnings });
+    return deny(timeoutDenial(destination, timeoutMs), {
+      exitCode: 2, before: canonical, warnings, patch: shownPatch,
+    });
   }
   if (decision.action === 'unavailable') {
     return deny(unavailableDenial(destination, decision.reason, decision.cause), {
       before: canonical,
       warnings,
+      patch: shownPatch,
     });
   }
   if (decision.action === 'reject') {
-    return deny(rejectDenial(destination, decision.reason), { before: canonical, warnings });
+    return deny(rejectDenial(destination, decision.reason), {
+      before: canonical, warnings, patch: shownPatch,
+    });
   }
 
   // --- approved ---
@@ -379,7 +408,7 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
           'out-of-date review window looks like: what it approved and what would be sent are not ' +
           'the same text.'
       ),
-      { before: canonical, warnings }
+      { before: canonical, warnings, patch: shownPatch }
     );
   }
 
@@ -397,6 +426,9 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
     ...f,
     sent: Object.hasOwn(reported, f.field) ? reported[f.field]! : f.value,
   }));
+  // Every edit of a patch, with what is sent for it; the changed ones are a person's edit, and a
+  // denial below logs what the reviewer typed.
+  const patchSending = editFieldsOf(sending);
 
   /*
    * A line the surface changed to something longer than its own input accepts. `MAX_PROSE_LENGTH`
@@ -416,7 +448,7 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
         `The review surface reported ${overlong.sent.length} characters for "${overlong.field}", ` +
           `which is a single line and is capped at ${MAX_PROSE_LENGTH}.`
       ),
-      { before: canonical, warnings }
+      { before: canonical, warnings, patch: patchSending }
     );
   }
 
@@ -426,6 +458,7 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
    */
   const lineEdits = lineFieldsOf(sending).filter((f) => f.sent !== f.value);
   const proseEdits = Object.fromEntries(lineEdits.map((f) => [f.field, f.sent]));
+  const textEdits = patchSending.filter((f) => f.sent !== f.value);
 
   // The body the reviewer was shown, edited or not, never `canonical` (round-trip.md). `undefined`
   // when the review had no body.
@@ -438,7 +471,7 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
    * edit is OR-ed in, since a surface may report `edited` about the body alone.
    */
   const bodyDiffers = finalBody !== undefined && finalBody !== canonical;
-  const edited = (decision.edited ?? bodyDiffers) || lineEdits.length > 0;
+  const edited = (decision.edited ?? bodyDiffers) || lineEdits.length > 0 || textEdits.length > 0;
   // The body a person changed, by the surface's own word where it gives one: `edited` cannot say,
   // since it counts a changed line too, and a body the editor only reformatted differs as well.
   const bodyEdited = (decision.bodyEdited ?? bodyDiffers) && bodyDiffers;
@@ -451,8 +484,8 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
    * to overrule. PROBED: Jira answers 400 to both `""` and `"   "` on `fields.summary`, writing
    * nothing, so the body is lost too.
    */
-  const proseErrors = proseWarnings(
-    lineFieldsOf(sending).map((f) => ({ field: f.field, value: f.sent })),
+  const proseErrors = fieldWarnings(
+    sending.map((f) => ({ ...f, value: f.sent })),
     destination,
     toolName
   ).filter(isBlocking);
@@ -461,7 +494,7 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
       proseErrors.every((w) => w.code === 'prose/empty')
         ? emptyProseDenial(destination, proseErrors)
         : refusedDenial(destination, proseErrors),
-      { edited, before: canonical, warnings }
+      { edited, before: canonical, warnings, patch: patchSending }
     );
   }
 
@@ -483,7 +516,7 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
         : errors.every(isLengthRefusal)
           ? refusedDenial(destination, errors)
           : blockedDenial(destination, errors),
-      { edited, before: canonical, warnings }
+      { edited, before: canonical, warnings, patch: patchSending }
     );
   }
 
@@ -495,7 +528,8 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
       ? {
           sent: {
             ...(bodyEdited ? { body: finalBody } : {}),
-            lines: lineEdits.map((f) => ({ field: f.field, value: f.sent })),
+            // A changed edit is reported as its path and text, as a line is.
+            lines: [...lineEdits, ...textEdits].map((f) => ({ field: f.field, value: f.sent })),
           },
         }
       : {}),
@@ -503,7 +537,10 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
       // The render of the body being sent: it knows whether that body was converted and what is
       // stamped beside it.
       finalRender,
-      toolInput,
+      // The patch with the reviewer's text in it, when this was one: same operations, same order.
+      patch === undefined
+        ? toolInput
+        : writePatchEdits(toolInput, patch.delta, textEdits),
       // `undefined` with no body, spelled only here: `buildUpdatedInput` then writes neither the
       // field nor `extraToolInput`.
       finalBody === undefined ? undefined : wireBody(finalRender, finalRender.converted),
@@ -531,8 +568,22 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
       ...(lineEdits.length > 0
         ? { prose: lineEdits.map((f) => ({ field: f.field, before: f.value, after: f.sent })) }
         : {}),
+      // A reviewed patch: every edit, as shown and as sent (`AuditRecord.patch`).
+      ...(patchSending.length > 0 ? { patch: patchSending.map(patchRow) } : {}),
       ...(surfaceName ? { surface: surfaceName } : {}),
     } satisfies AuditRecord,
+  };
+}
+
+/** One edit of the patch as the log keeps it (`AuditRecord.patch`). */
+function patchRow(f: EditFieldValue & { sent: string }): PatchAuditRow {
+  return {
+    field: f.field,
+    op: f.edit.op,
+    anchors: Object.fromEntries(f.edit.anchors.map((a) => [a.key, a.value])),
+    ...(f.edit.flags.length > 0 ? { flags: f.edit.flags } : {}),
+    before: f.value,
+    ...(f.sent === f.value ? {} : { after: f.sent }),
   };
 }
 
@@ -553,9 +604,9 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
  *   body/preformatted       a string in the destination's own format (Jira's
  *                           `contentFormat: "adf"`). As markdown it would show raw JSON, then wrap
  *                           it in a new ADF document. Asks.
- *   body/patch-unreadable   a delta instead of a body (Linear's `patch`) against content draftgate,
- *                           holding no credentials, cannot read. Asks; the code gives the agent,
- *                           the log's `reason` and the digest the true cause.
+ *   body/patch-unreadable   a delta instead of a body (Linear's `patch`) whose edits the window
+ *                           cannot show (`extractPatch`; one it can show is reviewed). Asks; the
+ *                           code gives the agent, the log's `reason` and the digest the true cause.
  *   body/nested-prose       absent, and undeclared prose sits inside a structured field. Asks.
  */
 function missingBodyDenial(destination: string, error: Error): Denial {
@@ -677,6 +728,7 @@ function listed(errors: { code: string; message: string }[]): string {
 function refusalRemedy({ code }: Pick<Warning, 'code'>): string {
   if (code === 'prose/line-break') return 'Put the field on one line.';
   if (code === 'prose/empty') return 'Omit a field you do not mean to change, or give it a value.';
+  if (code === 'patch/empty-text') return 'Give every insertion some text.';
   if (code === 'prose/too-long' || isLengthRefusal({ code })) {
     return 'Shorten it, or ask the user how to split it.';
   }

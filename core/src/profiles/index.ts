@@ -22,6 +22,7 @@ import type { MentionSupport } from '../mentionTokens';
 import type { LengthLimit, LineLimit } from '../lengthLimit';
 import type { LineBreakFact } from '../lineCharacters';
 import type { ItemBlocks } from '../adf/markdownToAdf';
+import type { DeltaField } from '../patch';
 
 export type { MentionSupport };
 export type { TargetAnswer };
@@ -236,15 +237,16 @@ export interface DestinationProfile {
    */
   readonly targetIdentity: TargetIdentity;
   /**
-   * Fields that carry a delta against content only the destination holds. Linear's `patch` is the
-   * only case: per the live `save_issue` schema, up to 50 edit operations applied server-side, "in
-   * place of the full content/description field". draftgate never calls a destination, so it
-   * cannot read what they apply to, and there is nothing to render, warn about or edit.
+   * Fields that carry a delta against content only the destination holds: edit operations applied
+   * server-side in place of the whole body. Linear's `patch` is the only case. draftgate never calls
+   * a destination, so it cannot read what they apply to; it reviews the operations instead, read
+   * against the grammar declared here (`core/src/patch.ts`), and a payload the grammar does not
+   * account for asks.
    *
-   * A list of spellings, which `cli/src/payload.ts` reads rather than keeping a second copy of the
-   * word `patch`. An absent declaration would read as "no delta here" and send unreviewed.
+   * `[]` where there is none. An absent declaration would read as "no delta here" and send a delta
+   * through the body path, which would find no body.
    */
-  readonly deltaFields: readonly string[];
+  readonly deltaFields: readonly DeltaField[];
   /**
    * Every value a reviewer may answer this destination's question with, and nothing else; what
    * `ownAnswerFor` checks for `audienceFor` and `parseWireDecision`. `[]` for Slack and Linear,

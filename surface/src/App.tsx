@@ -11,12 +11,13 @@
 import { Component, Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import type {
-  Audience, DestinationName, FixOffer, PmNode, RenderResult, ReviewFieldValue, TargetAnswer,
+  Audience, DestinationName, EditFieldValue, FixOffer, PmNode, RenderResult, ReviewFieldValue,
+  TargetAnswer,
   Warning,
 } from '../../core/src/index';
 import {
-  audienceFor, blockFieldOf, hasBlockingWarning, hideLineBreaks, isBlockField, lineFieldsOf,
-  proseWarnings, showLineBreaks, sortWarnings,
+  audienceFor, blockFieldOf, fieldWarnings, hasBlockingWarning, hideLineBreaks, isBlockField,
+  showLineBreaks, sortWarnings,
 } from '../../core/src/index';
 import { contextLabels } from './contextLabels';
 // `contract.json`, not `cli/src/surfaces/windowProtocol`: a first VALUE import of a `cli` module
@@ -28,7 +29,9 @@ import { isThemeChoice, resolveTheme, type ThemeChoice } from '../../core/src/in
 import { ThemeToggle } from './ThemeToggle';
 import { DestinationMark } from './DestinationMark';
 import { Editor } from './Editor';
+import { EditorBoundary } from './EditorBoundary';
 import { FixDiff } from './FixDiff';
+import { PatchEdits } from './PatchEdits';
 import { useReview, silencedWarnings, type Loaded } from './useReview';
 import { useSettledWarnings } from './settledWarnings';
 import { useShortcutArmed } from './shortcutGrace';
@@ -172,9 +175,9 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
     mentionSummary(bodyReview.canonical, bodyReview.mentions),
     bodyReview.mentions
   );
-  // Memoised because it feeds a dependency array: `lineFieldsOf` filters, so unmemoised the
-  // `current` memo below would never hit (a `proseWarnings` pass and a `sortWarnings` per render).
-  const shownProse = useMemo(() => lineFieldsOf(request.fields), [request.fields]);
+  // Every field but the body. Memoised because it feeds a dependency array: unmemoised the `current`
+  // memo below would never hit (a `fieldWarnings` pass and a `sortWarnings` per render).
+  const shownTyped = useMemo(() => request.fields.filter((f) => !isBlockField(f)), [request.fields]);
   /*
    * Does this review have a DRAFT at all? A title-only `issue_write` or a `create_pull_request`
    * with no description has `fields` of lines and no block, and `useReview` hands back
@@ -187,25 +190,31 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
   // path where it is not. See `contextLabels`.
   const labels = contextLabels(Object.keys(request.context));
   /*
-   * The OTHER prose the agent wrote, a title or a summary. Plain lines with no `render()`, warnings
-   * or round trip, so ordinary React state. Compared against the request to decide `proseEdited`,
-   * not tracked by a dirty flag: typing a character and deleting it is not an edit.
+   * Everything the agent wrote beside the body: a title or a summary (a line), a patch's edits
+   * (`PatchEdits.tsx`). Plain strings with no `render()` or round trip, so ordinary React state, one
+   * map keyed by path. Compared against the request to decide `typedEdited`, not tracked by a dirty
+   * flag: typing a character and deleting it is not an edit.
    */
-  const [prose, setProse] = useState<Record<string, string>>(() =>
-    Object.fromEntries(shownProse.map((p) => [p.field, p.value]))
+  const [typed, setTyped] = useState<Record<string, string>>(() =>
+    Object.fromEntries(shownTyped.map((f) => [f.field, f.value]))
   );
-  const proseEdited = shownProse.some((p) => liveValue(prose, p) !== p.value);
+  const typedEdited = shownTyped.some((f) => liveValue(typed, f) !== f.value);
+  const setField = useCallback(
+    (field: string, text: string) => setTyped((v) => ({ ...v, [field]: text })),
+    []
+  );
+  const hasEdits = shownTyped.some((f) => f.kind === 'edit');
   /*
    * The review the rest of this component reads: the BODY's render plus what is wrong with the
-   * prose beside it. `render()` is handed only the body, so it cannot see a blanked title;
-   * `proseWarnings` is the second producer and this is where the two join. Not inside `useReview`,
+   * fields beside it. `render()` is handed only the body, so it cannot see a blanked title or an
+   * emptied insertion; `fieldWarnings` is the second producer and this is where the two join. Not inside `useReview`,
    * because `silenced` must read the raw render: a prose warning there would credit draftgate with
-   * a field it never touched. It reads the LIVE `prose`, so it covers the reviewer emptying a title
+   * a field it never touched. It reads the LIVE `typed`, so it covers the reviewer emptying a title
    * as well as the agent sending one empty.
    */
   const current = useMemo(() => {
-    const issues = proseWarnings(
-      shownProse.map((p) => ({ field: p.field, value: liveValue(prose, p) })),
+    const issues = fieldWarnings(
+      shownTyped.map((f) => ({ ...f, value: liveValue(typed, f) })),
       request.destination,
       request.toolName
     );
@@ -218,7 +227,7 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
       // asked, not assumed.
       blocked: bodyReview.blocked || hasBlockingWarning(issues),
     };
-  }, [bodyReview, shownProse, prose, request.destination, request.toolName]);
+  }, [bodyReview, shownTyped, typed, request.destination, request.toolName]);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
   /*
@@ -422,7 +431,12 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
    */
   const unchangedHint = hasDraft
     ? 'Exactly what you see above will be sent.'
-    : 'Exactly the fields above will be sent. This call carries no message body.';
+    : hasEdits
+      ? 'Exactly these edits will be sent.'
+      : 'Exactly the fields above will be sent. This call carries no message body.';
+  // Did a person change anything at all: the body, a line or an edit. The badge, the hint and the
+  // decision's `edited` all mean this.
+  const anyEdit = edited || typedEdited;
 
   /*
    * What rides EITHER decision beside the send (`HumanDecision`): `classifyProject`, kept on a
@@ -456,12 +470,12 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
       fields: Object.fromEntries(
         request.fields.map((f) => [
           f.field,
-          isBlockField(f) ? current.canonical : liveValue(prose, f),
+          isBlockField(f) ? current.canonical : liveValue(typed, f),
         ])
       ),
-      // A prose edit is a human change even when the BODY is untouched. The CLI ORs it in again:
-      // a surface may report `edited` for the body and know nothing about prose.
-      edited: edited || proseEdited,
+      // A prose or patch edit is a human change even when the BODY is untouched (there is none in a
+      // patch). The CLI ORs both in again: a surface may report `edited` for the body alone.
+      edited: anyEdit,
       // The body alone, so the agent is shown a body only when the reviewer changed it.
       bodyEdited: edited,
       // Codes, not messages: the code is the stable identity the log and the digest are keyed on.
@@ -470,7 +484,7 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
       ...said,
     });
   }, [
-    current.blocked, current.canonical, edited, fixes, proseEdited, prose, request.fields, said,
+    current.blocked, current.canonical, anyEdit, edited, fixes, typed, request.fields, said,
     silenced, submitted,
   ]);
 
@@ -588,9 +602,9 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
               destination inferred
             </span>
           )}
-          {/* `edited || proseEdited`: the badge means what the decision means, and a title-only edit
-              sends `edited: true`. `surface:e2e` types into a real title and checks both. */}
-          {(edited || proseEdited) && <span className="dg-edited">edited</span>}
+          {/* `anyEdit`: the badge means what the decision means, and a title-only edit sends
+              `edited: true`. `surface:e2e` types into a real title and checks both. */}
+          {anyEdit && <span className="dg-edited">edited</span>}
         </div>
         <div className="dg-header-side">
           <ThemeToggle
@@ -699,7 +713,18 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
           * message, and `.dg-body` scrolls, so several of them cannot push the editor off screen.
           */}
         {fieldGroups(request.fields).map((group) =>
-          group.kind === 'lines' ? (
+          group.kind === 'edits' ? (
+            // A patch: its edits, one card each, where the draft would be (`PatchEdits.tsx`).
+            <PatchEdits
+              key={group.fields[0]!.field}
+              destination={request.destination}
+              fields={group.fields}
+              values={group.fields.map((f) => liveValue(typed, f))}
+              onChange={setField}
+              // A preview that cannot load fails the shell, as the body editor does.
+              onError={(e) => setEditorError(e.message)}
+            />
+          ) : group.kind === 'lines' ? (
             /*
              * A single-line `<input>`: these fields are plain lines at every destination probed, so a
              * toolbar would promise formatting that gets sent literally.
@@ -726,7 +751,7 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
                   placeholder={p.field}
                   // An `<input>` strips CR and LF, so an agent's break is drawn as a control
                   // picture and mapped back on change; an untouched field sends the exact value.
-                  value={showLineBreaks(liveValue(prose, p), p.value)}
+                  value={showLineBreaks(liveValue(typed, p), p.value)}
                   // The CLI refuses an over-cap value, which would lose the window, not the field.
                   maxLength={contract.maxProseLength}
                   spellCheck
@@ -734,10 +759,7 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
                     // A newline can be PASTED into an `<input>`: flattened, not refused (the paste
                     // is the reviewer's own text). Pictures then go back to the breaks they stand
                     // for, so an agent's break is kept and named by `prose/line-break`.
-                    setProse((v) => ({
-                      ...v,
-                      [p.field]: hideLineBreaks(e.target.value.replace(/\s*\n+\s*/g, ' '), p.value),
-                    }))
+                    setField(p.field, hideLineBreaks(e.target.value.replace(/\s*\n+\s*/g, ' '), p.value))
                   }
                 />
               ))}
@@ -793,7 +815,7 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
           * named: position says which thing is the draft. A note, not a warning: the tool's schema
           * allows the call, and what could still block is a blank title (`prose/empty`).
           */}
-        {!hasDraft && (
+        {!hasDraft && !hasEdits && (
           <p className="dg-plain-note">
             No message body. This call sets the fields above and sends no draft, so there is nothing
             more to read.
@@ -832,7 +854,7 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
             <span className="dg-hint">
               {current.blocked
                 ? 'Fix the blocking problems to enable approval.'
-                : edited
+                : anyEdit
                   ? 'Your edited text will be sent.'
                   : unchangedHint}
             </span>
@@ -870,12 +892,12 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
 }
 
 /**
- * The value of one LINE field now: what the reviewer typed, or what they were shown. `prose` is
+ * The value of one LINE or EDIT field now: what the reviewer typed, or what they were shown. `typed` is
  * seeded from the list callers walk, so the fallback cannot fire today; it is written once because
  * the `prose/empty` verdict, the input, `edited` and the decision must agree.
  */
-function liveValue(prose: Record<string, string>, field: ReviewFieldValue): string {
-  return prose[field.field] ?? field.value;
+function liveValue(typed: Record<string, string>, field: ReviewFieldValue): string {
+  return typed[field.field] ?? field.value;
 }
 
 /**
@@ -884,6 +906,7 @@ function liveValue(prose: Record<string, string>, field: ReviewFieldValue): stri
  */
 type FieldGroup =
   | { kind: 'lines'; fields: ReviewFieldValue[] }
+  | { kind: 'edits'; fields: EditFieldValue[] }
   | { kind: 'block'; field: ReviewFieldValue };
 
 function fieldGroups(fields: readonly ReviewFieldValue[]): FieldGroup[] {
@@ -893,8 +916,12 @@ function fieldGroups(fields: readonly ReviewFieldValue[]): FieldGroup[] {
       out.push({ kind: 'block', field: f });
       continue;
     }
+    // A run of consecutive edits is one group, as a run of lines is.
     const last = out[out.length - 1];
-    if (last?.kind === 'lines') last.fields.push(f);
+    if (f.kind === 'edit') {
+      if (last?.kind === 'edits') last.fields.push(f);
+      else out.push({ kind: 'edits', fields: [f] });
+    } else if (last?.kind === 'lines') last.fields.push(f);
     else out.push({ kind: 'lines', fields: [f] });
   }
   return out;
@@ -1184,30 +1211,4 @@ function Fatal({ title, detail, reason }: { title: string; detail: string; reaso
       </button>
     </div>
   );
-}
-
-/**
- * Catches a document TipTap refuses to load and hands the error UP through `onError`: rendering it
- * here would leave the approve button mounted beside it, and only the caller can remove the footer.
- * `toEditorDoc` should make this unreachable, but a render-phase throw must not blank the window.
- */
-interface EditorBoundaryProps {
-  children: ReactNode;
-  onError(error: Error): void;
-}
-
-class EditorBoundary extends Component<EditorBoundaryProps, { failed: boolean }> {
-  state = { failed: false };
-
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-
-  componentDidCatch(error: Error) {
-    this.props.onError(error);
-  }
-
-  render() {
-    return this.state.failed ? null : this.props.children;
-  }
 }

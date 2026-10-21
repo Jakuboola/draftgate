@@ -98,6 +98,9 @@ paths:
   three-state (`round-trip.md`).
 - A classification answer names its destination, and `review.ts` drops one about another
   (`audience.md`).
+- A reviewed patch has no `before`/`after`: its row is `patch`, every edit with its own `before`
+  and, where a person changed it, `after` (`round-trip.md`). `MAX_DECISION_FIELDS` clears the
+  largest patch plus the longest default route's lines; `cli/test/reviewPlan.test.ts` holds it.
 - Retention (`pruneAudit`) runs on a review's write, on `digest` and on `--doctor`, and at no other
   time. When a cheap guard makes the expensive path rare, test the guard: `headTs` is exported and
   asserted directly, because `pruneAudit` returns `null` either way.

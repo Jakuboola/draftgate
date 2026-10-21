@@ -47,15 +47,17 @@ export type Carried = 'path' | 'nodeType' | 'unverified' | 'editorPath' | 'fixes
  *  - `editor`    only a document the reviewer built reaches it (`render(body, dest, editorDoc)`).
  *  - `prose`     the other fields the agent wrote (a title, a summary), out of `render()`'s reach:
  *                `proseWarnings()` produces it, and the window merges it into its list and `blocked`.
+ *  - `patch`     an edit operation's new text, when the payload is a delta (`core/src/patch.ts`):
+ *                `patchWarnings()` produces it, and the window merges it as it does `prose`.
  *  - `adf`       only hand-built ADF reaches it: the converter never produces the shape, or a fixer
  *                removes it first (`core/test/acceptance.test.ts`). Kept because each is a probed
  *                Jira 400 that loses the whole comment.
  */
-export type Reach = 'markdown' | 'editor' | 'adf' | 'prose';
+export type Reach = 'markdown' | 'editor' | 'adf' | 'prose' | 'patch';
 
 export interface WarningSpec {
   /** Which module emits it. Informational; the code's prefix says the same thing. */
-  readonly owner: 'render' | 'jira' | 'slack' | 'linear' | 'github';
+  readonly owner: 'render' | 'patch' | 'jira' | 'slack' | 'linear' | 'github';
   readonly reach: Reach;
   /** Every optional `Warning` field this code may set. `core/test/warnings.test.ts` sweeps it. */
   readonly carries: readonly Carried[];
@@ -110,6 +112,12 @@ export const WARNING_CODES = {
    * (U+202E), and is stored verbatim where probed (GitHub, Linear). Always a `warning`.
    */
   'prose/control-character': { owner: 'render', reach: 'prose', carries: ['field'] },
+  /*
+   * An edit whose new text the tool's schema refuses empty (`minLength: 1` on an insertion, read off
+   * the live schema): Claude Code validates the tool input against it, so the whole call fails. An
+   * `error`; `field` is the edit's path. A replacement's empty text is a deletion and never warns.
+   */
+  'patch/empty-text': { owner: 'patch', reach: 'patch', carries: ['field'] },
   'body/structure-lost': { owner: 'render', reach: 'editor', carries: ['editorPath'] },
   /*
    * `body/structure-lost`'s sibling for formatting: a mark the reviewer applied that the markdown
