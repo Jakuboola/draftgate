@@ -431,7 +431,26 @@ export interface ToolConfig {
    * still gated. `--doctor` names these.
    */
   declinedUnrouted: string[];
+  /**
+   * `tools.json` entries named like a default entry, which replace it whole: a field the default
+   * gains later never reaches the tool. `--doctor` names them, and setup drops the ones with no
+   * difference. Sorted by name.
+   */
+  shadows: Shadow[];
 }
+
+/** A `tools.json` entry for a default tool, and what it says that the default does not. */
+export interface Shadow {
+  name: string;
+  /** One phrase per field that differs (`routeDifferences`); none when it restates the default. */
+  differences: string[];
+}
+
+/** Does this entry say just what the default says? The one test every reader of `shadows` uses. */
+export const restates = (s: Shadow): boolean => s.differences.length === 0;
+
+/** An overriding entry as `--doctor` and `--write` print it, and setup asks about it. */
+export const shadowLine = (s: Shadow): string => `${s.name}: ${s.differences.join('; ')}`;
 
 /**
  * The tool half of `name` when that half is declined, else null. The loader, the policy, the
@@ -461,16 +480,25 @@ export function mergeToolConfig(base: ToolMap, override: unknown, source: string
   const declined = parseDeclined(declinedRaw, source);
   const out: ToolMap = { ...base };
   const dormant: string[] = [];
+  const shadows: Shadow[] = [];
   for (const [tool, value] of Object.entries(entries)) {
     if (value === null) {
       delete out[tool];
       continue;
     }
-    const existing = base[tool];
+    const existing = Object.hasOwn(base, tool) ? base[tool] : undefined;
     const typed = withDefaultDisclosure(parseRoute(tool, value, source), disclosureFor(base, tool));
-    if (declinedHalfOf(tool, declined) !== null) dormant.push(tool);
+    const isDormant = declinedHalfOf(tool, declined) !== null;
+    if (isDormant) dormant.push(tool);
+    if (existing === undefined) {
+      out[tool] = typed;
+      continue;
+    }
     // An entry that restates a default keeps the default's owner; anything else is the operator's.
-    out[tool] = existing !== undefined && sameRoute(existing, typed) ? existing : typed;
+    const differences = routeDifferences(existing, typed);
+    // A dormant entry is named as dormant: its tool is not reviewed, so what it lacks changes nothing.
+    if (!isDormant) shadows.push({ name: tool, differences });
+    out[tool] = differences.length === 0 ? existing : typed;
   }
   const declinedRoutes: ToolMap = {};
   for (const name of Object.keys(out)) {
@@ -485,6 +513,7 @@ export function mergeToolConfig(base: ToolMap, override: unknown, source: string
     declinedRoutes,
     dormant: dormant.sort(),
     declinedUnrouted: declined.filter((h) => !removed.has(h)),
+    shadows: shadows.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),
   };
 }
 
@@ -541,20 +570,44 @@ function parseDeclined(value: unknown, source: string): string[] {
 }
 
 /**
- * Do two routes make the same claim, ignoring `schemaOwner` (the answer, not the question)?
+ * What `entry` claims that `base` does not, one phrase per field, ignoring `schemaOwner` (the
+ * answer, not the question). None means the entry restates the default.
  *
  * Compared over the routes' own keys, so a field added later is included: an enumeration missing
  * it would read a changed operator entry as a restatement, keep `connector` ownership, and fail
  * open on `body/missing-field` for a route the operator wrote.
  */
-function sameRoute(a: ToolRoute, b: ToolRoute): boolean {
-  const keys = new Set([...Object.keys(a), ...Object.keys(b)].filter((k) => k !== 'schemaOwner'));
-  for (const key of keys) {
-    const left = a[key as keyof ToolRoute];
-    const right = b[key as keyof ToolRoute];
-    if (!sameClaim(left, right)) return false;
+export function routeDifferences(base: ToolRoute, entry: ToolRoute): string[] {
+  const keys = new Set([...Object.keys(base), ...Object.keys(entry)].filter((k) => k !== 'schemaOwner'));
+  const out: string[] = [];
+  for (const key of [...keys].sort()) {
+    const ours = base[key as keyof ToolRoute];
+    const theirs = entry[key as keyof ToolRoute];
+    if (!sameClaim(ours, theirs)) out.push(difference(key, ours, theirs));
   }
-  return true;
+  return out;
+}
+
+/** One differing field, in words a `--doctor` line can carry. */
+function difference(key: string, ours: unknown, theirs: unknown): string {
+  // A list compares by element: what one names and the other does not, else only the order moved.
+  if (Array.isArray(ours) && Array.isArray(theirs)) {
+    const parts = [
+      listed('adds', theirs.filter((v) => !ours.includes(v))),
+      listed('lacks', ours.filter((v) => !theirs.includes(v))),
+    ].filter((p) => p !== null);
+    if (parts.length > 0) return `${key} ${parts.join(', ')}`;
+    return ours.length === theirs.length ? `${key} in another order` : `${key} repeats a field`;
+  }
+  // `bodyOptional` is the one fact that decides what a call with no message gets.
+  const note = key === 'bodyOptional' ? ', so a call with no message asks instead of going through' : '';
+  if (theirs === undefined || theirs === false) return `lacks ${key}: ${JSON.stringify(ours)}${note}`;
+  if (ours === undefined || ours === false) return `adds ${key}: ${JSON.stringify(theirs)}`;
+  return `${key}: ${JSON.stringify(theirs)}, not ${JSON.stringify(ours)}`;
+}
+
+function listed(verb: string, values: unknown[]): string | null {
+  return values.length === 0 ? null : `${verb} ${values.map((v) => JSON.stringify(v)).join(', ')}`;
 }
 
 /**
@@ -615,7 +668,7 @@ function parseRoute(tool: string, value: unknown, source: string): ToolRoute {
   const entry = value as Record<string, unknown>;
   const { destination, bodyOptional } = entry;
   // Every `RouteFacts` key, through a total `Record`, so a new fact is a compile error here: a
-  // dropped field would make `sameRoute` read the entry as a restatement of the default.
+  // dropped field would make `routeDifferences` read the entry as a restatement of the default.
   const claimed: Record<keyof RouteFacts, unknown> = {
     bodyField: entry.bodyField,
     contextFields: entry.contextFields,
@@ -685,7 +738,7 @@ function parseRoute(tool: string, value: unknown, source: string): ToolRoute {
     destination,
     ...(bodyOptional === true ? { bodyOptional: true } : {}),
     // Every fact the entry claims, minus a restated default (`bodyFormat: "markdown"`), which would
-    // make `sameRoute` read the entry as a change. Shared with `routeFlagArgs`.
+    // make `routeDifferences` read the entry as a change. Shared with `routeFlagArgs`.
     ...claimedRouteFacts(claimed as RouteFacts),
     schemaOwner: 'operator',
   };

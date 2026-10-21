@@ -19,6 +19,7 @@ import { profiles, type DestinationName } from '../../../core/src/index';
 import {
   DECLINED_KEY,
   declinedHalfOf,
+  restates,
   entryForHalf,
   routeFactsFor,
   toolHalfOf,
@@ -57,6 +58,12 @@ export interface Reconciliation {
    * decline records. Sorted by group (`CHOICE_GROUPS`, the order setup asks in), then by half.
    */
   halves: HalfChoice[];
+  /**
+   * `tools.json` entries that say just what the default entry of the same name says. An answer's
+   * file drops them (`answeredToolsJson`): today they change nothing, and kept, they stop every
+   * later change to the default reaching the tool, so there is nothing to ask.
+   */
+  restated: string[];
 }
 
 export interface HalfChoice {
@@ -116,12 +123,16 @@ export function reconcileTools(
   map: ToolMap,
   /**
    * The operator's declines, and the routes they removed: a declined half has no entry left in
-   * `map`, so its destination (for the checklist and a re-enable) comes from `declinedRoutes`.
+   * `map`, so its destination (for the checklist and a re-enable) comes from `declinedRoutes`. And
+   * the entries shadowing a default, for the answer's file.
    */
-  declines: Pick<ToolConfig, 'declined' | 'declinedRoutes'> = { declined: [], declinedRoutes: {} }
+  config: Pick<ToolConfig, 'declined' | 'declinedRoutes' | 'shadows'> = {
+    declined: [], declinedRoutes: {}, shadows: [],
+  }
 ): Reconciliation {
   const out: Reconciliation = {
     gated: [], proposed: [], unknown: [], notMcp: [], declined: [], proposedIfEnabled: [], halves: [],
+    restated: config.shadows.filter(restates).map((s) => s.name),
   };
   const choices = new Map<string, HalfChoice>();
   /** Where each half's group sorts, read once, with its label, when the half's row is made. */
@@ -138,9 +149,9 @@ export function reconcileTools(
   };
   for (const name of [...new Set(names)].sort()) {
     const half = toolHalfOf(name);
-    if (declinedHalfOf(name, declines.declined) !== null) {
+    if (declinedHalfOf(name, config.declined) !== null) {
       out.declined.push(name);
-      const routes = declines.declinedRoutes;
+      const routes = config.declinedRoutes;
       const from = entryForHalf(routes, half!);
       if (from === null) continue;
       count(half!, routes[from]!.destination, true);
@@ -204,16 +215,17 @@ export function declinedAfter(
 }
 
 /**
- * The `tools.json` an answer makes: the operator's file with `declined` set to the answer and the
- * proposals that answer leaves standing added. What the report prints as "the file below" and
- * what `--write` writes, so the two cannot differ.
+ * The `tools.json` an answer makes: the operator's file with `declined` set to the answer, the
+ * entries that restate a default dropped, and the proposals that answer leaves standing added.
+ * What the report prints as "the file below" and what `--write` writes, so the two cannot differ.
  */
 export function answeredToolsJson(
   r: Reconciliation,
   existing: Record<string, unknown>,
   declined: readonly string[]
 ): string {
-  return proposedToolsJson(proposalsFor(r, declined), existing, declined);
+  const kept = Object.fromEntries(Object.entries(existing).filter(([name]) => !r.restated.includes(name)));
+  return proposedToolsJson(proposalsFor(r, declined), kept, declined);
 }
 
 /**
@@ -240,6 +252,11 @@ export function proposedToolsJson(
     merged[p.name] = { destination: p.route.destination, ...routeFactsFor(p.route, 'proposed') };
   }
   return JSON.stringify(merged, null, 2);
+}
+
+/** The clause an answer's report spends on the restating entries its file drops. */
+function restatedDropped(r: Reconciliation): string {
+  return r.restated.length === 0 ? '' : `, ${r.restated.length} entry(ies) that restate draftgate's own dropped,`;
 }
 
 /**
@@ -307,7 +324,8 @@ export function describeReconciliation(
     lines.push(
       answer === undefined
         ? '  The file below is tools.json as it is now, plus the proposals.'
-        : `  The file below is tools.json as it is now, with your answer applied (${answer.length} declined) and the proposals added.`
+        : `  The file below is tools.json as it is now, with your answer applied (${answer.length} declined)` +
+          `${restatedDropped(r)} and the proposals added.`
     );
     lines.push(`  Write it to ${toolsPath}, then run ${REMEDY.doctor} to check Claude Code's settings:`);
     lines.push('');

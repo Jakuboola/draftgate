@@ -45,6 +45,11 @@ export const REMEDY = {
   doctor: '`draftgate doctor`',
   /** Compare tool names with the tool map and propose `tools.json` entries; the setup skill runs it. */
   proposeTools: '`draftgate propose-tools`',
+  /**
+   * Take `tools.json` entries out that replace draftgate's own entry for the same tool, so its own
+   * applies. Followed by the full tool names; it refuses any other entry.
+   */
+  dropToolEntries: '`draftgate propose-tools --drop`',
   /** Read the review log: outcomes, warnings, what reviewers edited. */
   digest: '`draftgate digest`',
   /** The commands a user runs; each answers `--help` with its options. */

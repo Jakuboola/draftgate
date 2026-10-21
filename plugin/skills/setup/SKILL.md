@@ -73,6 +73,14 @@ Steps:
      me in one line, in these words: "Replacing it reviews <those tool names> too."
    - Leave it: run nothing.
 
+   Only if that output says "tools.json overrides draftgate's own entry for these", ask me ONE
+   question per indented line it lists under that, in these words: "My tools.json entry for <the tool name>
+   overrides draftgate's own: <the rest of the line>. Use draftgate's instead?", with two options
+   in this order: "Use draftgate's" and "Keep mine". If the output does not say it, skip these
+   questions.
+   - Then, only if I chose "Use draftgate's" for any, run `draftgate propose-tools --drop` with
+     the full tool name of each one I chose, space-separated.
+
 5. Run:
 
        draftgate doctor --setup

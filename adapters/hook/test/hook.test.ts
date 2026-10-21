@@ -510,7 +510,7 @@ describe('decide: the policy', () => {
   });
 
   test('a CHANGED bodyField is not a restatement, so it cannot keep a default ownership', () => {
-    // `sameRoute` compares the route's own keys minus `schemaOwner`; asserted here on `bodyField`.
+    // `routeDifferences` compares the route's own keys minus `schemaOwner`; asserted here on `bodyField`.
     const base = { mcp__x__save_comment: { destination: 'linear' as const, schemaOwner: 'connector' as const } };
     const restated = mergeToolMap(base, { mcp__x__save_comment: 'linear' }, 'tools.json');
     expect(restated.mcp__x__save_comment!.schemaOwner).toBe('connector');
@@ -608,7 +608,7 @@ describe('decide: the policy', () => {
   });
 
   test('a restated default is not a claim, in tools.json as on the wire', () => {
-    // `bodyFormat: "markdown"` says nothing; kept, `sameRoute` would read a restatement as a change.
+    // `bodyFormat: "markdown"` says nothing; kept, `routeDifferences` would read a restatement as a change.
     // `claimedRouteFacts` is the one spelling of that rule for `parseRoute` and `routeFlagArgs`.
     for (const [field, spec] of Object.entries(ROUTE_FLAGS)) {
       if (spec.kind !== 'choice') continue;
@@ -677,7 +677,7 @@ describe('decide: the policy', () => {
     }
   });
 
-  test('sameRoute compares LISTS by value, or every restatement reads as a change', () => {
+  test('routeDifferences compares LISTS by value, or every restatement reads as a change', () => {
     // Compared with `!==` (identity for an array), two equal `contextFields` would read as a change.
     const base: ToolMap = {
       mcp__x__save_status_update: {
