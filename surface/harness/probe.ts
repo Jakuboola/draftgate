@@ -22,7 +22,10 @@
 
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { githubAudience, isBlockField } from '../../core/src/index';
+import {
+  githubAudience, isBlockField, patchEditPath, profiles, readPatch, type ReviewField,
+  type ReviewFieldValue,
+} from '../../core/src/index';
 import { reviewPlan } from '../../cli/src/reviewPlan';
 import {
   PROTOCOL_VERSION,
@@ -46,13 +49,27 @@ export const { MIN: WINDOW_MIN } = require('../geometry.cjs') as { MIN: Viewport
  * block takes `canonical` and every line takes its own, which is the same walk `cli/src/review.ts`
  * makes over the same plan.
  */
-function planFields(scenario: Scenario) {
+function planFields(scenario: Scenario): ReviewFieldValue[] {
   const plan = reviewPlan(scenario.destination, {
     ...(scenario.prose ? { proseFields: scenario.prose.map((p) => p.field) } : {}),
     ...(scenario.bodyFormat ? { bodyFormat: scenario.bodyFormat } : {}),
   });
   const values = new Map((scenario.prose ?? []).map((p) => [p.field, p.value]));
-  return plan.map((f) => ({ ...f, value: isBlockField(f) ? scenario.canonical : values.get(f.field)! }));
+  const lines = (f: ReviewField) => ({ ...f, value: isBlockField(f) ? scenario.canonical : values.get(f.field)! });
+  if (scenario.patch === undefined) return plan.map(lines);
+  // A patch: the lines, then its edits through the profile's grammar, as `extractPatch` reads them.
+  const [delta] = profiles[scenario.destination].deltaFields;
+  const read = readPatch(delta!, scenario.patch);
+  if (!read.ok) throw new Error(`the scenario's patch cannot be shown: ${read.why}`);
+  return [
+    ...plan.filter((f) => !isBlockField(f)).map(lines),
+    ...read.edits.map(({ edit, text }) => ({
+      field: patchEditPath(delta!, edit.index, edit.textKey),
+      kind: 'edit' as const,
+      edit,
+      value: text,
+    })),
+  ];
 }
 
 const HERE = SURFACE;
@@ -83,6 +100,18 @@ const NODE_SELECTORS: Record<string, string> = {
   /** A plain body's editing surface, and the line that says why it has no toolbar. */
   plainBody: 'textarea.dg-plain-body',
   plainNote: '.dg-plain-note',
+  /*
+   * A patch (`PatchEdits.tsx`): one card per edit, its read-only anchors, its editable text, the
+   * preview drawn by the destination sheet (a `.ProseMirror`, so `prosemirror` counts it too), a
+   * deletion, a flag chip and the note on what cannot be seen.
+   */
+  edit: '.dg-edit',
+  editAnchor: '.dg-edit-anchor-text',
+  editText: 'textarea.dg-edit-text',
+  editPreview: '.dg-edit-preview .ProseMirror',
+  editDeletes: '.dg-edit[data-deletes="true"]',
+  editFlag: '.dg-edit-flag',
+  editNote: '.dg-edit-note',
   // The mention chip. `jira.css`'s rule is the only thing that distinguishes it from prose: TipTap
   // 3's Mention ships `HTMLAttributes: {}` and no class of its own.
   mention: '.ProseMirror span[data-type="mention"]',
@@ -721,6 +750,11 @@ export interface Scenario {
   prose?: { field: string; value: string }[];
   /** The body is plain text, not markdown. */
   bodyFormat?: 'markdown' | 'plain';
+  /**
+   * A delta's operations, as the agent sent them: the review shows these edits and no body, and
+   * `canonical` is unused. Read through the destination's grammar (`readPatch`).
+   */
+  patch?: Record<string, unknown>[];
   /**
    * Which theme to force; `light` by default, never the OS's. Measured: with the OS in dark mode,
    * `th`, `td` and the blockquote bar come back dark against light expectations.
@@ -1818,6 +1852,52 @@ export const SCENARIOS: Record<string, Scenario> = {
   },
 
   /*
+   * A `save_issue` patch: no body, one card per edit, in order. Four edits, one of each shape that
+   * draws differently: a replacement, a deletion of every occurrence, an append that opens a heading
+   * and a range whose middle cannot be seen. Three previews (a deletion has no text to draw), each a
+   * `.ProseMirror` the Linear sheet draws: the append's heading in Linear's own heading type. No
+   * toolbar: the text is edited as characters.
+   */
+  'linear-patch': {
+    destination: 'linear',
+    toolName: 'mcp__claude_ai_Linear__save_issue',
+    canonical: '',
+    context: { id: 'HELP-42' },
+    prose: [{ field: 'title', value: 'Rollout' }],
+    patch: [
+      { op: 'replace', old_string: 'Tuesday', new_string: 'Thursday' },
+      { op: 'replace', old_string: 'TODO', new_string: '', replace_all: true },
+      { op: 'append', text: '\n\n## Rollout\n\nShip on **Monday**.' },
+      { op: 'replace_range', from: '## Old notes', to: '## Risks', new_string: 'Gone.' },
+    ],
+    counts: {
+      edit: 4, editAnchor: 4, editText: 4, editPreview: 3, prosemirror: 3,
+      editDeletes: 1, editFlag: 1, editNote: 1, h2: 1,
+      plainNote: 1, plainBody: 0, proseInput: 1,
+      toolbar: 0, tbBtn: 0, blockedBar: 0, approveDisabled: 0,
+    },
+    styles: {
+      // The preview is the destination's: Linear's heading and bold, from `EXPECTED_STYLES.linear`.
+      '.dg-edit-preview .ProseMirror h2': EXPECTED_STYLES.linear!['.ProseMirror h2']!,
+      '.dg-edit-preview .ProseMirror strong': EXPECTED_STYLES.linear!['.ProseMirror strong']!,
+      // The text is characters, in the window's monospace, every one sent.
+      'textarea.dg-edit-text': { whiteSpace: 'pre-wrap' },
+    },
+  },
+  /*
+   * An insertion the agent sent empty: the tool's schema refuses the whole call, so the window blocks
+   * (`patch/empty-text`) and Approve is dead.
+   */
+  'linear-patch-empty-insert': {
+    destination: 'linear',
+    toolName: 'mcp__claude_ai_Linear__save_issue',
+    canonical: '',
+    context: { id: 'HELP-42' },
+    patch: [{ op: 'insert_after', anchor: 'Rollout plan', text: '' }],
+    counts: { edit: 1, editAnchor: 1, editText: 1, editPreview: 0, blockedBar: 1, approveDisabled: 1 },
+  },
+
+  /*
    * An empty prose field. Prose fields are unlabelled, so with `fields.summary: ""` the placeholder
    * is all that names it; one drawn in the value's own ink reads as the title the agent wrote. Two
    * properties apart, pinned on both halves of the pair.
@@ -2574,6 +2654,28 @@ async function gather(session: WKSession, scenario: Scenario, dir: string): Prom
       `${label}: the draft does not scroll sideways`,
       overflow.body === null ? 'no .dg-body' : `${overflow.body}px wider than its box`
     );
+  }
+
+  /*
+   * A patch's new text is sent character for character, so none of it may sit out of sight in a
+   * scrolling box. The control: the five-line edit's box is taller than the one-line edit's.
+   */
+  if (scenario.patch) {
+    const fit = await session.evaluate<ReturnType<Injected['editTextFit']>>(INJECTED.editTextFit);
+    check(fit.length === scenario.patch.length, `${label}: one text box per edit`, `${fit.length}`);
+    for (const [i, f] of fit.entries()) {
+      check(f.hidden <= 0, `${label}: edit ${i + 1}'s text is all in view`, `${f.hidden}px out of sight`);
+    }
+    // Only where the edits differ in length, or the comparison is true of nothing.
+    const tallest = fit.reduce((a, b) => (b.lines > a.lines ? b : a), fit[0]!);
+    const shortest = fit.reduce((a, b) => (b.lines < a.lines ? b : a), fit[0]!);
+    if (tallest.lines > shortest.lines) {
+      check(
+        tallest.height > shortest.height,
+        `${label}: a longer edit's box is taller`,
+        `${tallest.lines} lines in ${tallest.height}px, ${shortest.lines} in ${shortest.height}px`
+      );
+    }
   }
 
   if (scenario.gaps) {

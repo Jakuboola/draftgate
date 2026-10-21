@@ -98,9 +98,11 @@ Claude Code's `PreToolUse` adapter, wrapping the CLI as a subprocess.
   `sentBody`), cut to Claude Code's cap (`CONTEXT_MAX_CHARS`, `CONTEXT_MAX_LINES`) and saying so; a
   machine surface approved it and nobody read it; or nobody reviewed it (the two hatches above). It
   says what happened, never what to send next, and never that a person read what nobody did.
-- A delta body is refused by name: `DestinationProfile.deltaFields` is checked before the body, so a
-  patch still asks (`body/patch-unreadable`) even on a `bodyOptional` route such as Linear
-  `save_issue`. Do not concatenate the ops into a draft.
+- A delta is read before the body (`DestinationProfile.deltaFields`, `extractPatch`). One the
+  profile's grammar accounts for, every key of every operation, is reviewed edit by edit
+  (`round-trip.md`); anything else still asks (`body/patch-unreadable`, naming what could not be
+  shown), even on a `bodyOptional` route such as Linear `save_issue`, and so does a patch beside a
+  body. Do not concatenate the ops into a draft.
 
 ## Timeouts and registration
 

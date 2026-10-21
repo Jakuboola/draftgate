@@ -4,19 +4,21 @@
  */
 
 import {
-  render, renderPlain, renderNoBody, proseWarnings, isBlocking, isLengthRefusal, editorDocFor,
-  audienceFor, destinationLabelFor, ownAnswerFor,
+  render, renderPlain, renderNoBody, proseWarnings, patchWarnings, patchEditPath, isBlocking,
+  isLengthRefusal, editorDocFor, audienceFor, destinationLabelFor, ownAnswerFor, profiles,
   type AudienceFacts, type DestinationName, type TargetAnswer, type Warning,
 } from '../../core/src/index';
 import {
-  extractBody, extractContext, extractProse, buildUpdatedInput, wireBody, valueAtPath,
-  MissingBodyFieldError, BODY_FAILURES, readContext,
+  extractBody, extractContext, extractPatch, extractProse, buildUpdatedInput, wireBody, valueAtPath,
+  writePatchEdits, MissingBodyFieldError, BODY_FAILURES, readContext, type ReadPatch,
 } from './payload';
 // The line cap: its number is in `contract.json`, and it is enforced here, where lines are known.
 import { MAX_PROSE_LENGTH } from './surfaces/windowProtocol';
 import type { RouteFacts } from './routeFacts';
-import { reviewPlan, blockFieldOf, lineFieldsOf, type ReviewFieldValue } from './reviewPlan';
-import type { AuditRecord } from './audit';
+import {
+  reviewPlan, blockFieldOf, editFieldsOf, lineFieldsOf, type ReviewFieldValue,
+} from './reviewPlan';
+import type { AuditRecord, PatchAuditRow } from './audit';
 import {
   BLOCKED_AFTER_APPROVAL, CONTEXT_UNADDRESSABLE, REVIEW_CRASHED, SURFACE_STALE, SURFACE_UNAVAILABLE,
 } from './types';
@@ -207,7 +209,8 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
   // exists.
   const { context, unaddressable } = readContext(destination, toolInput, {
     contextFields,
-    editable: plan.map((f) => f.field),
+    // A delta field is shown as its edits, never as a read-only copy of the raw list.
+    editable: [...plan.map((f) => f.field), ...profiles[destination].deltaFields.map((d) => d.field)],
   });
   // The plan's line fields, one list for `extractProse` here and `extractBody` below.
   // `extractProse` keeps plan order and omits a field the payload does not carry: an empty box
@@ -223,6 +226,12 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
   let audience = askAudience();
   // One conditional at every exit, so an absent audience stays absent.
   const audienceRow = () => (audience ? { audience: audience.kind } : {});
+
+  /*
+   * A patch's edits once they are shown: a denial after the window (a rejection, a timeout) records
+   * what the reviewer read, as a body's `before` does. Empty until then, and for any other review.
+   */
+  let shownEdits: readonly (ReviewFieldValue & { kind: 'edit' })[] = [];
 
   // Every exit carries an audit record. `deny` builds the whole outcome from a `Denial`, so the
   // exit code, the denial and the log line cannot disagree.
@@ -247,6 +256,10 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
       // Absent on a rejection or a timeout, which are not kinds of brokenness (`AuditRecord.code`).
       ...(denial.code ? { code: denial.code } : {}),
       ...audienceRow(),
+      // As shown: a denial sends nothing, so there is no `after`.
+      ...(shownEdits.length > 0
+        ? { patch: shownEdits.map((f) => patchRow({ ...f, sent: f.value })) }
+        : {}),
     },
   });
 
@@ -255,8 +268,13 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
   // failure: a title-only `issue_write` or a `create_pull_request` with no description has a
   // message and no draft, so there is no render of a body, no `before` and no body written back.
   let canonical: string | undefined;
+  // A delta draftgate can show: its edits stand in place of the body (`extractPatch`).
+  let patch: ReadPatch | undefined;
   try {
-    canonical = extractBody(destination, toolInput, bodyField, lineFields, contextFields);
+    patch = extractPatch(destination, toolInput, bodyField);
+    if (patch === undefined) {
+      canonical = extractBody(destination, toolInput, bodyField, lineFields, contextFields);
+    }
   } catch (e) {
     // Anything but a body failure is the gate breaking. Read as `unrecognised` it would become
     // `bodyOptional`'s allow; rethrown, it is `runReview`'s crash row, which asks.
@@ -293,9 +311,28 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
   // `format: 'absent'` stops `buildUpdatedInput` writing a body beside prose edits.
   const rendered = canonical === undefined ? renderNoBody(destination) : renderFor(canonical);
 
+  /**
+   * The patch's edits as fields, one per operation in the order the destination applies them, each
+   * at the path its text is written back to. Their value is the agent's text.
+   */
+  const edits: (ReviewFieldValue & { kind: 'edit' })[] =
+    patch === undefined
+      ? []
+      : patch.edits.map(({ edit, text }) => ({
+          field: patchEditPath(patch.delta, edit.index, edit.textKey),
+          kind: 'edit' as const,
+          edit,
+          value: text,
+        }));
+  shownEdits = edits;
+
   // The codes as first rendered: the verdict on the agent's draft, not what the reviewer saw (that
   // is these minus `silenced`). Every denial carries them too; `audit.ts` says why they are stored.
-  const warnings = rendered.warnings.map((w) => w.code);
+  // A patch's own codes join them: they are the verdict on the agent's edits.
+  const warnings = [
+    ...rendered.warnings,
+    ...patchWarnings(edits),
+  ].map((w) => w.code);
 
   /**
    * What the reviewer is shown: the plan's fields with this payload's values, lines then block
@@ -306,6 +343,8 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
     ...prose.map((p) => ({ field: p.field, kind: 'line' as const, value: p.value })),
     // No block when the payload carried no body, as for lines: the window reads it as "no draft".
     ...(block === undefined || canonical === undefined ? [] : [{ ...block, value: canonical }]),
+    // A patch has no body; its edits stand where the body would be.
+    ...edits,
   ];
 
   const request: ReviewRequest = {
@@ -426,6 +465,9 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
    */
   const lineEdits = lineFieldsOf(sending).filter((f) => f.sent !== f.value);
   const proseEdits = Object.fromEntries(lineEdits.map((f) => [f.field, f.sent]));
+  // Every edit of a patch, with what is sent for it; the changed ones are a person's edit.
+  const patchSending = editFieldsOf(sending);
+  const textEdits = patchSending.filter((f) => f.sent !== f.value);
 
   // The body the reviewer was shown, edited or not, never `canonical` (round-trip.md). `undefined`
   // when the review had no body.
@@ -438,7 +480,7 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
    * edit is OR-ed in, since a surface may report `edited` about the body alone.
    */
   const bodyDiffers = finalBody !== undefined && finalBody !== canonical;
-  const edited = (decision.edited ?? bodyDiffers) || lineEdits.length > 0;
+  const edited = (decision.edited ?? bodyDiffers) || lineEdits.length > 0 || textEdits.length > 0;
   // The body a person changed, by the surface's own word where it gives one: `edited` cannot say,
   // since it counts a changed line too, and a body the editor only reformatted differs as well.
   const bodyEdited = (decision.bodyEdited ?? bodyDiffers) && bodyDiffers;
@@ -451,11 +493,15 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
    * to overrule. PROBED: Jira answers 400 to both `""` and `"   "` on `fields.summary`, writing
    * nothing, so the body is lost too.
    */
-  const proseErrors = proseWarnings(
-    lineFieldsOf(sending).map((f) => ({ field: f.field, value: f.sent })),
-    destination,
-    toolName
-  ).filter(isBlocking);
+  const proseErrors = [
+    ...proseWarnings(
+      lineFieldsOf(sending).map((f) => ({ field: f.field, value: f.sent })),
+      destination,
+      toolName
+    ),
+    // The window blocks an emptied insertion too; the tool's schema refuses the whole call.
+    ...patchWarnings(patchSending.map((f) => ({ ...f, value: f.sent }))),
+  ].filter(isBlocking);
   if (proseErrors.length > 0) {
     return deny(
       proseErrors.every((w) => w.code === 'prose/empty')
@@ -495,7 +541,8 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
       ? {
           sent: {
             ...(bodyEdited ? { body: finalBody } : {}),
-            lines: lineEdits.map((f) => ({ field: f.field, value: f.sent })),
+            // A changed edit is reported as its path and text, as a line is.
+            lines: [...lineEdits, ...textEdits].map((f) => ({ field: f.field, value: f.sent })),
           },
         }
       : {}),
@@ -503,7 +550,10 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
       // The render of the body being sent: it knows whether that body was converted and what is
       // stamped beside it.
       finalRender,
-      toolInput,
+      // The patch with the reviewer's text in it, when this was one: same operations, same order.
+      patch === undefined
+        ? toolInput
+        : writePatchEdits(toolInput, patch.delta, textEdits.map((f) => ({ edit: f.edit, sent: f.sent }))),
       // `undefined` with no body, spelled only here: `buildUpdatedInput` then writes neither the
       // field nor `extraToolInput`.
       finalBody === undefined ? undefined : wireBody(finalRender, finalRender.converted),
@@ -531,8 +581,22 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
       ...(lineEdits.length > 0
         ? { prose: lineEdits.map((f) => ({ field: f.field, before: f.value, after: f.sent })) }
         : {}),
+      // A reviewed patch: every edit, as shown and as sent (`AuditRecord.patch`).
+      ...(patchSending.length > 0 ? { patch: patchSending.map(patchRow) } : {}),
       ...(surfaceName ? { surface: surfaceName } : {}),
     } satisfies AuditRecord,
+  };
+}
+
+/** One edit of the patch as the log keeps it (`AuditRecord.patch`). */
+function patchRow(f: ReviewFieldValue & { kind: 'edit'; sent: string }): PatchAuditRow {
+  return {
+    field: f.field,
+    op: f.edit.op,
+    anchors: Object.fromEntries(f.edit.anchors.map((a) => [a.key, a.value])),
+    ...(f.edit.flags.length > 0 ? { flags: f.edit.flags } : {}),
+    before: f.value,
+    ...(f.sent === f.value ? {} : { after: f.sent }),
   };
 }
 
@@ -553,9 +617,9 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
  *   body/preformatted       a string in the destination's own format (Jira's
  *                           `contentFormat: "adf"`). As markdown it would show raw JSON, then wrap
  *                           it in a new ADF document. Asks.
- *   body/patch-unreadable   a delta instead of a body (Linear's `patch`) against content draftgate,
- *                           holding no credentials, cannot read. Asks; the code gives the agent,
- *                           the log's `reason` and the digest the true cause.
+ *   body/patch-unreadable   a delta instead of a body (Linear's `patch`) whose edits the window
+ *                           cannot show (`extractPatch`; one it can show is reviewed). Asks; the
+ *                           code gives the agent, the log's `reason` and the digest the true cause.
  *   body/nested-prose       absent, and undeclared prose sits inside a structured field. Asks.
  */
 function missingBodyDenial(destination: string, error: Error): Denial {
@@ -677,6 +741,7 @@ function listed(errors: { code: string; message: string }[]): string {
 function refusalRemedy({ code }: Pick<Warning, 'code'>): string {
   if (code === 'prose/line-break') return 'Put the field on one line.';
   if (code === 'prose/empty') return 'Omit a field you do not mean to change, or give it a value.';
+  if (code === 'patch/empty-text') return 'Give every insertion some text.';
   if (code === 'prose/too-long' || isLengthRefusal({ code })) {
     return 'Shorten it, or ask the user how to split it.';
   }

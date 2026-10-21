@@ -6,7 +6,9 @@
  * checked against the payload here rather than assumed.
  */
 
-import { profiles, type DestinationName, type RenderResult } from '../../core/src/index';
+import {
+  profiles, readPatch, type DeltaField, type DestinationName, type PatchEdit, type RenderResult,
+} from '../../core/src/index';
 import { isPlainObject } from './json';
 
 /**
@@ -156,19 +158,55 @@ function preformattedBy(
 }
 
 /**
- * The payload carries a delta against content that lives at the destination. Linear's `patch` is
- * the case: edit operations applied server-side in place of the whole `description`. draftgate holds
- * no credentials and never calls the destination, so there is no body to review.
- *
- * Read off the profile's `deltaFields` (`[]` where there is none). Presence is the test, not shape:
- * judging whether the operations look like a patch would guess at a schema draftgate does not own.
- * Returns the field that carried it.
+ * The payload carries a delta against content that lives at the destination: edit operations
+ * applied server-side in place of the whole body (Linear's `patch`). Read off the profile's
+ * `deltaFields` (`[]` where there is none). Presence decides that this is a delta; the grammar then
+ * decides whether draftgate can show it (`extractPatch`).
  */
 function deltaBy(
   destination: DestinationName,
   toolInput: Record<string, unknown>
-): string | undefined {
-  return profiles[destination].deltaFields.find((field) => Object.hasOwn(toolInput, field));
+): DeltaField | undefined {
+  return profiles[destination].deltaFields.find((d) => Object.hasOwn(toolInput, d.field));
+}
+
+/** A delta draftgate can show: the field it came from and every operation, in order. */
+export interface ReadPatch {
+  delta: DeltaField;
+  edits: { edit: PatchEdit; text: string }[];
+}
+
+/**
+ * The payload's edit operations, `undefined` when it carries no delta, or a `delta` failure naming
+ * what could not be shown. Before the body is looked for: a delta stands in place of the body.
+ *
+ * A payload carrying both the delta and the route's body field is refused. Linear's schema says
+ * `patch` stands "in place of the full content/description field" but does not make the two
+ * exclusive, and which one wins is not probed; reviewing either could show what the send does not
+ * apply.
+ */
+export function extractPatch(
+  destination: DestinationName,
+  toolInput: Record<string, unknown>,
+  bodyField?: string
+): ReadPatch | undefined {
+  const delta = deltaBy(destination, toolInput);
+  if (delta === undefined) return undefined;
+  const field = bodyFieldFor(destination, bodyField);
+  const refuse = (why: string) =>
+    new MissingBodyFieldError(destination, field, Object.keys(toolInput), {
+      failure: 'delta',
+      field: delta.field,
+      why,
+    });
+  if (readPath(toolInput, field).present) {
+    throw refuse(
+      `it also carries a whole "${field}", and which of the two ${destination} applies is not known`
+    );
+  }
+  const read = readPatch(delta, toolInput[delta.field]);
+  if (!read.ok) throw refuse(read.why);
+  return { delta, edits: read.edits };
 }
 
 /**
@@ -178,7 +216,7 @@ function deltaBy(
 export type BodyFailureDetail =
   | { failure: 'drift'; field: string }
   | { failure: 'preformatted'; field: string }
-  | { failure: 'delta'; field: string }
+  | { failure: 'delta'; field: string; why: string }
   | { failure: 'nested'; field: string }
   | { failure: 'wrong-type' }
   | { failure: 'unrecognised' };
@@ -247,20 +285,18 @@ export const BODY_FAILURES = {
   delta: {
     code: 'body/patch-unreadable',
     // No concatenation of the ops is the message, so logging one would record a document that never
-    // existed.
+    // existed. A patch draftgate CAN show is reviewed, and its row records every edit
+    // (`AuditRecord.patch`); this row is the one it could not.
     logs: 'nothing',
-    // Like `preformatted`: what can change is what the agent sends ("send the whole description"),
-    // not the tool map.
+    // Like `preformatted`: what can change is what the agent sends, not the tool map.
     guidance:
-      'Nothing is wrong with the payload or with the message, and nothing needs rewriting. ' +
-      'draftgate reviews a whole message and cannot read the content your edits apply to, so it ' +
-      'could not show this draft to a human. If you want it reviewed, send the full new text of ' +
-      'the field instead of a patch.',
-    describe: (d: string, f: string, keys: string, named?: string) =>
+      'Nothing is wrong with the message, and nothing needs rewriting. draftgate reviews the edits ' +
+      'in a patch, but could not show these (the reason above names what), so no human saw them. ' +
+      'If you want it reviewed, send the full new text of the field instead of a patch.',
+    describe: (d: string, f: string, keys: string, named?: string, why?: string) =>
       `Payload for "${d}" carries "${named}" rather than a whole "${f}": a list of edits ` +
-      `applied to content that already lives in ${d}. draftgate holds no ${d} credentials and ` +
-      `never calls ${d}, so it cannot read that content -- there is no draft to show a ` +
-      `reviewer. Present keys: ${keys}.`,
+      `applied to content that already lives in ${d}, which draftgate cannot read. It could not ` +
+      `show the edits themselves either: ${why}. Present keys: ${keys}.`,
   },
   nested: {
     code: 'body/nested-prose',
@@ -298,7 +334,8 @@ export class MissingBodyFieldError extends Error {
         destination,
         bodyField,
         presentKeys.join(', ') || '(none)',
-        'field' in detail ? detail.field : undefined
+        'field' in detail ? detail.field : undefined,
+        'why' in detail ? detail.why : undefined
       )
     );
     this.name = 'MissingBodyFieldError';
@@ -481,18 +518,13 @@ export function extractBody(
 ): string | undefined {
   const field = bodyFieldFor(destination, bodyField);
 
-  /*
-   * First, before the body is looked for. Linear's schema says `patch` stands "in place of the full
-   * content/description field" but does not make the two exclusive, and which wins when both are
-   * sent is not probed; reviewing the `description` could show a body the send does not apply. So a
-   * payload carrying both asks. It also outranks `wrong-type` and `unrecognised`, which are guesses
-   * where this is stated.
-   */
-  const deltaField = deltaBy(destination, toolInput);
-  if (deltaField !== undefined) {
+  // A delta is not a body. `review.ts` reads it first (`extractPatch`); a caller that reaches here
+  // with one gets the same refusal or, for a patch it could show, a refusal saying to read it as one.
+  if (extractPatch(destination, toolInput, bodyField) !== undefined) {
     throw new MissingBodyFieldError(destination, field, Object.keys(toolInput), {
       failure: 'delta',
-      field: deltaField,
+      field: deltaBy(destination, toolInput)!.field,
+      why: 'it is a list of edits, reviewed as edits and not as a body',
     });
   }
 
@@ -751,6 +783,23 @@ export function buildUpdatedInput(
     ...writeBodyPath(withProse, parseBodyPath(bodyFieldFor(destination, bodyField)), body),
     ...render.extraToolInput,
   };
+}
+
+/**
+ * The payload with the reviewer's text written into its edit operations: the same list, with the
+ * same operations, anchors and order, each changed text in place. Only the changed operations are
+ * rebuilt, so nothing the reviewer was not shown can move. `edits` is what `extractPatch` read, so
+ * every index exists and holds an object.
+ */
+export function writePatchEdits(
+  toolInput: Record<string, unknown>,
+  delta: Pick<DeltaField, 'field'>,
+  edits: readonly { edit: Pick<PatchEdit, 'index' | 'textKey'>; sent: string }[]
+): Record<string, unknown> {
+  if (edits.length === 0) return toolInput;
+  const ops = [...(toolInput[delta.field] as Record<string, unknown>[])];
+  for (const { edit, sent } of edits) ops[edit.index] = { ...ops[edit.index], [edit.textKey]: sent };
+  return { ...toolInput, [delta.field]: ops };
 }
 
 /**

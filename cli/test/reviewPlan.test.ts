@@ -3,6 +3,8 @@
 import { describe, expect, test } from 'bun:test';
 import { profiles, type DestinationName } from '../../core/src/index';
 import { blockFieldOf, lineFieldsOf, reviewPlan } from '../src/reviewPlan';
+import { MAX_DECISION_FIELDS } from '../src/surfaces/windowProtocol';
+import { DEFAULT_TOOL_MAP } from '../../adapters/hook/src/toolMap';
 
 const DESTINATIONS: DestinationName[] = ['jira', 'slack', 'linear', 'github'];
 
@@ -85,5 +87,22 @@ describe('the order is the reading order', () => {
         expect(block).toBe(plan.length - 1);
       }
     }
+  });
+});
+
+describe('the decision cap', () => {
+  /*
+   * A patch reports one field per edit beside its lines, so the cap must clear the largest patch a
+   * profile accepts plus the most lines any default route shows, and its body. Below it,
+   * `parseFields` refuses the whole decision of a full patch.
+   */
+  test('clears the largest patch plus the longest default route', () => {
+    const maxOps = Math.max(
+      0,
+      ...DESTINATIONS.flatMap((d) => profiles[d].deltaFields.map((delta) => delta.maxOps))
+    );
+    const maxLines = Math.max(...Object.values(DEFAULT_TOOL_MAP).map((r) => (r.proseFields ?? []).length));
+    expect(maxOps).toBeGreaterThan(0);
+    expect(MAX_DECISION_FIELDS).toBeGreaterThanOrEqual(maxOps + maxLines + 1);
   });
 });

@@ -8,6 +8,7 @@ export {
 export { showLineBreaks, hideLineBreaks, type LineBreakFact, type LineBreakFate } from './lineCharacters';
 export {
   blockFieldOf,
+  editFieldsOf,
   isBlockField,
   lineFieldsOf,
   reviewFieldsComplaint,
@@ -15,6 +16,15 @@ export {
   type ReviewFieldKind,
   type ReviewFieldValue,
 } from './reviewFields';
+export {
+  readPatch,
+  patchWarnings,
+  patchEditPath,
+  type DeltaField,
+  type PatchEdit,
+  type PatchOpGrammar,
+  type PatchRead,
+} from './patch';
 export {
   profiles,
   isKnownDestination,

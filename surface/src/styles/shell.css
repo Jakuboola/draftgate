@@ -949,6 +949,93 @@ body {
 /* The same ring `.dg-warn-fix` and `.dg-img-load` use, so focus looks like one thing everywhere. */
 .dg-prose-field:focus-visible { outline: 2px solid var(--dg-accent); outline-offset: -1px; }
 
+/*
+ * A patch, edit by edit (`PatchEdits.tsx`). Each edit is a card in the compose frame's border, radius
+ * and fill: it is part of the message. The anchors are read-only characters, so `--dg-mono` on the
+ * diff panel's ground, never the destination's face; the new text is a `.dg-plain-body`-style
+ * textarea for the same reason (every character is sent), and the preview below it is a
+ * `.ProseMirror`, so the destination sheet draws it.
+ */
+.dg-edits {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dg-edit {
+  border: 1px solid var(--dg-frame);
+  border-radius: var(--dg-frame-radius);
+  background: var(--dg-frame-bg);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dg-edit-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font: 500 12px/1.4 var(--dg-sans);
+  color: var(--dg-ink);
+}
+
+.dg-edit-n { color: var(--dg-ink-quiet); font-variant-numeric: tabular-nums; }
+
+/* A flag changes what the edit does (`every occurrence`), so it reads as a chip, not as prose. */
+.dg-edit-flag {
+  padding: 0 6px;
+  border-radius: var(--dg-frame-radius);
+  background: var(--dg-warn-bg);
+  color: var(--dg-ink);
+  font-weight: 400;
+}
+
+.dg-edit-anchor { display: flex; flex-direction: column; gap: 2px; }
+
+.dg-edit-anchor-label,
+.dg-edit-preview-label { font: 400 11px/1.4 var(--dg-sans); color: var(--dg-ink-quiet); }
+
+.dg-edit-anchor-text {
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: var(--dg-frame-radius);
+  background: var(--dg-diff-bg);
+  color: var(--dg-ink);
+  font: 400 12px/1.5 var(--dg-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A deletion: the text it matches is what goes, so it is drawn as removed. */
+.dg-edit[data-deletes="true"] .dg-edit-anchor-text {
+  background: var(--dg-diff-removed-bg);
+  text-decoration: line-through;
+}
+
+.dg-edit-note { margin: 0; font: 400 11px/1.5 var(--dg-sans); color: var(--dg-ink-quiet); }
+
+.dg-edit-text {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  /* Grown to its text by `PatchEdits.tsx`; no inner scroll, so no character is out of sight. */
+  min-height: 32px;
+  overflow: hidden;
+  resize: none;
+  padding: 4px 8px;
+  border: 1px solid var(--dg-frame);
+  border-radius: var(--dg-frame-radius);
+  background: var(--dg-diff-added-bg);
+  color: var(--dg-ink);
+  font: 400 12px/1.5 var(--dg-mono);
+}
+
+.dg-edit-text::placeholder { color: var(--dg-ink-quiet); }
+.dg-edit-text:focus-visible { outline: 2px solid var(--dg-accent); outline-offset: -1px; }
+
+.dg-edit-preview { padding-top: 2px; }
+
 /* The destination mark. `display: block` so the header's flex row aligns the SVG box itself rather
    than sitting it on a text baseline, and `flex: none` so it never shrinks when the header is
    crowded -- a squashed logo is worse than a wrapped tool name. */

@@ -820,82 +820,219 @@ describe('a body that is already in the destination format', () => {
 });
 
 /**
- * A Linear call that carries a delta instead of a body, through the whole gate: the denial the CLI
- * writes (whose `code` the adapter branches on) and no surface opened. The failure tag alone would
- * prove `extractBody` sets it, not that anything reads it.
+ * A Linear call that carries a delta instead of a body, through the whole gate. A patch draftgate can
+ * show is reviewed edit by edit, and what is sent is the same patch with the reviewer's text in it;
+ * one it cannot show asks, by its own code (which the adapter branches on), naming what it could not
+ * show.
  */
 describe('a payload that carries a patch rather than a body', () => {
+  // The live `save_issue` schema's operations, one of each.
   const PATCH = [
     { op: 'replace', old_string: 'Tuesday', new_string: 'Thursday' },
+    { op: 'replace', old_string: 'TODO', new_string: '', replace_all: true },
+    { op: 'insert_before', anchor: '## Risks', text: '## Owner\n\nAda\n\n' },
+    { op: 'insert_after', anchor: 'Rollout plan', text: ' (draft)' },
+    { op: 'prepend', text: '> Superseded by the next issue.\n\n' },
     { op: 'append', text: '\n\nSee the thread for the rollout plan.' },
+    { op: 'replace_range', from: '## Old notes', to: '## Risks', new_string: '' },
+  ];
+  const INPUT = { id: 'HELP-42', title: 'Rollout', patch: PATCH };
+  // Each operation's text, in order: what the reviewer is shown and may edit.
+  const TEXTS = [
+    'Thursday', '', '## Owner\n\nAda\n\n', ' (draft)', '> Superseded by the next issue.\n\n',
+    '\n\nSee the thread for the rollout plan.', '',
   ];
 
   /** The whole gate over `save_issue`-shaped input. `seen` records what the surface was shown. */
-  const patched = (extra: Record<string, unknown> = {}) => {
-    const { surface, seen } = stub({ action: 'approve' as const });
+  const patched = (
+    toolInput: Record<string, unknown> = INPUT,
+    decision: Decision | ((r: ReviewRequest) => Decision) = approvesUnchanged
+  ) => {
+    const { surface, seen } = stub(decision);
     return {
       seen,
       outcome: runReview({
         destination: 'linear',
-        toolInput: { id: 'HELP-42', patch: PATCH, ...extra },
-        toolName: 'save_issue',
+        toolInput,
+        toolName: 'mcp__claude_ai_Linear__save_issue',
         bodyField: 'description',
+        proseFields: ['title'],
         surface,
       }),
     };
   };
 
-  test('is never sent, and is denied by its own name rather than as an unreadable payload', async () => {
-    const out = await patched().outcome;
-    expect(out.exitCode).toBe(1);
-    expect(out.updatedInput).toBeUndefined();
-    expect(out.denial?.code).toBe('body/patch-unreadable');
-    // Nobody objected to this message; the gate could not be applied to it.
-    expect(out.denial?.outcome).toBe('unavailable');
+  /** Approve, with these edits' text replaced, by path; every other shown field as shown. */
+  const editing = (changes: Record<string, string>) => (r: ReviewRequest): Decision => ({
+    action: 'approve',
+    fields: { ...reportsShown(r), ...changes },
   });
 
-  test('no surface is opened, because there is no draft to put in one', async () => {
+  test('opens the window with one edit field per operation, in order, at the path it is written to', async () => {
     const r = patched();
     await r.outcome;
-    expect(r.seen).toHaveLength(0);
+    expect(r.seen).toHaveLength(1);
+    const fields = r.seen[0]!.fields;
+    // The title first (a line), then every edit; no body.
+    expect(fields.map((f) => [f.field, f.kind])).toEqual([
+      ['title', 'line'],
+      ['patch.0.new_string', 'edit'],
+      ['patch.1.new_string', 'edit'],
+      ['patch.2.text', 'edit'],
+      ['patch.3.text', 'edit'],
+      ['patch.4.text', 'edit'],
+      ['patch.5.text', 'edit'],
+      ['patch.6.new_string', 'edit'],
+    ]);
+    // Each carries what it applies at, read-only, and its value is the agent's text.
+    const edits = fields.filter((f) => f.kind === 'edit');
+    expect(edits.map((f) => f.value)).toEqual(TEXTS);
+    const range = edits[6]!;
+    if (range.kind !== 'edit') throw new Error('unreachable');
+    expect(range.edit.anchors.map((a) => [a.key, a.value])).toEqual([
+      ['from', '## Old notes'],
+      ['to', '## Risks'],
+    ]);
+    // What the window cannot see is said, from the profile.
+    expect(range.edit.note).toContain('cannot see');
+    const all = edits[1]!;
+    if (all.kind !== 'edit') throw new Error('unreachable');
+    expect(all.edit.flags).toEqual(['every occurrence']);
+    // The raw list is not drawn again as routing.
+    expect(r.seen[0]!.context).toEqual({ id: 'HELP-42' });
   });
 
-  test('the denial names the patch and diagnoses neither a misroute nor a missing field', async () => {
+  test('approved unchanged, the tool receives the agent\'s patch exactly', async () => {
     const out = await patched().outcome;
-    expect(out.denial?.reason).toContain('"patch"');
-    // The two wrong diagnoses: each sends the reader to a file with nothing wrong in it.
-    expect(out.denial?.reason).not.toContain('check the tool map');
-    expect(out.denial?.guidance).not.toContain('destination profile');
-    // And the one thing the agent can actually do instead.
-    expect(out.denial?.guidance).toContain('full new text');
+    expect(out.exitCode).toBe(0);
+    expect(out.updatedInput).toEqual(INPUT);
+    expect(out.edited).toBe(false);
+    expect(out.sent).toBeUndefined();
   });
 
-  test('the audit row carries the CAUSE, so the digest can tell it from a broken window', async () => {
-    // Without the code, every `unavailable` review lands in one `broken` bucket. Asserted on the
-    // audit row, not the denial: the row is what outlives the review.
-    const out = await patched().outcome;
-    expect(out.audit.code).toBe('body/patch-unreadable');
-    expect(out.audit.code).toBe(out.denial?.code);
+  test('an edited text reaches the tool\'s patch at its operation, and nothing else moves', async () => {
+    const out = await patched(INPUT, editing({ 'patch.3.text': ' (final)', 'patch.0.new_string': 'Friday' })).outcome;
+    expect(out.exitCode).toBe(0);
+    const sent = out.updatedInput!.patch as Record<string, unknown>[];
+    // Same operations, anchors and order; only the two texts differ.
+    expect(sent).toEqual([
+      { op: 'replace', old_string: 'Tuesday', new_string: 'Friday' },
+      PATCH[1],
+      PATCH[2],
+      { op: 'insert_after', anchor: 'Rollout plan', text: ' (final)' },
+      PATCH[4],
+      PATCH[5],
+      PATCH[6],
+    ]);
+    // The agent's input is not mutated in place.
+    expect(PATCH[0]).toEqual({ op: 'replace', old_string: 'Tuesday', new_string: 'Thursday' });
+    expect(out.updatedInput!.title).toBe('Rollout');
+    expect(out.edited).toBe(true);
+    // The agent is told what the person changed, by path.
+    expect(out.sent?.lines).toEqual([
+      { field: 'patch.0.new_string', value: 'Friday' },
+      { field: 'patch.3.text', value: ' (final)' },
+    ]);
   });
 
-  test('the audit row quotes nothing, because no concatenation of the ops is the message', async () => {
-    const out = await patched().outcome;
-    expect(out.audit.outcome).toBe('unavailable');
-    // A join of `new_string` / `text` would log a document that never existed. The row still counts.
-    expect(out.audit.before).toBe('');
-    expect(out.audit.context).toEqual({ id: 'HELP-42' });
+  test('a replacement emptied by the reviewer is a deletion, and is sent', async () => {
+    const out = await patched(INPUT, editing({ 'patch.0.new_string': '' })).outcome;
+    expect(out.exitCode).toBe(0);
+    expect((out.updatedInput!.patch as Record<string, unknown>[])[0]).toEqual({
+      op: 'replace', old_string: 'Tuesday', new_string: '',
+    });
   });
 
-  /*
-   * Both fields present, which the live schema permits: `patch` stands "in place of the full
-   * content/description field", but the two are not marked mutually exclusive and which wins is
-   * not probed.
-   */
-  test('a payload carrying both a patch and a description is still refused', async () => {
-    const out = await patched({ description: 'The rollout is on Tuesday.' }).outcome;
-    expect(out.denial?.code).toBe('body/patch-unreadable');
+  test('an insertion emptied by the reviewer is refused, since the tool refuses the whole call', async () => {
+    const out = await patched(INPUT, editing({ 'patch.3.text': '' })).outcome;
+    expect(out.exitCode).toBe(1);
     expect(out.updatedInput).toBeUndefined();
+    expect(out.denial?.outcome).toBe('rejected');
+    expect(out.denial?.reason).toContain('patch/empty-text');
+    expect(out.denial?.reason).toContain('Edit 4');
   });
+
+  test('the log records every edit, as shown and as sent', async () => {
+    const out = await patched(INPUT, editing({ 'patch.3.text': ' (final)' })).outcome;
+    // No body, so no body halves.
+    expect('before' in out.audit).toBe(false);
+    expect('after' in out.audit).toBe(false);
+    expect(out.audit.patch).toHaveLength(PATCH.length);
+    expect(out.audit.patch![1]).toEqual({
+      field: 'patch.1.new_string',
+      op: 'replace',
+      anchors: { old_string: 'TODO' },
+      flags: ['every occurrence'],
+      before: '',
+    });
+    expect(out.audit.patch![3]).toEqual({
+      field: 'patch.3.text',
+      op: 'insert_after',
+      anchors: { anchor: 'Rollout plan' },
+      before: ' (draft)',
+      after: ' (final)',
+    });
+    expect(out.audit.edited).toBe(true);
+  });
+
+  test('a rejection sends nothing, and the log records the edits the reviewer read', async () => {
+    const out = await patched(INPUT, { action: 'reject', reason: 'wrong issue' }).outcome;
+    expect(out.exitCode).toBe(1);
+    expect(out.updatedInput).toBeUndefined();
+    expect(out.denial?.outcome).toBe('rejected');
+    expect(out.audit.patch?.map((r) => r.before)).toEqual(TEXTS);
+    expect(out.audit.patch?.some((r) => 'after' in r)).toBe(false);
+  });
+
+  /** A patch the window cannot show asks, and the reason names what it could not show. */
+  const unreadable: [string, Record<string, unknown>, string][] = [
+    ['an operation the grammar does not name', { id: 'HELP-42', patch: [{ op: 'rewrite', text: 'x' }] }, '"rewrite"'],
+    [
+      'a key an operation does not declare',
+      { id: 'HELP-42', patch: [{ op: 'append', text: 'x', position: 3 }] },
+      '"position"',
+    ],
+    ['a text that is not a string', { id: 'HELP-42', patch: [{ op: 'append', text: 7 }] }, '"text"'],
+    ['an anchor with no text', { id: 'HELP-42', patch: [{ op: 'insert_after', anchor: '', text: 'x' }] }, '"anchor"'],
+    ['a flag that is not a boolean', { id: 'HELP-42', patch: [{ ...PATCH[1], replace_all: 'yes' }] }, '"replace_all"'],
+    ['an empty list', { id: 'HELP-42', patch: [] }, 'not a list of edits'],
+    ['not a list', { id: 'HELP-42', patch: { op: 'append', text: 'x' } }, 'not a list of edits'],
+    ['an entry that is not an object', { id: 'HELP-42', patch: ['append x'] }, 'edit 1 is not an object'],
+    [
+      'more operations than the tool accepts',
+      { id: 'HELP-42', patch: Array.from({ length: 51 }, () => ({ op: 'append', text: 'x' })) },
+      'more than the 50',
+    ],
+    /*
+     * Both fields present, which the live schema permits: `patch` stands "in place of the full
+     * content/description field", but the two are not marked mutually exclusive and which wins is
+     * not probed.
+     */
+    ['a description beside it', { ...INPUT, description: 'The rollout is on Tuesday.' }, '"description"'],
+  ];
+
+  for (const [name, toolInput, named] of unreadable) {
+    test(`${name}: asks, opens no window, and names it`, async () => {
+      const r = patched(toolInput);
+      const out = await r.outcome;
+      expect(r.seen).toHaveLength(0);
+      expect(out.updatedInput).toBeUndefined();
+      expect(out.denial?.code).toBe('body/patch-unreadable');
+      // Nobody objected to this message; the gate could not be applied to it.
+      expect(out.denial?.outcome).toBe('unavailable');
+      expect(out.denial?.reason).toContain('"patch"');
+      expect(out.denial?.reason).toContain(named);
+      // The two wrong diagnoses: each sends the reader to a file with nothing wrong in it.
+      expect(out.denial?.reason).not.toContain('check the tool map');
+      expect(out.denial?.guidance).not.toContain('destination profile');
+      // And the one thing the agent can actually do instead.
+      expect(out.denial?.guidance).toContain('full new text');
+      // The row carries the cause, and quotes nothing: no concatenation of the ops is the message.
+      expect(out.audit.code).toBe('body/patch-unreadable');
+      expect(out.audit.before).toBe('');
+      expect(out.audit.patch).toBeUndefined();
+    });
+  }
 
   /*
    * The mirror: the check is a profile field, not a test for the word `patch`. Jira's `deltaFields`

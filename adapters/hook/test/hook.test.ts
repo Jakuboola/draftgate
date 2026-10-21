@@ -1450,6 +1450,25 @@ describe('end to end through a REAL CLI subprocess', () => {
       expect(lastAudit().code).toBe('body/patch-unreadable');
     });
 
+    test('a patch the window can show is reviewed and sent whole, not asked about', () => {
+      const patch = [
+        { op: 'replace', old_string: 'Tuesday', new_string: 'Thursday' },
+        { op: 'append', text: '\n\nSee the thread.' },
+      ];
+      const r = runHook(
+        hookPayload('mcp__claude_ai_Linear__save_issue', { id: 'HELP-42', patch }),
+        'auto-approve'
+      );
+      const d = decisionOf(r);
+      expect(d.permissionDecision).toBe('allow');
+      // Complete, and the patch exactly as the surface approved it.
+      expect(d.updatedInput).toEqual({ id: 'HELP-42', patch });
+      const row = lastAudit();
+      expect(row.outcome).toBe('approved');
+      expect(row.code).toBeUndefined();
+      expect(row.patch.map((e: { field: string }) => e.field)).toEqual(['patch.0.new_string', 'patch.1.text']);
+    });
+
     test('junk nested past any schema is not a way back to the bodyOptional allow', () => {
       // A recursive scan would overflow (`payload.ts`'s is iterative and depth-capped), and a
       // RangeError read as `unrecognised` would let `bodyOptional` allow the text beside it.
@@ -1907,9 +1926,10 @@ describe('the fail-open is for schema drift, and nothing else', () => {
     );
   });
 
-  test('the patch ask blames neither the tool map nor the window', async () => {
+  test('the patch ask blames neither the tool map nor the window, and names what it could not show', async () => {
     // `body/unrecognised`'s row says to check `tools.json` and the body field: a wrong diagnosis for
-    // a patch, whose map is fine and whose text is in Linear.
+    // a patch, whose map is fine and whose text is in Linear. A patch the window can show never
+    // reaches here; this one carries an operation it cannot.
     const h = withReview({
       exitCode: 1,
       denial: {
@@ -1917,7 +1937,9 @@ describe('the fail-open is for schema drift, and nothing else', () => {
         code: 'body/patch-unreadable',
         reason:
           'Payload for "linear" carries "patch" rather than a whole "description": a list of ' +
-          'edits applied to content that already lives in linear.',
+          'edits applied to content that already lives in linear, which draftgate cannot read. It ' +
+          'could not show the edits themselves either: edit 1 has op "rewrite", which draftgate ' +
+          'cannot show. Present keys: id, patch.',
         guidance: 'send the full new text of the field instead of a patch.',
       },
     });
@@ -1925,11 +1947,14 @@ describe('the fail-open is for schema drift, and nothing else', () => {
     expect(d.permissionDecision).toBe('ask');
     // Never a send: nobody saw this.
     expect('updatedInput' in d).toBe(false);
-    // The person reads one line, and none of the three wrong diagnoses.
+    // The person reads the headline and why, and none of the three wrong diagnoses.
     const { prompt, agent } = askReaders(d);
-    expect(prompt).toEqual([
-      'draftgate: not reviewed -- a Jira patch, no whole message to show. Approving sends it as written.',
-    ]);
+    expect(prompt[0]).toBe(
+      'draftgate: not reviewed -- a Jira patch whose edits draftgate cannot show. Approving sends it as written.'
+    );
+    expect(prompt.slice(1).join('\n')).toContain('edit 1 has op "rewrite"');
+    expect(prompt.join('\n')).not.toContain('tools.json');
+    expect(prompt.join('\n')).not.toContain('window');
     // The agent is told what it can do instead, in the field that reaches it.
     expect(agent).toContain('send the full new text of the field');
   });

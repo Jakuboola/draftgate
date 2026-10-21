@@ -1,8 +1,8 @@
 {
-  "protocolVersion": 6,
+  "protocolVersion": 7,
   "maxAppliedFixes": 64,
   "maxFixFieldLength": 200,
   "csp": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; form-action 'none'; base-uri 'none'",
   "maxProseLength": 2000,
-  "maxDecisionFields": 17
+  "maxDecisionFields": 64
 }

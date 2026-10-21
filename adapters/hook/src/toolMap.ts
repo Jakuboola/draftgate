@@ -352,7 +352,7 @@ export const DEFAULT_TOOL_MAP: ToolMap = disclosingEverything({
   },
   /*
    * `id` separates an edit from a create, as `method` does for `issue_write`. `patch` is not here:
-   * the Linear profile's `deltaFields` refuses it by name before any of this is read.
+   * the Linear profile's `deltaFields` reads it, before any of this, as the edits under review.
    */
   mcp__claude_ai_Linear__save_issue: {
     destination: 'linear',

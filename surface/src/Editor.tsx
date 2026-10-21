@@ -375,6 +375,11 @@ export interface EditorProps {
   mentions?: MentionSupport;
   /** Whether emphasis may span a code span here, from `RenderResult.codeSpanMarks` (`CombinableCode`). */
   codeSpanMarks: CodeSpanMarks;
+  /**
+   * A preview, not a composer: nothing typed reaches it and no toolbar is drawn. A patch's edit is
+   * edited as characters (`PatchEdits.tsx`) and shown here as the destination draws them.
+   */
+  readOnly?: boolean;
 }
 
 export function Editor({
@@ -385,6 +390,7 @@ export function Editor({
   rendersMedia,
   mentions,
   codeSpanMarks,
+  readOnly = false,
 }: EditorProps) {
   const editor = useEditor(
     {
@@ -409,7 +415,7 @@ export function Editor({
       // Never focused on open: a caret would catch the rest of what the reviewer was typing. The
       // host must not hand the page an initial focus either (`draftgate.m`'s `-show`).
       autofocus: false,
-      editable: true,
+      editable: !readOnly,
       onUpdate: ({ editor }) => onChange(editor.getJSON() as PmNode),
       editorProps: {
         attributes: { class: 'draftgate-body', spellcheck: 'true' },
@@ -446,8 +452,8 @@ export function Editor({
     <>
       {/* Inside `Editor` so `App`'s error boundary covers the toolbars: one that threw while the
           footer stayed live would leave Approve on a window that cannot show the draft. */}
-      <Toolbar editor={editor} support={toolbar} />
-      <BubbleToolbar editor={editor} marks={toolbar.marks} />
+      {!readOnly && <Toolbar editor={editor} support={toolbar} />}
+      {!readOnly && <BubbleToolbar editor={editor} marks={toolbar.marks} />}
       <LinkTarget editor={editor} />
       <EditorContent editor={editor} className="draftgate-editor" />
     </>

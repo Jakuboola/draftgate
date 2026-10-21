@@ -8,6 +8,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
   blockFieldOf,
+  editFieldsOf,
   isBlockField,
   lineFieldsOf,
   reviewFieldsComplaint,
@@ -67,5 +68,31 @@ describe('what makes a list unusable', () => {
     expect(complaint).toContain('summary');
     // The consequence: approving would send something unread.
     expect(complaint).toContain('without being read');
+  });
+});
+
+describe('an edit field (one operation of a patch)', () => {
+  const edit = (field: string): Extract<ReviewField, { kind: 'edit' }> => ({
+    field,
+    kind: 'edit',
+    edit: { index: 0, op: 'append', label: 'Add at the end', anchors: [], flags: [], textKey: 'text', empty: 'refused' },
+  });
+
+  test('is neither the block nor a line', () => {
+    const e = edit('patch.0.text');
+    expect(isBlockField(e)).toBe(false);
+    expect(lineFieldsOf([line('title'), e])).toEqual([line('title')]);
+    expect(editFieldsOf([line('title'), e])).toEqual([e]);
+    expect(blockFieldOf([line('title'), e])).toBeUndefined();
+  });
+
+  test('a list of lines and edits is a review', () => {
+    expect(reviewFieldsComplaint([line('title'), edit('patch.0.text'), edit('patch.1.text')])).toBeNull();
+  });
+
+  test('beside a body it is refused: a patch stands in place of the body, so one would go unread', () => {
+    expect(reviewFieldsComplaint([markdown('description'), edit('patch.0.text')])).toContain(
+      'a body and a list of edits'
+    );
   });
 });

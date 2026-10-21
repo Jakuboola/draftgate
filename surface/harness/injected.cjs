@@ -12,15 +12,24 @@
 /** Has the window finished rendering enough to measure? Polled (`until`), never slept for. */
 function isRendered() {
   /*
-   * The body surface: `.ProseMirror` for markdown, `textarea.dg-plain-body` for plain, and a prose
-   * field for a review with no body. `.dg-compose` decides, rendered for a block field only: one
-   * `querySelector` over all three would match the prose input, committed with the footer, before
-   * TipTap mounts `.ProseMirror` in an effect, and the census would read `prosemirror: 0` at times.
+   * The body surface: `.ProseMirror` for markdown, `textarea.dg-plain-body` for plain, a patch's
+   * edits, and a prose field for a review with no body. `.dg-compose` or `.dg-edits` decides,
+   * rendered for a block field or a patch only: one `querySelector` over all of them would match the
+   * prose input, committed with the footer, before TipTap mounts `.ProseMirror` in an effect, and the
+   * census would read `prosemirror: 0` at times. A patch is ready once every preview has mounted.
    */
   const compose = document.querySelector('.dg-compose');
+  const edits = document.querySelector('.dg-edits');
+  if (edits) {
+    for (const preview of edits.querySelectorAll('.dg-edit-preview')) {
+      if (!preview.querySelector('.ProseMirror')) return false;
+    }
+  }
   const body = compose
     ? compose.querySelector('.ProseMirror, textarea.dg-plain-body')
-    : document.querySelector('input.dg-prose-field');
+    : edits
+      ? edits.querySelector('textarea.dg-edit-text')
+      : document.querySelector('input.dg-prose-field');
   if (!body) return false;
   const root = document.documentElement;
   if (!root.dataset.destination) return false;
@@ -332,6 +341,18 @@ function focusProseField() {
   return document.activeElement === input;
 }
 
+/**
+ * Focus one patch edit's textarea (`PatchEdits.tsx`), by its position, and put the caret at its end,
+ * so typed text is appended to what the agent wrote.
+ */
+function focusEditText(index) {
+  const area = document.querySelectorAll('textarea.dg-edit-text')[index];
+  if (!(area instanceof HTMLTextAreaElement)) return false;
+  area.focus();
+  area.setSelectionRange(area.value.length, area.value.length);
+  return document.activeElement === area;
+}
+
 /** What the first prose field currently holds, for asserting what the reviewer sees. */
 function proseFieldValue() {
   const input = document.querySelector('input.dg-prose-field');
@@ -582,6 +603,18 @@ function tableOverflow() {
       return { moved, overhang: w.scrollWidth - w.clientWidth };
     }),
   };
+}
+
+/**
+ * Each patch edit's textarea: how far its text reaches past its box (0 when every line shows) and
+ * how many lines it holds, so a check can tell a grown box from an empty one.
+ */
+function editTextFit() {
+  return [...document.querySelectorAll('textarea.dg-edit-text')].map((a) => ({
+    hidden: a.scrollHeight - a.clientHeight,
+    lines: a.value.split('\n').length,
+    height: a.clientHeight,
+  }));
 }
 
 /**
@@ -1336,6 +1369,8 @@ module.exports = {
   focusEditor,
   contextLayout,
   focusProseField,
+  focusEditText,
+  editTextFit,
   proseFieldValue,
   selectProseField,
   proseFieldShows,

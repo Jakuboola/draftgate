@@ -254,6 +254,19 @@ const ACTIONS: Record<string, (session: WKSession, cliPid: number | undefined) =
   },
 
   /*
+   * Type into one edit of a patch: the second, so the first and third must come back untouched.
+   * `insertText:` reaches React's `onChange`, which happy-dom never runs (`window.test.tsx`).
+   */
+  'patch-edit-approve': async (session) => {
+    if (!(await session.evaluate<boolean>(INJECTED.focusEditText, 1))) {
+      throw new Error('the second edit could not be focused, so typed text would go nowhere');
+    }
+    await session.insertText(' and the export step');
+    await waitForSelector(session, '.dg-edited', 'the patch edit never registered as an edit');
+    await approve(session);
+  },
+
+  /*
    * Type into the title, not the body. In happy-dom a dispatched `input` event never runs React's
    * handler, so it cannot reach `setProse` (measured: element, container and body listeners all
    * fired); AppKit's `insertText:` does. A title-only edit must make the review edited, though
@@ -825,6 +838,66 @@ async function titleEditApprove() {
 }
 
 /**
+ * A Linear `save_issue` patch, reviewed edit by edit: typed into one edit in the real window, approved,
+ * and the payload is the same patch with that one text changed. `cli/test/review.test.ts` covers the
+ * CLI writing edits back and `surface/window.test.tsx` the drawing; only here does a real keystroke
+ * reach `patch[1].text`.
+ */
+async function patchEditApprove() {
+  console.log('\ntype into one EDIT of a patch, approve, and check the payload');
+  const log = join(scratch, 'patch-edit.jsonl');
+  const file = join(scratch, 'patch.json');
+  const decisionPath = join(scratch, 'patch-edit.decision.json');
+  const patch = [
+    { op: 'replace', old_string: 'Tuesday', new_string: 'Thursday' },
+    { op: 'insert_after', anchor: 'Fixed the cause', text: ' in the loader' },
+    { op: 'append', text: '\n\nSee the thread.' },
+  ];
+  writeFileSync(file, JSON.stringify({ id: 'HELP-42', title: 'Export fails', patch }));
+  const run = await runCli(
+    [
+      'review', '--dest', 'linear', '--in', file,
+      '--tool', 'mcp__claude_ai_Linear__save_issue',
+      '--body-field', 'description',
+      '--prose-field', 'title',
+      '--decision', decisionPath,
+    ],
+    'patch-edit-approve',
+    log
+  );
+
+  check(run.code === 0, 'exit 0', run.stderr);
+  check(run.stderr.includes('(edited)'), 'a patch edit reports as edited');
+  const sent = JSON.parse(run.stdout);
+  check(
+    JSON.stringify(sent.patch) ===
+      JSON.stringify([patch[0], { ...patch[1], text: ' in the loader and the export step' }, patch[2]]),
+    "the reviewer's text is in its operation; every other operation, anchor and the order are the agent's",
+    JSON.stringify(sent.patch)
+  );
+  check(sent.title === 'Export fails' && sent.id === 'HELP-42', 'the title and id are untouched', JSON.stringify(sent));
+  check(!('description' in sent), 'no body is written beside the patch', JSON.stringify(Object.keys(sent)));
+
+  const line = JSON.parse(readFileSync(log, 'utf8').trimEnd().split('\n').pop()!);
+  check(line.edited === true, 'the log says edited');
+  check(
+    Array.isArray(line.patch) && line.patch.length === 3 &&
+      line.patch[1].before === ' in the loader' &&
+      line.patch[1].after === ' in the loader and the export step' &&
+      !('after' in line.patch[0]) && !('after' in line.patch[2]),
+    'the log carries every edit, and before AND after for the one changed',
+    JSON.stringify(line.patch)
+  );
+  const decision = JSON.parse(readFileSync(decisionPath, 'utf8'));
+  check(
+    JSON.stringify(decision.sentLines) ===
+      JSON.stringify([{ field: 'patch.1.text', value: ' in the loader and the export step' }]),
+    'the decision file names the changed edit for the agent',
+    JSON.stringify(decision.sentLines)
+  );
+}
+
+/**
  * A call carrying a title and no body (`issue_write`, `method: "create"`): reviewed for real, and the
  * payload gains no body. Read as body-only it would report `body/missing-field` and leave through
  * `decide.ts`'s schema-drift hatch unreviewed. `window.test.tsx` and `cli/test/review.test.ts` (from a
@@ -1356,6 +1429,8 @@ async function main() {
     await titleClearRefused();
     drain();
     await titleOnlyApprove();
+    drain();
+    await patchEditApprove();
     drain();
     await checkboxApprove();
     drain();

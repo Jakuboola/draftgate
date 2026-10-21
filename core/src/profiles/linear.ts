@@ -23,6 +23,7 @@ import { type Warning } from '../warnings';
 import { lengthWarnings } from '../lengthLimit';
 
 import type { DestinationProfile } from './index';
+import type { DeltaField } from '../patch';
 import type { MentionTokenPattern } from '../mentionTokens';
 
 /**
@@ -58,6 +59,54 @@ const LINEAR_TOKENS: readonly MentionTokenPattern[] = [
  * query or a further path segment is unprobed and not matched.
  */
 const LINEAR_PROFILE_LINK = /^https:\/\/linear\.app\/[a-zA-Z0-9._-]+\/profiles\/([a-zA-Z0-9._-]+)$/;
+
+/**
+ * Linear's `patch`: the six operations of the live `save_issue` schema (`DeltaField`). Labels are
+ * what the window draws; the keys, required fields and the empty-text rule are the schema's.
+ */
+const LINEAR_PATCH: DeltaField = {
+  field: 'patch',
+  opKey: 'op',
+  maxOps: 50,
+  ops: {
+    replace: {
+      label: 'Replace',
+      anchors: [{ key: 'old_string', label: 'Replaces' }],
+      text: 'new_string',
+      empty: 'deletes',
+      flags: [{ key: 'replace_all', label: 'every occurrence' }],
+    },
+    insert_before: {
+      label: 'Insert before',
+      anchors: [{ key: 'anchor', label: 'Before' }],
+      text: 'text',
+      empty: 'refused',
+      flags: [],
+    },
+    insert_after: {
+      label: 'Insert after',
+      anchors: [{ key: 'anchor', label: 'After' }],
+      text: 'text',
+      empty: 'refused',
+      flags: [],
+    },
+    prepend: { label: 'Add at the start', anchors: [], text: 'text', empty: 'refused', flags: [] },
+    append: { label: 'Add at the end', anchors: [], text: 'text', empty: 'refused', flags: [] },
+    replace_range: {
+      label: 'Replace a range',
+      anchors: [
+        { key: 'from', label: 'From (replaced)' },
+        { key: 'to', label: 'Up to (kept)' },
+      ],
+      text: 'new_string',
+      empty: 'deletes',
+      flags: [],
+      note:
+        'Everything from the first anchor up to the second is replaced, and draftgate cannot see ' +
+        'the text in between.',
+    },
+  },
+};
 
 /** The tool both of this profile's probed title facts (length, line breaks) were measured on. */
 const SAVE_ISSUE = /(?:^|__)save_issue$/;
@@ -158,12 +207,16 @@ export const linearProfile = {
   /**
    * `patch` is `save_issue`, `save_project`, `save_initiative`, `save_document` and
    * `save_release_note`'s alternative to `description` / `content`, valid only on update (a create
-   * carries the whole content and is reviewed normally). Of these only `save_issue` is gated, and
-   * `cli/src/payload.ts` refuses a payload carrying `patch` before the body is read.
+   * carries the whole content and is reviewed normally). Of these only `save_issue` is gated.
    * `save_comment`, `save_status_update`, `save_diff_comment` and `save_customer_need` carry no
    * `patch` (read against the live schemas).
+   *
+   * The grammar is the live `save_issue` schema's, word for word where it states a rule: up to 50
+   * operations, "applied to the current content, in order and atomically"; every anchor "must match
+   * the current content exactly once"; `text` has `minLength: 1` and `new_string` does not ("Empty
+   * string deletes the match").
    */
-  deltaFields: ['patch'],
+  deltaFields: [LINEAR_PATCH],
 
   // One audience, so nothing to ask: `audienceFor` is absent and `cli/src/classificationStores.ts`
   // has no row for Linear.

@@ -15,8 +15,8 @@ import type {
   Warning,
 } from '../../core/src/index';
 import {
-  audienceFor, blockFieldOf, hasBlockingWarning, hideLineBreaks, isBlockField, lineFieldsOf,
-  proseWarnings, showLineBreaks, sortWarnings,
+  audienceFor, blockFieldOf, editFieldsOf, hasBlockingWarning, hideLineBreaks, isBlockField,
+  lineFieldsOf, patchWarnings, proseWarnings, showLineBreaks, sortWarnings,
 } from '../../core/src/index';
 import { contextLabels } from './contextLabels';
 // `contract.json`, not `cli/src/surfaces/windowProtocol`: a first VALUE import of a `cli` module
@@ -29,6 +29,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { DestinationMark } from './DestinationMark';
 import { Editor } from './Editor';
 import { FixDiff } from './FixDiff';
+import { PatchEdits } from './PatchEdits';
 import { useReview, silencedWarnings, type Loaded } from './useReview';
 import { useSettledWarnings } from './settledWarnings';
 import { useShortcutArmed } from './shortcutGrace';
@@ -196,6 +197,20 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
   );
   const proseEdited = shownProse.some((p) => liveValue(prose, p) !== p.value);
   /*
+   * A patch's edits (`PatchEdits.tsx`): the text each operation writes, as typed. Plain strings with
+   * no round trip, so ordinary React state like `prose`, compared against the request for the same
+   * reason. Empty when this review is not of a patch.
+   */
+  const shownEdits = useMemo(() => editFieldsOf(request.fields), [request.fields]);
+  const [editText, setEditText] = useState<Record<string, string>>(() =>
+    Object.fromEntries(shownEdits.map((e) => [e.field, e.value]))
+  );
+  const editsEdited = shownEdits.some((e) => liveValue(editText, e) !== e.value);
+  const onEditChange = useCallback(
+    (field: string, text: string) => setEditText((v) => ({ ...v, [field]: text })),
+    []
+  );
+  /*
    * The review the rest of this component reads: the BODY's render plus what is wrong with the
    * prose beside it. `render()` is handed only the body, so it cannot see a blanked title;
    * `proseWarnings` is the second producer and this is where the two join. Not inside `useReview`,
@@ -204,11 +219,15 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
    * as well as the agent sending one empty.
    */
   const current = useMemo(() => {
-    const issues = proseWarnings(
-      shownProse.map((p) => ({ field: p.field, value: liveValue(prose, p) })),
-      request.destination,
-      request.toolName
-    );
+    const issues = [
+      ...proseWarnings(
+        shownProse.map((p) => ({ field: p.field, value: liveValue(prose, p) })),
+        request.destination,
+        request.toolName
+      ),
+      // An insertion emptied (or sent empty) is a refusal of the whole call: it blocks like a title.
+      ...patchWarnings(shownEdits.map((e) => ({ ...e, value: liveValue(editText, e) }))),
+    ];
     if (issues.length === 0) return bodyReview;
     return {
       ...bodyReview,
@@ -218,7 +237,7 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
       // asked, not assumed.
       blocked: bodyReview.blocked || hasBlockingWarning(issues),
     };
-  }, [bodyReview, shownProse, prose, request.destination, request.toolName]);
+  }, [bodyReview, shownProse, prose, shownEdits, editText, request.destination, request.toolName]);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
   /*
@@ -422,7 +441,12 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
    */
   const unchangedHint = hasDraft
     ? 'Exactly what you see above will be sent.'
-    : 'Exactly the fields above will be sent. This call carries no message body.';
+    : shownEdits.length > 0
+      ? 'Exactly these edits will be sent.'
+      : 'Exactly the fields above will be sent. This call carries no message body.';
+  // Did a person change anything at all: the body, a line or an edit. The badge, the hint and the
+  // decision's `edited` all mean this.
+  const anyEdit = edited || proseEdited || editsEdited;
 
   /*
    * What rides EITHER decision beside the send (`HumanDecision`): `classifyProject`, kept on a
@@ -456,12 +480,16 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
       fields: Object.fromEntries(
         request.fields.map((f) => [
           f.field,
-          isBlockField(f) ? current.canonical : liveValue(prose, f),
+          isBlockField(f)
+            ? current.canonical
+            : f.kind === 'edit'
+              ? liveValue(editText, f)
+              : liveValue(prose, f),
         ])
       ),
-      // A prose edit is a human change even when the BODY is untouched. The CLI ORs it in again:
-      // a surface may report `edited` for the body and know nothing about prose.
-      edited: edited || proseEdited,
+      // A prose or patch edit is a human change even when the BODY is untouched (there is none in a
+      // patch). The CLI ORs both in again: a surface may report `edited` for the body alone.
+      edited: anyEdit,
       // The body alone, so the agent is shown a body only when the reviewer changed it.
       bodyEdited: edited,
       // Codes, not messages: the code is the stable identity the log and the digest are keyed on.
@@ -470,7 +498,7 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
       ...said,
     });
   }, [
-    current.blocked, current.canonical, edited, fixes, proseEdited, prose, request.fields, said,
+    current.blocked, current.canonical, anyEdit, edited, editText, fixes, prose, request.fields, said,
     silenced, submitted,
   ]);
 
@@ -588,9 +616,9 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
               destination inferred
             </span>
           )}
-          {/* `edited || proseEdited`: the badge means what the decision means, and a title-only edit
-              sends `edited: true`. `surface:e2e` types into a real title and checks both. */}
-          {(edited || proseEdited) && <span className="dg-edited">edited</span>}
+          {/* `anyEdit`: the badge means what the decision means, and a title-only edit sends
+              `edited: true`. `surface:e2e` types into a real title and checks both. */}
+          {anyEdit && <span className="dg-edited">edited</span>}
         </div>
         <div className="dg-header-side">
           <ThemeToggle
@@ -699,7 +727,16 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
           * message, and `.dg-body` scrolls, so several of them cannot push the editor off screen.
           */}
         {fieldGroups(request.fields).map((group) =>
-          group.kind === 'lines' ? (
+          group.kind === 'edits' ? (
+            // A patch: its edits, one card each, where the draft would be (`PatchEdits.tsx`).
+            <PatchEdits
+              key={group.fields[0]!.field}
+              destination={request.destination}
+              fields={group.fields}
+              values={editText}
+              onChange={onEditChange}
+            />
+          ) : group.kind === 'lines' ? (
             /*
              * A single-line `<input>`: these fields are plain lines at every destination probed, so a
              * toolbar would promise formatting that gets sent literally.
@@ -793,7 +830,7 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
           * named: position says which thing is the draft. A note, not a warning: the tool's schema
           * allows the call, and what could still block is a blank title (`prose/empty`).
           */}
-        {!hasDraft && (
+        {!hasDraft && shownEdits.length === 0 && (
           <p className="dg-plain-note">
             No message body. This call sets the fields above and sends no draft, so there is nothing
             more to read.
@@ -832,7 +869,7 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
             <span className="dg-hint">
               {current.blocked
                 ? 'Fix the blocking problems to enable approval.'
-                : edited
+                : anyEdit
                   ? 'Your edited text will be sent.'
                   : unchangedHint}
             </span>
@@ -870,7 +907,7 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
 }
 
 /**
- * The value of one LINE field now: what the reviewer typed, or what they were shown. `prose` is
+ * The value of one LINE or EDIT field now: what the reviewer typed, or what they were shown. `prose` is
  * seeded from the list callers walk, so the fallback cannot fire today; it is written once because
  * the `prose/empty` verdict, the input, `edited` and the decision must agree.
  */
@@ -882,8 +919,11 @@ function liveValue(prose: Record<string, string>, field: ReviewFieldValue): stri
  * What the window DRAWS: a run of consecutive LINE fields is one `.dg-prose` row, a BLOCK field is
  * the compose frame. Grouping, not two filters, so the plan's order survives into the DOM.
  */
+type EditFieldValue = Extract<ReviewFieldValue, { kind: 'edit' }>;
+
 type FieldGroup =
   | { kind: 'lines'; fields: ReviewFieldValue[] }
+  | { kind: 'edits'; fields: EditFieldValue[] }
   | { kind: 'block'; field: ReviewFieldValue };
 
 function fieldGroups(fields: readonly ReviewFieldValue[]): FieldGroup[] {
@@ -893,8 +933,12 @@ function fieldGroups(fields: readonly ReviewFieldValue[]): FieldGroup[] {
       out.push({ kind: 'block', field: f });
       continue;
     }
+    // A run of consecutive edits is one group, as a run of lines is.
     const last = out[out.length - 1];
-    if (last?.kind === 'lines') last.fields.push(f);
+    if (f.kind === 'edit') {
+      if (last?.kind === 'edits') last.fields.push(f);
+      else out.push({ kind: 'edits', fields: [f] });
+    } else if (last?.kind === 'lines') last.fields.push(f);
     else out.push({ kind: 'lines', fields: [f] });
   }
   return out;
