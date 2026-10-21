@@ -52,7 +52,7 @@ It pauses a send, shows the draft as its destination will render it, lets a huma
 The counts tell a truncated run from a complete one (see "Where facts live" below).
 
 ```sh
-bun test                    # 4015 tests across 109 files; opens no window.  Every suite is bun:test
+bun test                    # 4059 tests across 110 files; opens no window.  Every suite is bun:test
                             # (there is no vitest)
 bun run typecheck           # three configs: ours; core/ at `types: []` + `lib: ES2022` (a host global
                             # is a compile error); the renderer
@@ -64,8 +64,8 @@ bun run history:baseline hook  # rewrite an area's history baseline from the tre
 bun run test:update-golden  # regenerate goldens, then READ the diff before committing
 bun run build:surface       # build the window's page and its licence notices under surface/.build.lock
                             # and stamp it; a review rebuilds a stale bundle itself
-bun run surface:probe       # render the window for real: 59 scenarios, 1435 assertions, ~9s
-bun run surface:e2e         # CLI -> real window -> real click -> payload: 21 flows, 155 assertions, ~20s
+bun run surface:probe       # render the window for real: 61 scenarios, 1474 assertions, ~9s
+bun run surface:e2e         # CLI -> real window -> real click -> payload: 22 flows, 164 assertions, ~20s
 bun run build:host          # compile the WebKit host into surface/host/build/<hash>/; a review
                             # builds a missing or stale one itself.  Needs the Command Line Tools
 bun run surface:host        # the host's own guarantees: 104 checks in 11 sections, ~18s

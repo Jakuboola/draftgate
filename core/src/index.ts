@@ -9,6 +9,8 @@ export { showLineBreaks, hideLineBreaks, type LineBreakFact, type LineBreakFate 
 export {
   blockFieldOf,
   editFieldsOf,
+  fieldWarnings,
+  type EditFieldValue,
   isBlockField,
   lineFieldsOf,
   reviewFieldsComplaint,
@@ -16,15 +18,7 @@ export {
   type ReviewFieldKind,
   type ReviewFieldValue,
 } from './reviewFields';
-export {
-  readPatch,
-  patchWarnings,
-  patchEditPath,
-  type DeltaField,
-  type PatchEdit,
-  type PatchOpGrammar,
-  type PatchRead,
-} from './patch';
+export { readPatch, type DeltaField, type PatchEdit } from './patch';
 export {
   profiles,
   isKnownDestination,

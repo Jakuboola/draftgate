@@ -23,7 +23,7 @@
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  githubAudience, isBlockField, patchEditPath, profiles, readPatch, type ReviewField,
+  githubAudience, isBlockField, profiles, readPatch, type ReviewField,
   type ReviewFieldValue,
 } from '../../core/src/index';
 import { reviewPlan } from '../../cli/src/reviewPlan';
@@ -61,15 +61,7 @@ function planFields(scenario: Scenario): ReviewFieldValue[] {
   const [delta] = profiles[scenario.destination].deltaFields;
   const read = readPatch(delta!, scenario.patch);
   if (!read.ok) throw new Error(`the scenario's patch cannot be shown: ${read.why}`);
-  return [
-    ...plan.filter((f) => !isBlockField(f)).map(lines),
-    ...read.edits.map(({ edit, text }) => ({
-      field: patchEditPath(delta!, edit.index, edit.textKey),
-      kind: 'edit' as const,
-      edit,
-      value: text,
-    })),
-  ];
+  return [...plan.filter((f) => !isBlockField(f)).map(lines), ...read.fields];
 }
 
 const HERE = SURFACE;

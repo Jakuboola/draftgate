@@ -14,23 +14,34 @@
  * operation itself.
  */
 
-import { useLayoutEffect, useMemo, useRef } from 'react';
-import { editorDocFor, render, type DestinationName, type ReviewFieldValue } from '../../core/src/index';
+import { useDeferredValue, useLayoutEffect, useMemo, useRef } from 'react';
+import { editorDocFor, render, type DestinationName, type EditFieldValue } from '../../core/src/index';
 import { Editor } from './Editor';
-
-type EditField = Extract<ReviewFieldValue, { kind: 'edit' }>;
+import { EditorBoundary } from './EditorBoundary';
 
 export interface PatchEditsProps {
   destination: DestinationName;
-  fields: readonly EditField[];
-  /** The text on screen for each edit, by path. */
-  values: Readonly<Record<string, string>>;
+  fields: readonly EditFieldValue[];
+  /** The text on screen for each edit, in `fields` order (`App.tsx`'s `liveValue`). */
+  values: readonly string[];
   onChange(field: string, text: string): void;
+  /**
+   * A preview that could not load: each sits in an `EditorBoundary`, and the caller takes the shell,
+   * Approve included, as for the body editor (window.md).
+   */
+  onError(error: Error): void;
 }
 
-const noop = () => {};
+/** Grow a textarea to its text, wrapped lines included, borders counted. */
+function fitToText(el: HTMLTextAreaElement | null): void {
+  if (el === null) return;
+  el.style.height = 'auto';
+  el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
+}
 
-export function PatchEdits({ destination, fields, values, onChange }: PatchEditsProps) {
+export function PatchEdits({ destination, fields, values, onChange, onError }: PatchEditsProps) {
+  // The editor's facts come from the profile, not the text, so one render per destination.
+  const facts = useMemo(() => render('', destination), [destination]);
   return (
     <section className="dg-edits" aria-label="Edits">
       <p className="dg-plain-note">
@@ -38,29 +49,34 @@ export function PatchEdits({ destination, fields, values, onChange }: PatchEdits
         only what changes, in the order the edits apply: what each one applies at, and its new text,
         which is sent exactly as typed. Each preview draws the new text on its own.
       </p>
-      {fields.map((f) => (
+      {fields.map((f, i) => (
         <PatchEditCard
           key={f.field}
-          destination={destination}
+          facts={facts}
           field={f}
-          value={values[f.field] ?? f.value}
+          value={values[i]!}
           onChange={onChange}
+          onError={onError}
         />
       ))}
     </section>
   );
 }
 
+type EditorFacts = ReturnType<typeof render>;
+
 function PatchEditCard({
-  destination,
+  facts,
   field,
   value,
   onChange,
+  onError,
 }: {
-  destination: DestinationName;
-  field: EditField;
+  facts: EditorFacts;
+  field: EditFieldValue;
   value: string;
   onChange(field: string, text: string): void;
+  onError(error: Error): void;
 }) {
   const { edit } = field;
   const n = edit.index + 1;
@@ -68,15 +84,23 @@ function PatchEditCard({
   const deletes = edit.empty === 'deletes' && value === '';
   /*
    * As tall as its text, every line of it: a textarea that scrolls hides characters that are sent.
-   * Measured off the element, since wrapped lines count too; set before paint.
+   * Measured off the element, since wrapped lines count too; set before paint, and again whenever
+   * its width changes (a resized window re-wraps the text). Width only: the height is ours.
    */
   const area = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => fitToText(area.current), [value]);
   useLayoutEffect(() => {
     const el = area.current;
     if (el === null) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
-  }, [value]);
+    let width = el.clientWidth;
+    const watch = new ResizeObserver(() => {
+      if (el.clientWidth === width) return;
+      width = el.clientWidth;
+      fitToText(el);
+    });
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, []);
   return (
     <div className="dg-edit" data-op={edit.op} data-deletes={deletes ? 'true' : undefined}>
       <div className="dg-edit-head">
@@ -89,7 +113,7 @@ function PatchEditCard({
         ))}
       </div>
       {edit.anchors.map((a) => (
-        <div key={a.key} className="dg-edit-anchor">
+        <div key={a.key} className="dg-edit-anchor" data-kept={a.kept ? 'true' : undefined}>
           <span className="dg-edit-anchor-label">{a.label}</span>
           {/* `title` is the payload key, as a prose field's is its path. */}
           <pre className="dg-edit-anchor-text" title={a.key}>
@@ -114,33 +138,30 @@ function PatchEditCard({
         spellCheck
         onChange={(e) => onChange(field.field, e.target.value)}
       />
-      <EditPreview destination={destination} text={value} />
+      <EditorBoundary onError={onError}>
+        <EditPreview facts={facts} text={value} />
+      </EditorBoundary>
     </div>
   );
 }
 
 /**
- * The new text as the destination draws it, read-only. Rebuilt per change of the text: the editor
- * remounts on a new document, which is cheap at the size of an edit.
+ * The new text as the destination draws it, read-only. The editor remounts on a new document, so the
+ * text is deferred: typing stays with the textarea and the preview catches up when React is idle.
  */
-function EditPreview({ destination, text }: { destination: DestinationName; text: string }) {
-  const shown = useMemo(() => {
-    if (text.trim() === '') return null;
-    const rendered = render(text, destination);
-    return { rendered, doc: editorDocFor(rendered, text) };
-  }, [destination, text]);
-  if (shown === null) return null;
-  const { rendered, doc } = shown;
+function EditPreview({ facts, text: typed }: { facts: EditorFacts; text: string }) {
+  const text = useDeferredValue(typed);
+  const doc = useMemo(() => (text.trim() === '' ? null : editorDocFor(facts, text)), [facts, text]);
+  if (doc === null) return null;
   return (
     <div className="dg-edit-preview" aria-label="Preview">
       <span className="dg-edit-preview-label">Preview</span>
       <Editor
         doc={doc}
-        onChange={noop}
-        toolbar={rendered.toolbar}
-        rendersMedia={rendered.rendersMedia}
-        mentions={rendered.mentions}
-        codeSpanMarks={rendered.codeSpanMarks}
+        toolbar={facts.toolbar}
+        rendersMedia={facts.rendersMedia}
+        mentions={facts.mentions}
+        codeSpanMarks={facts.codeSpanMarks}
         readOnly
       />
     </div>

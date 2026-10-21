@@ -96,7 +96,7 @@ const LINEAR_PATCH: DeltaField = {
       label: 'Replace a range',
       anchors: [
         { key: 'from', label: 'From (replaced)' },
-        { key: 'to', label: 'Up to (kept)' },
+        { key: 'to', label: 'Up to (kept)', kept: true },
       ],
       text: 'new_string',
       empty: 'deletes',

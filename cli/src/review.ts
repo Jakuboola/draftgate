@@ -4,8 +4,8 @@
  */
 
 import {
-  render, renderPlain, renderNoBody, proseWarnings, patchWarnings, patchEditPath, isBlocking,
-  isLengthRefusal, editorDocFor, audienceFor, destinationLabelFor, ownAnswerFor, profiles,
+  render, renderPlain, renderNoBody, fieldWarnings, isBlocking, isLengthRefusal, editorDocFor,
+  audienceFor, destinationLabelFor, ownAnswerFor, type EditFieldValue,
   type AudienceFacts, type DestinationName, type TargetAnswer, type Warning,
 } from '../../core/src/index';
 import {
@@ -15,9 +15,7 @@ import {
 // The line cap: its number is in `contract.json`, and it is enforced here, where lines are known.
 import { MAX_PROSE_LENGTH } from './surfaces/windowProtocol';
 import type { RouteFacts } from './routeFacts';
-import {
-  reviewPlan, blockFieldOf, editFieldsOf, lineFieldsOf, type ReviewFieldValue,
-} from './reviewPlan';
+import { reviewPlan, blockFieldOf, editFieldsOf, lineFieldsOf, type ReviewFieldValue } from './reviewPlan';
 import type { AuditRecord, PatchAuditRow } from './audit';
 import {
   BLOCKED_AFTER_APPROVAL, CONTEXT_UNADDRESSABLE, REVIEW_CRASHED, SURFACE_STALE, SURFACE_UNAVAILABLE,
@@ -209,8 +207,7 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
   // exists.
   const { context, unaddressable } = readContext(destination, toolInput, {
     contextFields,
-    // A delta field is shown as its edits, never as a read-only copy of the raw list.
-    editable: [...plan.map((f) => f.field), ...profiles[destination].deltaFields.map((d) => d.field)],
+    editable: plan.map((f) => f.field),
   });
   // The plan's line fields, one list for `extractProse` here and `extractBody` below.
   // `extractProse` keeps plan order and omits a field the payload does not carry: an empty box
@@ -227,12 +224,6 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
   // One conditional at every exit, so an absent audience stays absent.
   const audienceRow = () => (audience ? { audience: audience.kind } : {});
 
-  /*
-   * A patch's edits once they are shown: a denial after the window (a rejection, a timeout) records
-   * what the reviewer read, as a body's `before` does. Empty until then, and for any other review.
-   */
-  let shownEdits: readonly (ReviewFieldValue & { kind: 'edit' })[] = [];
-
   // Every exit carries an audit record. `deny` builds the whole outcome from a `Denial`, so the
   // exit code, the denial and the log line cannot disagree.
   const deny = (
@@ -242,7 +233,18 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
       edited = false,
       before,
       warnings = [],
-    }: { exitCode?: 1 | 2; edited?: boolean; before?: string; warnings?: string[] } = {}
+      patch = [],
+    }: {
+      exitCode?: 1 | 2;
+      edited?: boolean;
+      before?: string;
+      warnings?: string[];
+      /**
+       * A patch's edits, as shown or (after an approval) as the surface reported them: nothing was
+       * sent, and `after` is what the reviewer typed where they changed an edit.
+       */
+      patch?: readonly (EditFieldValue & { sent: string })[];
+    } = {}
   ): ReviewOutcome => ({
     exitCode,
     human: surface.human,
@@ -256,10 +258,7 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
       // Absent on a rejection or a timeout, which are not kinds of brokenness (`AuditRecord.code`).
       ...(denial.code ? { code: denial.code } : {}),
       ...audienceRow(),
-      // As shown: a denial sends nothing, so there is no `after`.
-      ...(shownEdits.length > 0
-        ? { patch: shownEdits.map((f) => patchRow({ ...f, sent: f.value })) }
-        : {}),
+      ...(patch.length > 0 ? { patch: patch.map(patchRow) } : {}),
     },
   });
 
@@ -311,28 +310,14 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
   // `format: 'absent'` stops `buildUpdatedInput` writing a body beside prose edits.
   const rendered = canonical === undefined ? renderNoBody(destination) : renderFor(canonical);
 
-  /**
-   * The patch's edits as fields, one per operation in the order the destination applies them, each
-   * at the path its text is written back to. Their value is the agent's text.
-   */
-  const edits: (ReviewFieldValue & { kind: 'edit' })[] =
-    patch === undefined
-      ? []
-      : patch.edits.map(({ edit, text }) => ({
-          field: patchEditPath(patch.delta, edit.index, edit.textKey),
-          kind: 'edit' as const,
-          edit,
-          value: text,
-        }));
-  shownEdits = edits;
+  // The patch's edits, one field per operation in the order the destination applies them.
+  const edits = patch?.fields ?? [];
+  // What a denial before an approval logs of them: as shown, nothing sent.
+  const shownPatch = edits.map((f) => ({ ...f, sent: f.value }));
 
   // The codes as first rendered: the verdict on the agent's draft, not what the reviewer saw (that
   // is these minus `silenced`). Every denial carries them too; `audit.ts` says why they are stored.
-  // A patch's own codes join them: they are the verdict on the agent's edits.
-  const warnings = [
-    ...rendered.warnings,
-    ...patchWarnings(edits),
-  ].map((w) => w.code);
+  const warnings = rendered.warnings.map((w) => w.code);
 
   /**
    * What the reviewer is shown: the plan's fields with this payload's values, lines then block
@@ -382,16 +367,21 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
   }
 
   if (decision.action === 'timeout') {
-    return deny(timeoutDenial(destination, timeoutMs), { exitCode: 2, before: canonical, warnings });
+    return deny(timeoutDenial(destination, timeoutMs), {
+      exitCode: 2, before: canonical, warnings, patch: shownPatch,
+    });
   }
   if (decision.action === 'unavailable') {
     return deny(unavailableDenial(destination, decision.reason, decision.cause), {
       before: canonical,
       warnings,
+      patch: shownPatch,
     });
   }
   if (decision.action === 'reject') {
-    return deny(rejectDenial(destination, decision.reason), { before: canonical, warnings });
+    return deny(rejectDenial(destination, decision.reason), {
+      before: canonical, warnings, patch: shownPatch,
+    });
   }
 
   // --- approved ---
@@ -418,7 +408,7 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
           'out-of-date review window looks like: what it approved and what would be sent are not ' +
           'the same text.'
       ),
-      { before: canonical, warnings }
+      { before: canonical, warnings, patch: shownPatch }
     );
   }
 
@@ -436,6 +426,9 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
     ...f,
     sent: Object.hasOwn(reported, f.field) ? reported[f.field]! : f.value,
   }));
+  // Every edit of a patch, with what is sent for it; the changed ones are a person's edit, and a
+  // denial below logs what the reviewer typed.
+  const patchSending = editFieldsOf(sending);
 
   /*
    * A line the surface changed to something longer than its own input accepts. `MAX_PROSE_LENGTH`
@@ -455,7 +448,7 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
         `The review surface reported ${overlong.sent.length} characters for "${overlong.field}", ` +
           `which is a single line and is capped at ${MAX_PROSE_LENGTH}.`
       ),
-      { before: canonical, warnings }
+      { before: canonical, warnings, patch: patchSending }
     );
   }
 
@@ -465,8 +458,6 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
    */
   const lineEdits = lineFieldsOf(sending).filter((f) => f.sent !== f.value);
   const proseEdits = Object.fromEntries(lineEdits.map((f) => [f.field, f.sent]));
-  // Every edit of a patch, with what is sent for it; the changed ones are a person's edit.
-  const patchSending = editFieldsOf(sending);
   const textEdits = patchSending.filter((f) => f.sent !== f.value);
 
   // The body the reviewer was shown, edited or not, never `canonical` (round-trip.md). `undefined`
@@ -493,21 +484,17 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
    * to overrule. PROBED: Jira answers 400 to both `""` and `"   "` on `fields.summary`, writing
    * nothing, so the body is lost too.
    */
-  const proseErrors = [
-    ...proseWarnings(
-      lineFieldsOf(sending).map((f) => ({ field: f.field, value: f.sent })),
-      destination,
-      toolName
-    ),
-    // The window blocks an emptied insertion too; the tool's schema refuses the whole call.
-    ...patchWarnings(patchSending.map((f) => ({ ...f, value: f.sent }))),
-  ].filter(isBlocking);
+  const proseErrors = fieldWarnings(
+    sending.map((f) => ({ ...f, value: f.sent })),
+    destination,
+    toolName
+  ).filter(isBlocking);
   if (proseErrors.length > 0) {
     return deny(
       proseErrors.every((w) => w.code === 'prose/empty')
         ? emptyProseDenial(destination, proseErrors)
         : refusedDenial(destination, proseErrors),
-      { edited, before: canonical, warnings }
+      { edited, before: canonical, warnings, patch: patchSending }
     );
   }
 
@@ -529,7 +516,7 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
         : errors.every(isLengthRefusal)
           ? refusedDenial(destination, errors)
           : blockedDenial(destination, errors),
-      { edited, before: canonical, warnings }
+      { edited, before: canonical, warnings, patch: patchSending }
     );
   }
 
@@ -553,7 +540,7 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
       // The patch with the reviewer's text in it, when this was one: same operations, same order.
       patch === undefined
         ? toolInput
-        : writePatchEdits(toolInput, patch.delta, textEdits.map((f) => ({ edit: f.edit, sent: f.sent }))),
+        : writePatchEdits(toolInput, patch.delta, textEdits),
       // `undefined` with no body, spelled only here: `buildUpdatedInput` then writes neither the
       // field nor `extraToolInput`.
       finalBody === undefined ? undefined : wireBody(finalRender, finalRender.converted),
@@ -589,7 +576,7 @@ async function review(opts: ReviewOptions): Promise<ReviewOutcome> {
 }
 
 /** One edit of the patch as the log keeps it (`AuditRecord.patch`). */
-function patchRow(f: ReviewFieldValue & { kind: 'edit'; sent: string }): PatchAuditRow {
+function patchRow(f: EditFieldValue & { sent: string }): PatchAuditRow {
   return {
     field: f.field,
     op: f.edit.op,

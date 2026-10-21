@@ -7,7 +7,10 @@
  * lives in `core`.
  */
 
-import type { PatchEdit } from './patch';
+import { patchWarnings, type PatchEdit } from './patch';
+import { proseWarnings } from './render';
+import type { DestinationName } from './profiles';
+import type { Warning } from './warnings';
 
 /**
  * How one field is put in front of the reviewer. Each kind is a different set of claims:
@@ -48,6 +51,9 @@ export type ReviewField =
  */
 export type ReviewFieldValue = ReviewField & { value: string };
 
+/** One operation of a patch, with the agent's text (`core/src/patch.ts`). */
+export type EditFieldValue = Extract<ReviewFieldValue, { kind: 'edit' }>;
+
 /** Is this the field the body machinery is about? Kept in one place so a new kind is classified once. */
 export function isBlockField(f: ReviewField): boolean {
   return f.kind === 'markdown' || f.kind === 'text';
@@ -67,6 +73,26 @@ export function blockFieldOf<T extends ReviewField>(fields: readonly T[]): T | u
 /** The line fields, in reading order. */
 export function lineFieldsOf<T extends ReviewField>(fields: readonly T[]): readonly T[] {
   return fields.filter((f) => f.kind === 'line');
+}
+
+/**
+ * Every field's warnings that are not the body's, by kind: `proseWarnings` for a line,
+ * `patchWarnings` for an edit. The one place a kind's rule is chosen, for the window's verdict and
+ * the CLI's backstop alike; `value` is what the field holds now.
+ */
+export function fieldWarnings(
+  fields: readonly ReviewFieldValue[],
+  destination: DestinationName,
+  toolName?: string
+): Warning[] {
+  return [
+    ...proseWarnings(
+      fields.filter((f) => f.kind === 'line').map((f) => ({ field: f.field, value: f.value })),
+      destination,
+      toolName
+    ),
+    ...patchWarnings(editFieldsOf(fields)),
+  ];
 }
 
 /** The edit fields, in the order the destination applies them. */

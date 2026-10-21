@@ -2944,7 +2944,7 @@ describe('a review of a patch', () => {
     index: number,
     op: string,
     label: string,
-    anchors: { key: string; label: string; value: string }[],
+    anchors: { key: string; label: string; value: string; kept?: true }[],
     textKey: string,
     value: string,
     empty: 'deletes' | 'refused',
@@ -3023,6 +3023,35 @@ describe('a review of a patch', () => {
     expect(deletion.querySelector('.dg-edit-flag')?.textContent).toBe('every occurrence');
     // The control: a replacement with text is not.
     expect(cards(c)[0]!.dataset.deletes).toBeUndefined();
+  });
+
+  test("a deleted range strikes what it replaces and not the anchor it keeps", async () => {
+    const c = await mountPatch([
+      edit(
+        0, 'replace_range', 'Replace a range',
+        [{ key: 'from', label: 'From (replaced)', value: '## Old' }, { key: 'to', label: 'Up to (kept)', value: '## Next', kept: true }],
+        'new_string', '', 'deletes'
+      ),
+    ]);
+    const card = cards(c)[0]!;
+    expect(card.dataset.deletes).toBe('true');
+    // The sheet strikes `.dg-edit-anchor:not([data-kept="true"])`; the attribute is what it keys on.
+    expect([...card.querySelectorAll('.dg-edit-anchor')].map((a) => (a as HTMLElement).dataset.kept)).toEqual([
+      undefined,
+      'true',
+    ]);
+  });
+
+  /*
+   * A preview that cannot load (here `render()` overflowing on a 10,000-deep list) is the body
+   * editor's failure one card over: the shell goes, Approve with it (window.md).
+   */
+  test('a preview that cannot load takes Approve away', async () => {
+    decisions = [];
+    const deep = Array.from({ length: 10_000 }, (_, i) => '  '.repeat(i) + '- x').join('\n');
+    const c = await mountPatch([edit(0, 'append', 'Add at the end', [], 'text', deep, 'refused')]);
+    expect(c.textContent).toContain('could not load');
+    expect([...c.querySelectorAll('button')].some((b) => b.textContent?.includes('Approve'))).toBe(false);
   });
 
   test('a non-empty edit is previewed as the destination draws it; an empty one is not', async () => {

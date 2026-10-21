@@ -65,28 +65,33 @@ describe("Linear's grammar restates the live schema", () => {
 });
 
 describe('readPatch', () => {
-  test('every operation, in order, each with its index, anchors, flags and text', () => {
+  test('every operation, in order, each with its index, anchors, flags and text, at its write-back path', () => {
     const read = readPatch(LINEAR!, [
       { op: 'replace', old_string: 'a', new_string: 'b', replace_all: true },
       { op: 'replace', old_string: 'c', new_string: 'd', replace_all: false },
       { op: 'prepend', text: 'x' },
     ]);
     if (!read.ok) throw new Error(read.why);
-    expect(read.edits.map((e) => [e.edit.index, e.edit.op, e.text])).toEqual([
+    expect(read.fields.map((e) => [e.edit.index, e.edit.op, e.value])).toEqual([
       [0, 'replace', 'b'],
       [1, 'replace', 'd'],
       [2, 'prepend', 'x'],
     ]);
+    expect(read.fields.map((f) => [f.field, f.kind])).toEqual([
+      ['patch.0.new_string', 'edit'],
+      ['patch.1.new_string', 'edit'],
+      ['patch.2.text', 'edit'],
+    ]);
     // A flag set to `false` changes nothing, so it is not drawn.
-    expect(read.edits.map((e) => e.edit.flags)).toEqual([['every occurrence'], [], []]);
-    expect(read.edits[0]!.edit.anchors).toEqual([{ key: 'old_string', label: 'Replaces', value: 'a' }]);
-    expect(read.edits[2]!.edit.anchors).toEqual([]);
+    expect(read.fields.map((e) => e.edit.flags)).toEqual([['every occurrence'], [], []]);
+    expect(read.fields[0]!.edit.anchors).toEqual([{ key: 'old_string', label: 'Replaces', value: 'a' }]);
+    expect(read.fields[2]!.edit.anchors).toEqual([]);
   });
 
   test('the text is kept byte for byte, separators and all', () => {
     const text = '\n\n## Rollout\n\nShip on Monday. ';
     const read = readPatch(LINEAR!, [{ op: 'append', text }]);
-    expect(read.ok && read.edits[0]!.text).toBe(text);
+    expect(read.ok && read.fields[0]!.value).toBe(text);
   });
 
   test('an operation named after an object method is not an operation', () => {
@@ -105,6 +110,28 @@ describe('readPatch', () => {
   test('the first refusal is named by its position, counted from 1', () => {
     const read = readPatch(LINEAR!, [{ op: 'append', text: 'fine' }, { op: 'append', text: 'x', at: 2 }]);
     expect(read).toEqual({ ok: false, why: 'edit 2 (append) carries "at", which draftgate cannot show' });
+  });
+
+  test('a carriage return in a text is refused: a text box reports every break as LF', () => {
+    // One keystroke would rewrite each CR the reviewer never saw; an anchor is never written back.
+    const read = readPatch(LINEAR!, [{ op: 'append', text: 'one\r\ntwo' }]);
+    expect(read).toEqual({
+      ok: false,
+      why: `edit 1 (append) holds a carriage return in "text", which the review's text box cannot keep`,
+    });
+    expect(readPatch(LINEAR!, [{ op: 'insert_after', anchor: 'a\r\nb', text: 'x' }]).ok).toBe(true);
+  });
+
+  test("only the anchor an operation keeps is marked kept: a range's end, never what it replaces", () => {
+    const read = readPatch(LINEAR!, [
+      { op: 'replace_range', from: '## Old', to: '## Next', new_string: '' },
+      { op: 'replace', old_string: 'x', new_string: '' },
+    ]);
+    if (!read.ok) throw new Error(read.why);
+    expect(read.fields.map((e) => e.edit.anchors.map((a) => [a.key, a.kept === true]))).toEqual([
+      [['from', false], ['to', true]],
+      [['old_string', false]],
+    ]);
   });
 
   test('an anchor of an empty string has nothing to apply at', () => {

@@ -356,8 +356,8 @@ export function editorExtensions(
 export interface EditorProps {
   /** The document to load. Identity-stable: changing it remounts and discards editor history. */
   doc: PmNode;
-  /** Called with the editor's ProseMirror JSON on every change. */
-  onChange(doc: PmNode): void;
+  /** Called with the editor's ProseMirror JSON on every change. Absent for a `readOnly` preview. */
+  onChange?(doc: PmNode): void;
   /** What the toolbars may offer, from `RenderResult.toolbar`: only the profile knows (`ToolbarSupport`). */
   toolbar: ToolbarSupport;
   /**
@@ -416,7 +416,7 @@ export function Editor({
       // host must not hand the page an initial focus either (`draftgate.m`'s `-show`).
       autofocus: false,
       editable: !readOnly,
-      onUpdate: ({ editor }) => onChange(editor.getJSON() as PmNode),
+      onUpdate: ({ editor }) => onChange?.(editor.getJSON() as PmNode),
       editorProps: {
         attributes: { class: 'draftgate-body', spellcheck: 'true' },
       },

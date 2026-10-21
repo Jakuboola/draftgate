@@ -852,10 +852,15 @@ body {
 /* The top padding is a property because the pinned toolbar reads it: see `.dg-toolbar`. */
 .dg-compose {
   --dg-compose-pad-top: 12px;
+  padding: var(--dg-compose-pad-top) 14px;
+}
+
+/* The compose frame's ground, which a patch's edit cards share: they are the message too. */
+.dg-compose,
+.dg-edit {
   border: 1px solid var(--dg-frame);
   border-radius: var(--dg-frame-radius);
   background: var(--dg-frame-bg);
-  padding: var(--dg-compose-pad-top) 14px;
 }
 
 /*
@@ -941,13 +946,15 @@ body {
  * thinks the title already says `fields.summary` approves a blank one), so the two differ in two
  * properties, and losing either still leaves them distinguishable.
  */
-.dg-prose-field::placeholder {
+.dg-prose-field::placeholder,
+.dg-edit-text::placeholder {
   color: var(--dg-ink-quiet);
   font-weight: 400;
 }
 
 /* The same ring `.dg-warn-fix` and `.dg-img-load` use, so focus looks like one thing everywhere. */
-.dg-prose-field:focus-visible { outline: 2px solid var(--dg-accent); outline-offset: -1px; }
+.dg-prose-field:focus-visible,
+.dg-edit-text:focus-visible { outline: 2px solid var(--dg-accent); outline-offset: -1px; }
 
 /*
  * A patch, edit by edit (`PatchEdits.tsx`). Each edit is a card in the compose frame's border, radius
@@ -963,9 +970,6 @@ body {
 }
 
 .dg-edit {
-  border: 1px solid var(--dg-frame);
-  border-radius: var(--dg-frame-radius);
-  background: var(--dg-frame-bg);
   padding: 10px 14px;
   display: flex;
   flex-direction: column;
@@ -1007,8 +1011,9 @@ body {
   overflow-wrap: anywhere;
 }
 
-/* A deletion: the text it matches is what goes, so it is drawn as removed. */
-.dg-edit[data-deletes="true"] .dg-edit-anchor-text {
+/* A deletion: the text it matches is what goes, so it is drawn as removed. Not an anchor the
+   operation keeps (`replace_range`'s end). */
+.dg-edit[data-deletes="true"] .dg-edit-anchor:not([data-kept="true"]) .dg-edit-anchor-text {
   background: var(--dg-diff-removed-bg);
   text-decoration: line-through;
 }
@@ -1031,8 +1036,6 @@ body {
   font: 400 12px/1.5 var(--dg-mono);
 }
 
-.dg-edit-text::placeholder { color: var(--dg-ink-quiet); }
-.dg-edit-text:focus-visible { outline: 2px solid var(--dg-accent); outline-offset: -1px; }
 
 .dg-edit-preview { padding-top: 2px; }
 

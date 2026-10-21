@@ -952,6 +952,16 @@ describe('a payload that carries a patch rather than a body', () => {
     expect(out.denial?.reason).toContain('Edit 4');
   });
 
+  test('a denial after an approval logs what the reviewer typed, not only what they were shown', async () => {
+    // Edit 1 rewritten, edit 4 emptied: the backstop refuses, and the row says which edit did it.
+    const out = await patched(INPUT, editing({ 'patch.0.new_string': 'Friday', 'patch.3.text': '' })).outcome;
+    expect(out.exitCode).toBe(1);
+    expect(out.audit.edited).toBe(true);
+    expect(out.audit.patch![0]).toMatchObject({ before: 'Thursday', after: 'Friday' });
+    expect(out.audit.patch![3]).toMatchObject({ before: ' (draft)', after: '' });
+    expect('after' in out.audit.patch![1]!).toBe(false);
+  });
+
   test('the log records every edit, as shown and as sent', async () => {
     const out = await patched(INPUT, editing({ 'patch.3.text': ' (final)' })).outcome;
     // No body, so no body halves.

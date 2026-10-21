@@ -10,6 +10,8 @@
  * would see, so it is never skipped.
  */
 
+import { isPlainObject } from './plainObject';
+import type { EditFieldValue } from './reviewFields';
 import { warn, type Warning } from './warnings';
 
 /** One kind of operation, as the destination's schema spells it. */
@@ -18,9 +20,11 @@ export interface PatchOpGrammar {
   readonly label: string;
   /**
    * The text the operation applies at, read-only, in the order the window draws them, each with
-   * the words it is drawn under. Every one is required and is a non-empty string.
+   * the words it is drawn under. Every one is required and is a non-empty string. `kept`: the
+   * operation leaves this text in place (`replace_range`'s `to`); every other anchor of a replacing
+   * operation is what it replaces, so the window strikes it through when the new text is empty.
    */
-  readonly anchors: readonly { readonly key: string; readonly label: string }[];
+  readonly anchors: readonly { readonly key: string; readonly label: string; readonly kept?: true }[];
   /** The key holding the text the operation writes: the one value a reviewer edits. Required. */
   readonly text: string;
   /**
@@ -53,7 +57,7 @@ export interface PatchEdit {
   op: string;
   /** `PatchOpGrammar.label`. */
   label: string;
-  anchors: { key: string; label: string; value: string }[];
+  anchors: { key: string; label: string; value: string; kept?: true }[];
   /** The labels of the flags set `true`. */
   flags: string[];
   /** The key the text lives at, for the field path (`patchEditPath`). */
@@ -62,17 +66,15 @@ export interface PatchEdit {
   note?: string;
 }
 
-export type PatchRead =
-  | { ok: true; edits: { edit: PatchEdit; text: string }[] }
-  | { ok: false; why: string };
+/**
+ * Every operation as the review field it is shown as, in order: at the path its text is written back
+ * to, with the agent's text as its value. Or the first thing that cannot be shown.
+ */
+export type PatchRead = { ok: true; fields: EditFieldValue[] } | { ok: false; why: string };
 
 /** The path one operation's text is reported under: `patch.3.new_string`. */
 export function patchEditPath(delta: Pick<DeltaField, 'field'>, index: number, textKey: string): string {
   return `${delta.field}.${index}.${textKey}`;
-}
-
-function isPlainRecord(v: unknown): v is Record<string, unknown> {
-  return v !== null && typeof v === 'object' && !Array.isArray(v);
 }
 
 /**
@@ -90,10 +92,10 @@ export function readPatch(delta: DeltaField, value: unknown): PatchRead {
       why: `"${delta.field}" carries ${value.length} edits, more than the ${delta.maxOps} the tool accepts`,
     };
   }
-  const edits: { edit: PatchEdit; text: string }[] = [];
+  const fields: EditFieldValue[] = [];
   for (const [i, raw] of value.entries()) {
     const n = i + 1;
-    if (!isPlainRecord(raw)) return { ok: false, why: `edit ${n} is not an object` };
+    if (!isPlainObject(raw)) return { ok: false, why: `edit ${n} is not an object` };
     const kind = raw[delta.opKey];
     // `Object.hasOwn`: a payload's `op: "toString"` must not find the prototype's function.
     if (typeof kind !== 'string' || !Object.hasOwn(delta.ops, kind)) {
@@ -116,11 +118,19 @@ export function readPatch(delta: DeltaField, value: unknown): PatchRead {
       if (typeof v !== 'string' || v === '') {
         return { ok: false, why: `edit ${n} (${kind}) has no text in "${a.key}" to apply at` };
       }
-      anchors.push({ key: a.key, label: a.label, value: v });
+      anchors.push({ key: a.key, label: a.label, value: v, ...(a.kept ? { kept: true as const } : {}) });
     }
     const text = raw[grammar.text];
     if (typeof text !== 'string') {
       return { ok: false, why: `edit ${n} (${kind}) has no "${grammar.text}" string` };
+    }
+    // A text box reports every line break as LF, so one keystroke anywhere in the text would rewrite
+    // each CR the reviewer never saw. Asked about instead.
+    if (text.includes('\r')) {
+      return {
+        ok: false,
+        why: `edit ${n} (${kind}) holds a carriage return in "${grammar.text}", which the review's text box cannot keep`,
+      };
     }
     const flags: string[] = [];
     for (const f of grammar.flags) {
@@ -131,7 +141,10 @@ export function readPatch(delta: DeltaField, value: unknown): PatchRead {
       }
       if (v) flags.push(f.label);
     }
-    edits.push({
+    fields.push({
+      field: patchEditPath(delta, i, grammar.text),
+      kind: 'edit',
+      value: text,
       edit: {
         index: i,
         op: kind,
@@ -142,10 +155,9 @@ export function readPatch(delta: DeltaField, value: unknown): PatchRead {
         empty: grammar.empty,
         ...(grammar.note === undefined ? {} : { note: grammar.note }),
       },
-      text,
     });
   }
-  return { ok: true, edits };
+  return { ok: true, fields };
 }
 
 /**

@@ -49,7 +49,9 @@ destination.
   see is not a document; measured on Linear, the round trip changes 7 of 11 ordinary fragments (the
   `"\n\n"` that joins one to its neighbours, the space at either end of an inline insertion,
   `<url>`). A textarea holds the characters, an untouched edit is sent byte for byte, and a read-only
-  preview draws it in the destination's sheet. No line of it may sit out of sight (`probe.ts`).
+  preview draws it in the destination's sheet. No line of it may sit out of sight (`probe.ts`), at
+  any window width. A text holding a CR asks: a textarea reports every break as LF, so one keystroke
+  would rewrite each CR unseen.
 - An approval sends the same patch with the changed texts written in (`writePatchEdits`): the same
   operations, anchors, flags and order. A text the schema refuses empty blocks (`patch/empty-text`);
   an empty replacement is a deletion and is drawn as one.

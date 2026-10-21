@@ -77,6 +77,8 @@ paths:
 - **An error boundary must remove the Approve button**, not just the broken part; only the caller
   can unmount the footer.
 - And the keyboard path with it: register `⌘↵` only while the shell that names it is mounted.
+- A patch's previews are editors too: each sits in an `EditorBoundary` (`EditorBoundary.tsx`), so
+  one that cannot load takes the shell as the body editor does.
 - **TipTap substitutes an empty document for one it cannot load, silently.** `enableContentCheck:
   true` alone does not stop it; handle `onContentError` and re-throw into `EditorBoundary`.
 - A document of registered node names can still be invalid. Load every fixture with

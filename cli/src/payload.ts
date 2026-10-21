@@ -7,7 +7,8 @@
  */
 
 import {
-  profiles, readPatch, type DeltaField, type DestinationName, type PatchEdit, type RenderResult,
+  profiles, readPatch, type DeltaField, type DestinationName, type EditFieldValue, type PatchEdit,
+  type RenderResult,
 } from '../../core/src/index';
 import { isPlainObject } from './json';
 
@@ -170,10 +171,10 @@ function deltaBy(
   return profiles[destination].deltaFields.find((d) => Object.hasOwn(toolInput, d.field));
 }
 
-/** A delta draftgate can show: the field it came from and every operation, in order. */
+/** A delta draftgate can show: the field it came from and every operation's review field, in order. */
 export interface ReadPatch {
   delta: DeltaField;
-  edits: { edit: PatchEdit; text: string }[];
+  fields: EditFieldValue[];
 }
 
 /**
@@ -206,7 +207,7 @@ export function extractPatch(
   }
   const read = readPatch(delta, toolInput[delta.field]);
   if (!read.ok) throw refuse(read.why);
-  return { delta, edits: read.edits };
+  return { delta, fields: read.fields };
 }
 
 /**
@@ -518,13 +519,14 @@ export function extractBody(
 ): string | undefined {
   const field = bodyFieldFor(destination, bodyField);
 
-  // A delta is not a body. `review.ts` reads it first (`extractPatch`); a caller that reaches here
-  // with one gets the same refusal or, for a patch it could show, a refusal saying to read it as one.
-  if (extractPatch(destination, toolInput, bodyField) !== undefined) {
+  // A delta is not a body: `review.ts` reads one with `extractPatch` first, so presence is enough
+  // here, and no second read of the grammar.
+  const delta = deltaBy(destination, toolInput);
+  if (delta !== undefined) {
     throw new MissingBodyFieldError(destination, field, Object.keys(toolInput), {
       failure: 'delta',
-      field: deltaBy(destination, toolInput)!.field,
-      why: 'it is a list of edits, reviewed as edits and not as a body',
+      field: delta.field,
+      why: 'it is a list of edits, read with `extractPatch` and not as a body',
     });
   }
 
@@ -623,12 +625,13 @@ export function readContext(
    */
   fields: { contextFields?: readonly string[]; editable?: readonly string[] } = {}
 ): { context: Record<string, unknown>; unaddressable: string[] } {
-  const { contextFields, editable } = fields;
+  const { contextFields, editable = [] } = fields;
   const out: Record<string, unknown> = {};
   const { paths, unaddressable } = expandContextFields(
     contextFieldsFor(destination, contextFields),
     toolInput,
-    editable
+    // A delta field is shown as its edits, never as a read-only copy of the raw list.
+    [...editable, ...profiles[destination].deltaFields.map((d) => d.field)]
   );
   for (const key of paths) {
     // A path, by the `bodyField` grammar: `editJiraIssue`'s title is `fields.summary`, which a

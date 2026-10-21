@@ -112,12 +112,6 @@ export function writePrivateFile(path: string, text: string): Error | null {
   }
 }
 
-/**
- * Everything the log needs, gathered by `runReview` where each fact is known: `main.ts` has the tool
- * input but not the canonical body, the final body or the reason.
- *
- * An absent field and an empty one are different facts throughout (see `fixes`).
- */
 /** One edit of a reviewed patch, in the review log (`AuditRecord.patch`). */
 export interface PatchAuditRow {
   /** The path the text is written at (`patch.0.new_string`). */
@@ -131,6 +125,12 @@ export interface PatchAuditRow {
   after?: string;
 }
 
+/**
+ * Everything the log needs, gathered by `runReview` where each fact is known: `main.ts` has the tool
+ * input but not the canonical body, the final body or the reason.
+ *
+ * An absent field and an empty one are different facts throughout (see `fixes`).
+ */
 export interface AuditRecord {
   destination: string;
   toolName?: string;
