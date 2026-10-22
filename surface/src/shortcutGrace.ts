@@ -13,7 +13,7 @@
  * acts either (`App.tsx` checks it): a `⌘↵` still held from the other app arrives as repeats. A
  * click on Approve stays live, because it is aimed at a button the reviewer can see. The other half
  * is in `App.tsx`: nothing is focused on open, which on the WebKit host also needs the host to give
- * the page no initial focus.
+ * the page no initial focus. `⌘J` waits out the same grace (`draftKey.ts`).
  *
  * The clock is `performance.now()`, a duration the wall clock cannot jump. The mount counts as a
  * show: the shell mounts once the request has loaded, after any earlier `focus` event.

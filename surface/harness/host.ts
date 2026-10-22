@@ -380,76 +380,143 @@ await section('a review: the menus, zoom, the context menu, undo, and an approva
 });
 
 /*
- * A window that comes forward focuses nothing, and a ⌘↵ in its first second does nothing
- * (`-show`, `.claude/rules/window.md`). Three windows come forward through `-show` once their
- * controls exist, so WebKit has one to focus; a fourth when its page loads, as a review's does. Each
- * waits out its mount's grace, then becomes key, whose `focus` event restarts the grace, so the first
- * ⌘↵ falls inside a grace only coming forward started. The evidence is the decision a ⌘↵ past the
- * grace writes. The windows run at once; none is ever key.
+ * A window that comes forward focuses nothing, and a ⌘↵ or a ⌘J in its first second does nothing
+ * (`-show`, `.claude/rules/window.md`; `draftKey.ts`). Four windows come forward through `-show` once
+ * their controls exist, so WebKit has one to focus; a fifth when its page loads, as a review's does.
+ * Each waits out its mount's grace, then becomes key, whose `focus` event restarts the grace, so the
+ * first presses fall inside a grace only coming forward started. Stray typing, Tabs included, is
+ * pressed inside the grace and again past it. Then ⌘J past the grace puts the caret where the
+ * reviewer edits first, changing nothing, and a ⌘↵ approves exactly what was shown. A second window
+ * per shape types after ⌘J, the control: without it "nothing reached the draft" passes for a key
+ * that focuses nothing. The windows run at once; none is ever key.
  */
-await section('a window that comes forward focuses nothing: stray typing changes nothing, and ⌘↵ waits', async () => {
+await section('a window that comes forward focuses nothing: stray typing changes nothing, ⌘↵ waits, and ⌘J lets the keyboard in', async () => {
   const BODY = '# Deploy postmortem\n\nThe deploy is done.\n';
   const TITLE = 'Nightly export fails on empty tables';
-  // Typed as somebody mid-sentence in another app types: letters, a space, a Return, more letters.
-  const STRAY = [...'now afadfdf', 'Enter', 'x'];
+  // Typed as somebody mid-sentence in another app types: letters, a space, a Return, more letters,
+  // and the Tab and Shift-Tab a terminal running Claude Code is pressed with.
+  const STRAY: [string, number?][] = [...[...'now afadfdf', 'Enter', 'x'].map((k): [string] => [k]), ['Tab'], ['y'], ['Tab', MODIFIER.shift], ['z']];
   const markdown = [{ field: 'commentBody', kind: 'markdown', value: BODY }];
-  const shapes: { name: string; reaches?: string; fields: { field: string; kind: string; value: string }[] }[] = [
-    { name: 'markdown body', reaches: "the toolbar's text-style select", fields: markdown },
-    { name: 'title and body', reaches: "the title's <input>", fields: [{ field: 'summary', kind: 'line', value: TITLE }, { field: 'description', kind: 'markdown', value: BODY }] },
-    { name: 'plain body', reaches: 'the textarea', fields: [{ field: 'commentBody', kind: 'text', value: BODY }] },
+  const EDITOR = '.dg-compose .ProseMirror';
+  const shapes: { name: string; reaches?: string; request: string; target: string; typed: string }[] = [
+    { name: 'markdown body', reaches: "the toolbar's text-style select", request: jiraRequest({ fields: markdown }), target: EDITOR, typed: 'commentBody' },
+    {
+      name: 'title and body', reaches: "the title's <input>", target: EDITOR, typed: 'description',
+      request: jiraRequest({ fields: [{ field: 'summary', kind: 'line', value: TITLE }, { field: 'description', kind: 'markdown', value: BODY }] }),
+    },
+    { name: 'plain body', reaches: 'the textarea', request: jiraRequest({ fields: [{ field: 'commentBody', kind: 'text', value: BODY }] }), target: 'textarea.dg-plain-body', typed: 'commentBody' },
+    {
+      name: 'patch', reaches: "the title's <input>", target: 'textarea.dg-edit-text', typed: 'patch.0.new_string',
+      request: JSON.stringify(requestFor('linear-patch', SCENARIOS['linear-patch']!)),
+    },
     // No `reaches`: a review's page has not drawn when it loads, so nothing is there to reach.
-    { name: 'markdown body, forward when it loaded', fields: markdown },
+    { name: 'markdown body, forward when it loaded', request: jiraRequest({ fields: markdown }), target: EDITOR, typed: 'commentBody' },
   ];
+  type DraftState = ReturnType<typeof INJECTED.hostDraftState>;
+  type Check = Pick<ReturnType<typeof report.sub>, 'check'>['check'];
+
+  /** Bring a window forward as a review's comes, and wait out the grace that started. */
+  const comeForward = async (shape: (typeof shapes)[number], tag: string, check: Check) => {
+    const drawnFirst = shape.reaches !== undefined;
+    const w = await open(`${tag}-${shape.name.replace(/\W+/g, '-')}`, { request: shape.request, showWhenAsked: drawnFirst });
+    const s = w.session;
+    if (drawnFirst) {
+      const drawn = await until(() => s.evaluate<boolean>(INJECTED.hostControlsDrawn), { timeoutMs: 10_000 });
+      check(drawn, `${shape.name}: the page drew its controls, ${shape.reaches} first, before the window came forward`);
+    }
+    const before = await s.evaluate<DraftState>(INJECTED.hostDraftState);
+    await sleep(SHORTCUT_GRACE_PAST_MS);
+    await s.evaluate(INJECTED.hostWindowFocusEvents, true);
+    if (drawnFirst) await s.show();
+    await s.becomeKey();
+    const focusEvent = await until(async () => (await s.evaluate<number>(INJECTED.hostWindowFocusEvents, false)) > 0, { timeoutMs: 2000 });
+    check(focusEvent, `${shape.name}: becoming key gave the page its window focus event, which restarts the grace`);
+    return { w, s, before };
+  };
+  /** Past the grace a ⌘↵ approves. Not awaited: it ends the window. */
+  const approveByKey = async (w: Opened) => {
+    await sleep(SHORTCUT_GRACE_PAST_MS);
+    void w.session.key('Enter', 'keyDown', MODIFIER.command).catch(() => undefined);
+    return readDecision(w, await Promise.race([w.host.exited, sleep(5000).then(() => null)]));
+  };
+  const shownFields = (shape: (typeof shapes)[number]) =>
+    Object.fromEntries((JSON.parse(shape.request) as { fields: { field: string; value: string }[] }).fields.map((f) => [f.field, f.value]));
 
   const stray = async (shape: (typeof shapes)[number], { check }: Pick<ReturnType<typeof report.sub>, 'check'>) => {
-    const drawnFirst = shape.reaches !== undefined;
-    const w = await open(`stray-${shape.name.replace(/\W+/g, '-')}`, { request: jiraRequest({ fields: shape.fields }), showWhenAsked: drawnFirst });
-    const s = w.session;
+    const { w, s, before } = await comeForward(shape, 'stray', check);
     try {
-      if (drawnFirst) {
-        const drawn = await until(() => s.evaluate<boolean>(INJECTED.hostControlsDrawn), { timeoutMs: 10_000 });
-        check(drawn, `${shape.name}: the page drew its controls, ${shape.reaches} first, before the window came forward`);
-      }
-      const before = await s.evaluate<ReturnType<typeof INJECTED.hostDraftState>>(INJECTED.hostDraftState);
-      await sleep(SHORTCUT_GRACE_PAST_MS);
-      await s.evaluate(INJECTED.hostWindowFocusEvents, true);
-      if (drawnFirst) await s.show();
-      await s.becomeKey();
-      const focusEvent = await until(async () => (await s.evaluate<number>(INJECTED.hostWindowFocusEvents, false)) > 0, { timeoutMs: 2000 });
-      check(focusEvent, `${shape.name}: becoming key gave the page its window focus event, which restarts the grace`);
-
       // Inside the grace the reply comes back; one that approved ends the window under it.
       const answered = await s.press('Enter', MODIFIER.command).then(() => true, () => false);
       const waited = answered && w.undecided();
       check(waited, `${shape.name}: a ⌘↵ in the first second after it came forward decided nothing`);
       if (!waited) return;
-      for (const key of STRAY) await s.press(key);
+      await s.press('j', MODIFIER.command);
+      const typedAtTheWindow = async (when: string) => {
+        for (const [key, modifiers] of STRAY) await s.press(key, modifiers);
+        const focused = await s.evaluate<{ tag: string } | null>(INJECTED.focusedControl);
+        check(focused === null, `${shape.name}: ${when}, nothing in the page holds the focus`, JSON.stringify(focused));
+        const after = await s.evaluate<DraftState>(INJECTED.hostDraftState);
+        check(JSON.stringify(after) === JSON.stringify(before), `${shape.name}: ${when}, typing at the window, Tabs included, changed nothing in the draft or its fields`,
+          `before ${JSON.stringify(before)}\nafter  ${JSON.stringify(after)}`);
+      };
+      await typedAtTheWindow('after a ⌘J inside the grace');
+      await sleep(SHORTCUT_GRACE_PAST_MS);
+      await typedAtTheWindow('past the grace');
+
+      await s.press('j', MODIFIER.command);
+      const inDraft = await until(() => s.evaluate<boolean>(INJECTED.hostFocusedIs, shape.target, 0), { timeoutMs: 2000 });
       const focused = await s.evaluate<{ tag: string } | null>(INJECTED.focusedControl);
-      check(focused === null, `${shape.name}: nothing in the page holds the focus`, JSON.stringify(focused));
-      const after = await s.evaluate<ReturnType<typeof INJECTED.hostDraftState>>(INJECTED.hostDraftState);
-      check(JSON.stringify(after) === JSON.stringify(before), `${shape.name}: typing at the window changed nothing in the draft or its fields`,
+      check(inDraft, `${shape.name}: ⌘J past the grace put the focus in ${shape.target}`, JSON.stringify(focused));
+      await s.press('j', MODIFIER.command);
+      const after = await s.evaluate<DraftState>(INJECTED.hostDraftState);
+      check(JSON.stringify(after) === JSON.stringify(before), `${shape.name}: ⌘J, pressed twice, changed nothing`,
         `before ${JSON.stringify(before)}\nafter  ${JSON.stringify(after)}`);
 
-      // Past the grace a ⌘↵ approves, so the one above was refused by the grace and not by nothing
-      // listening. Not awaited: it ends the window.
-      await sleep(SHORTCUT_GRACE_PAST_MS);
-      void s.key('Enter', 'keyDown', MODIFIER.command).catch(() => undefined);
-      const { how, raw, decision } = readDecision(w, await Promise.race([w.host.exited, sleep(5000).then(() => null)]));
-      const want = Object.fromEntries(shape.fields.map((f) => [f.field, f.value]));
-      check(how?.code === 0 && decision?.action === 'approve' && decision.edited === false && JSON.stringify(decision.fields) === JSON.stringify(want),
+      // The grace refused the first ⌘↵, not nothing listening, and nothing above reached the payload.
+      const { how, raw, decision } = await approveByKey(w);
+      check(how?.code === 0 && decision?.action === 'approve' && decision.edited === false && JSON.stringify(decision.fields) === JSON.stringify(shownFields(shape)),
         `${shape.name}: the ⌘↵ past the grace approves exactly what was shown, unedited`, `${JSON.stringify(how)} ${JSON.stringify(raw)}`);
     } finally {
       w.done();
     }
   };
 
+  /** The control: after ⌘J a typed character reaches the field ⌘J chose, and the payload. */
+  const typed = async (shape: (typeof shapes)[number], { check }: Pick<ReturnType<typeof report.sub>, 'check'>) => {
+    const { w, s } = await comeForward(shape, 'typed', check);
+    try {
+      await sleep(SHORTCUT_GRACE_PAST_MS);
+      await s.press('j', MODIFIER.command);
+      await until(() => s.evaluate<boolean>(INJECTED.hostFocusedIs, shape.target, 0), { timeoutMs: 2000 });
+      if (shape.target === 'textarea.dg-edit-text') {
+        // A patch's edit boxes are a Tab apart, the previews between them taking no stop.
+        await s.press('Tab');
+        const second = await s.evaluate<boolean>(INJECTED.hostFocusedIs, shape.target, 1);
+        await s.press('Tab', MODIFIER.shift);
+        const first = await s.evaluate<boolean>(INJECTED.hostFocusedIs, shape.target, 0);
+        check(second && first, `${shape.name}: Tab moves to the next edit box and Shift-Tab back`, JSON.stringify({ second, first }));
+      }
+      await s.press('Q');
+      const { how, raw, decision } = await approveByKey(w);
+      const shown = shownFields(shape);
+      const sent = decision?.action === 'approve' && decision.edited === true ? decision.fields : undefined;
+      const others = Object.keys(shown).filter((k) => k !== shape.typed);
+      check(how?.code === 0 && sent?.[shape.typed]?.includes('Q') === true && others.every((k) => sent[k] === shown[k]),
+        `${shape.name}: after ⌘J a typed character is sent in ${shape.typed}, and only there`, `${JSON.stringify(how)} ${JSON.stringify(raw)}`);
+    } finally {
+      w.done();
+    }
+  };
+
   // Each window reports into its own channel, printed in the order above whichever finishes first.
-  const runs = shapes.map((shape) => {
-    const sub = report.sub();
-    return stray(shape, sub)
-      .catch((e: Error) => sub.check(false, `${shape.name}: the window ran to its end`, e.stack ?? String(e)))
-      .then(() => sub.lines);
-  });
+  const runs = shapes.flatMap((shape) =>
+    [stray, typed].map((run) => {
+      const sub = report.sub();
+      return run(shape, sub)
+        .catch((e: Error) => sub.check(false, `${shape.name}: the window ran to its end`, e.stack ?? String(e)))
+        .then(() => sub.lines);
+    })
+  );
   for (const lines of await Promise.all(runs)) lines.forEach((line) => console.log(line));
 });
 

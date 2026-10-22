@@ -1148,32 +1148,40 @@ function hostEditorText() {
 
 /**
  * Has the page drawn the controls a keyboard can reach (the toolbar's text-style select for markdown,
- * the textarea for plain, the footer), on screen or not? `isRendered` waits for a frame, which a
- * window not ordered in never draws.
+ * the textarea for plain, a patch's edit boxes, the footer), on screen or not? `isRendered` waits
+ * for a frame, which a window not ordered in never draws.
  */
 function hostControlsDrawn() {
   const compose = document.querySelector('.dg-compose');
-  if (!compose) return false;
-  const surface = compose.querySelector('.ProseMirror')
-    ? document.querySelector('.dg-toolbar .dg-tb-select')
-    : compose.querySelector('textarea.dg-plain-body');
+  const surface = !compose
+    ? document.querySelector('textarea.dg-edit-text')
+    : compose.querySelector('.ProseMirror')
+      ? document.querySelector('.dg-toolbar .dg-tb-select')
+      : compose.querySelector('textarea.dg-plain-body');
   return surface !== null && document.querySelectorAll('.dg-footer .dg-btn').length > 0;
 }
 
 /**
  * Everything stray typing could have changed, read off the page: the draft's text, each line
- * field, the text-style select, and the "edited" badge.
+ * field, each edit box of a patch, the text-style select, and the "edited" badge.
  */
 function hostDraftState() {
-  const pm = document.querySelector('.ProseMirror');
+  const pm = document.querySelector('.dg-compose .ProseMirror');
   const plain = document.querySelector('textarea.dg-plain-body');
   const select = document.querySelector('.dg-tb-select');
   return {
     draft: pm ? pm.textContent : plain ? plain.value : null,
     lines: [...document.querySelectorAll('input.dg-prose-field')].map((i) => i.value),
+    edits: [...document.querySelectorAll('textarea.dg-edit-text')].map((t) => t.value),
     textStyle: select ? select.value : null,
     edited: document.querySelector('.dg-edited') !== null,
   };
+}
+
+/** Is the focus on the `index`th element `selector` matches? */
+function hostFocusedIs(selector, index) {
+  const el = document.querySelectorAll(selector)[index];
+  return el !== undefined && document.activeElement === el;
 }
 
 /**
@@ -1408,6 +1416,7 @@ module.exports = {
   hostEditorText,
   hostControlsDrawn,
   hostDraftState,
+  hostFocusedIs,
   hostWindowFocusEvents,
   latoAdvances,
   wkForceHover,

@@ -162,7 +162,8 @@ export interface Injected {
   wkFacesByWidth: (selector: string) => Promise<{ familyName: string; isCustomFont: boolean; glyphCount: number }[] | null>;
   hostEditorText: () => string | null;
   hostControlsDrawn: () => boolean;
-  hostDraftState: () => { draft: string | null; lines: string[]; textStyle: string | null; edited: boolean };
+  hostDraftState: () => { draft: string | null; lines: string[]; edits: string[]; textStyle: string | null; edited: boolean };
+  hostFocusedIs: (selector: string, index: number) => boolean;
   hostWindowFocusEvents: (arm: boolean) => number;
 }
 

@@ -35,6 +35,7 @@ import { PatchEdits } from './PatchEdits';
 import { useReview, silencedWarnings, type Loaded } from './useReview';
 import { useSettledWarnings } from './settledWarnings';
 import { useShortcutArmed } from './shortcutGrace';
+import { DRAFT_KEY, focusDraft, isDraftKey, nothingFocused } from './draftKey';
 import { mentionNote, mentionSummary } from '../../core/src/index';
 
 /**
@@ -427,12 +428,14 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
 
   /*
    * What the footer promises when nothing changed. Both spellings name what is on SCREEN; the
-   * second does not imply a message body. A const, since the footer's ternary had no room.
+   * second does not imply a message body. A const, since the footer's ternary had no room. Until
+   * something is edited it also names the key into the draft (`draftKey.ts`); the third line has
+   * no room for it at the narrowest window, and `⌘J` works there too.
    */
   const unchangedHint = hasDraft
-    ? 'Exactly what you see above will be sent.'
+    ? `Exactly what you see above will be sent. ${DRAFT_KEY} to edit.`
     : hasEdits
-      ? 'Exactly these edits will be sent.'
+      ? `Exactly these edits will be sent. ${DRAFT_KEY} to edit.`
       : 'Exactly the fields above will be sent. This call carries no message body.';
   // Did a person change anything at all: the body, a line or an edit. The badge, the hint and the
   // decision's `edited` all mean this.
@@ -495,23 +498,31 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
   }, [reason, said, submitted]);
 
   /*
-   * The shortcut is registered ONLY while the shell that advertises it is on screen. Nothing else
-   * tears this listener down when `editorError` fires, so `⌘↵` would outlive the button: the fatal
-   * screen removes "Approve & send (⌘↵)" and the key would approve anyway, since `approve()` is
-   * gated on `current.blocked`, which knows nothing about the editor. Not registering is stronger
-   * than a guard in `onKey`. `surface/window.test.tsx` dispatches the real event.
+   * The shortcuts are registered ONLY while the shell that advertises them is on screen. Nothing
+   * else tears this listener down when `editorError` fires, so `⌘↵` would outlive the button: the
+   * fatal screen removes "Approve & send (⌘↵)" and the key would approve anyway, since `approve()`
+   * is gated on `current.blocked`, which knows nothing about the editor. Not registering is
+   * stronger than a guard in `onKey`. `surface/window.test.tsx` dispatches the real event.
    */
   const shortcutArmed = useShortcutArmed();
   useEffect(() => {
     if (editorError !== null) return;
     const onKey = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || e.key !== 'Enter') return;
+      // With nothing focused a Tab would hand the keyboard to the page's first control, and stray
+      // typing after it to the draft: `⌘J` is the way in (`draftKey.ts`).
+      if (e.key === 'Tab' && nothingFocused()) {
+        e.preventDefault();
+        return;
+      }
+      const draftKey = isDraftKey(e);
+      if (!draftKey && (!(e.metaKey || e.ctrlKey) || e.key !== 'Enter')) return;
       /*
        * Not while a sub-dialog asks a DIFFERENT question. With the repair preview open, `⌘↵` would
        * approve the UNREPAIRED body (`blocked` does not save this: a warning's repair is offered on
        * an approvable draft); with the link row focused it races `UrlInput`'s Enter. The preview is
        * `pendingFix`; the link row's state is inside `Toolbar`, so it is detected on the EVENT:
-       * a keystroke inside `.dg-linkrow` belongs to it. That also covers the next sub-dialog.
+       * a keystroke inside `.dg-linkrow` belongs to it. That also covers the next sub-dialog, and
+       * keeps `⌘J` from taking the focus out of one.
        */
       if (pendingFix !== null) return;
       const target = e.target as Element | null;
@@ -520,13 +531,14 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
       /*
        * Only a FRESH press, and only once the window has held the keyboard for a second
        * (`shortcutGrace.ts`). After the exemptions above, so a keystroke that belongs to one is left
-       * alone. A swallowed press is still `preventDefault`ed; what keeps it out of the DRAFT is the
-       * editor's own `'Mod-Enter': () => true` in `Editor.tsx`, since window listeners run after
-       * ProseMirror's.
+       * alone. A swallowed press is still `preventDefault`ed; what keeps `⌘↵` out of the DRAFT is
+       * the editor's own `'Mod-Enter': () => true` in `Editor.tsx`, since window listeners run after
+       * ProseMirror's. The editor binds nothing to `⌘J`.
        */
       e.preventDefault();
       if (e.repeat || !shortcutArmed()) return;
-      if (rejecting) reject();
+      if (draftKey) focusDraft();
+      else if (rejecting) reject();
       else approve();
     };
     window.addEventListener('keydown', onKey);
