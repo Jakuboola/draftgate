@@ -66,8 +66,8 @@ paths:
   page's first control and stray typing reaches the draft. The harness runs `-show` too (minus
   activation): a harness that skips the review's path onto the screen cannot see what happens on it.
 - Until the reviewer presses a pointer in the page or an honoured `⌘J`, a Tab with nothing focused
-  does nothing (`App.tsx`), or it hands the keyboard to the page's first control and stray typing
-  reaches the draft. `⌘J`, past the `⌘↵` grace, is the keyboard's way in (`draftKey.ts`);
+  does nothing (`useTabGuard`), or it hands the keyboard to the page's first control and stray
+  typing reaches the draft. `⌘J`, past the `⌘↵` grace, is the keyboard's way in (`draftKey.ts`);
   `surface:host` presses both in a real window.
 - The build credits every package it bundles, or fails: `THIRD_PARTY_NOTICES` in `dist/`,
   derived from what the build read (`cli/src/surfaces/thirdPartyNotices.ts` has the contract). Never

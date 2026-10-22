@@ -1152,13 +1152,13 @@ function hostEditorText() {
  * for a frame, which a window not ordered in never draws.
  */
 function hostControlsDrawn() {
+  const footer = document.querySelectorAll('.dg-footer .dg-btn').length > 0;
   const compose = document.querySelector('.dg-compose');
-  const surface = !compose
-    ? document.querySelector('textarea.dg-edit-text')
-    : compose.querySelector('.ProseMirror')
-      ? document.querySelector('.dg-toolbar .dg-tb-select')
-      : compose.querySelector('textarea.dg-plain-body');
-  return surface !== null && document.querySelectorAll('.dg-footer .dg-btn').length > 0;
+  if (!compose) return footer && document.querySelector('textarea.dg-edit-text') !== null;
+  const surface = compose.querySelector('.ProseMirror')
+    ? document.querySelector('.dg-toolbar .dg-tb-select')
+    : compose.querySelector('textarea.dg-plain-body');
+  return footer && surface !== null;
 }
 
 /**

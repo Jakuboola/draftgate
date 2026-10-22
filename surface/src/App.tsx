@@ -8,7 +8,7 @@
  * that way -- so there is no state in which shutting this down sends the message.
  */
 
-import { Component, Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Component, Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import type {
   Audience, DestinationName, EditFieldValue, FixOffer, PmNode, RenderResult, ReviewFieldValue,
@@ -35,7 +35,7 @@ import { PatchEdits } from './PatchEdits';
 import { useReview, silencedWarnings, type Loaded } from './useReview';
 import { useSettledWarnings } from './settledWarnings';
 import { useShortcutArmed } from './shortcutGrace';
-import { DRAFT_KEY, focusDraft, isDraftKey, nothingFocused } from './draftKey';
+import { DRAFT_KEY, focusDraft, isDraftKey, useTabGuard } from './draftKey';
 import { mentionNote, mentionSummary } from '../../core/src/index';
 
 /**
@@ -432,10 +432,11 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
    * something is edited it also names the key into the draft (`draftKey.ts`); the third line has
    * no room for it at the narrowest window, and `⌘J` works there too.
    */
+  const toEdit = ` ${DRAFT_KEY} to edit.`;
   const unchangedHint = hasDraft
-    ? `Exactly what you see above will be sent. ${DRAFT_KEY} to edit.`
+    ? `Exactly what you see above will be sent.${toEdit}`
     : hasEdits
-      ? `Exactly these edits will be sent. ${DRAFT_KEY} to edit.`
+      ? `Exactly these edits will be sent.${toEdit}`
       : 'Exactly the fields above will be sent. This call carries no message body.';
   // Did a person change anything at all: the body, a line or an edit. The badge, the hint and the
   // decision's `edited` all mean this.
@@ -505,26 +506,10 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
    * stronger than a guard in `onKey`. `surface/window.test.tsx` dispatches the real event.
    */
   const shortcutArmed = useShortcutArmed();
-  /*
-   * Has the reviewer done something deliberate in the page: pressed a pointer in it, or a `⌘J` that
-   * was honoured. Until then a Tab with nothing focused would hand the keyboard to the page's first
-   * control, and stray typing after it to the draft (`draftKey.ts`). A ref: nothing redraws on it.
-   */
-  const engaged = useRef(false);
-  useEffect(() => {
-    const engage = () => {
-      engaged.current = true;
-    };
-    window.addEventListener('pointerdown', engage, true);
-    return () => window.removeEventListener('pointerdown', engage, true);
-  }, []);
+  const engageKeyboard = useTabGuard();
   useEffect(() => {
     if (editorError !== null) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Tab' && !engaged.current && nothingFocused()) {
-        e.preventDefault();
-        return;
-      }
       const draftKey = isDraftKey(e);
       if (!draftKey && (!(e.metaKey || e.ctrlKey) || e.key !== 'Enter')) return;
       /*
@@ -549,14 +534,14 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
       e.preventDefault();
       if (e.repeat || !shortcutArmed()) return;
       if (draftKey) {
-        engaged.current = true;
+        engageKeyboard();
         focusDraft();
       } else if (rejecting) reject();
       else approve();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [approve, reject, rejecting, editorError, pendingFix, shortcutArmed]);
+  }, [approve, reject, rejecting, editorError, pendingFix, shortcutArmed, engageKeyboard]);
 
   // An editor that refused to load replaces the WHOLE shell. Wrapping only `<Editor>` would leave
   // the footer's enabled "Approve & send" under the error, since `disabled` comes from

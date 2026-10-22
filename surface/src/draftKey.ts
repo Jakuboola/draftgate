@@ -12,15 +12,15 @@
  * the page (pressed a pointer in it, or a `⌘J` that was honoured), a Tab with nothing focused does
  * nothing, and `⌘J`, honoured only once the `⌘↵` grace has passed, is how the keyboard gets in.
  * After that, Tab is the browser's again, so a reviewer whose focus fell back to the page (a click
- * on a button, a closed repair preview) can still Tab to the buttons.
+ * on a button, a closed repair preview) can still Tab to the buttons. The window taking the
+ * keyboard again (its `focus` event, or being shown again) starts it over, as it restarts the grace.
  *
  * Why `⌘J`. A stray keystroke is typing aimed at another app, and plain typing never holds `⌘`.
  * Tab and Shift-Tab are keys a terminal running Claude Code is pressed with all the time, and ↵ ends
  * nearly every line typed. Nothing in the window binds `⌘J`: not the host's menu (`draftgate.m`'s
  * `installMenu`), not the editor's shortcuts (`⌘E`, the obvious "edit", is TipTap's inline code).
- *
- * In a patch review Tab moves between the edit boxes, the previews between them taking no stop.
  */
+import { useCallback, useEffect, useRef } from 'react';
 import type { TiptapEditorHTMLElement } from '@tiptap/core';
 
 /** How the footer names the key. */
@@ -36,9 +36,44 @@ export function isDraftKey(e: KeyboardEvent): boolean {
 }
 
 /** Does nothing in the page hold the keyboard, as on open? Keys then go to the page itself. */
-export function nothingFocused(): boolean {
+function nothingFocused(): boolean {
   const active = document.activeElement;
   return active === null || active === document.body;
+}
+
+/**
+ * Hold a Tab with nothing focused until the reviewer engages, for as long as the window is mounted
+ * (the fatal screen too). Returns what an honoured `⌘J` calls to engage. A ref: nothing redraws on it.
+ */
+export function useTabGuard(): () => void {
+  const engaged = useRef(false);
+  useEffect(() => {
+    const engage = () => {
+      engaged.current = true;
+    };
+    const restart = () => {
+      engaged.current = false;
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') restart();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Tab' && !engaged.current && nothingFocused()) e.preventDefault();
+    };
+    window.addEventListener('pointerdown', engage, true);
+    window.addEventListener('focus', restart);
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', engage, true);
+      window.removeEventListener('focus', restart);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, []);
+  return useCallback(() => {
+    engaged.current = true;
+  }, []);
 }
 
 /**
