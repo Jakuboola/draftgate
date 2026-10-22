@@ -1,6 +1,6 @@
 {
  "version": 1,
- "stamp": "eac3d0a8a7eebb4d0bceb29cf223f682ac50c2edcde427c9b2967650f9cb5c28",
+ "stamp": "3776ca52f130a9483b714acc8711b23f16d5aca0e0114f8a5d1de76caa10bce1",
  "inputs": {
   "bun.lock": "f03a0efd080da0db0173edd7988ab157213fa7bd2420ba2d6e373b2905c184cf",
   "cli/src/buildSurface.ts": "0ad69378e18637b8017f0dcb6aac8fb6df50e793d8f10202e980875673a32194",
@@ -2258,7 +2258,7 @@
   "node_modules/w3c-keyname/package.json": "0396c646f74d52c1b0851074ecdb5cabf540af595ceb5e5a5136df2bf3c2f83b",
   "surface/contract.json": "47ed7c6fb29b7b7952e2f95ffc2a3498c3ebeef6ee5adf2464d52fe7b6507c84",
   "surface/index.html": "7f72ed689ea7ead5df43735e3f1ceec1210ec6f95dcd376ddf6c08acc739f236",
-  "surface/src/App.tsx": "a78f9b96343506b53f8f407e7f0473eb5ec94b31f5d9ebbd9ac0c07675e37021",
+  "surface/src/App.tsx": "6d752c3c30776bab26bee7b771b409246583e7e05680e76469fc4f6091e0a5c9",
   "surface/src/BubbleToolbar.tsx": "e01d0836baf1c9c49b19bc0a8656e8c4624a8dcdba7eb924a556b671fe96239a",
   "surface/src/DestinationMark.tsx": "54be7c76c84d4a272038d7762416e83bd9a76814f1d12c57aaf45f90bc70e5a1",
   "surface/src/Editor.tsx": "399e82448554de30549c257b78fbe90aec0416718643e5ae423e18aac2d57901",
@@ -2274,6 +2274,7 @@
   "surface/src/controls.tsx": "c7b4a6972d784843aff4531a6b58292d141b160934207af1149029c3188b350c",
   "surface/src/deferredImage.ts": "a51ef459f7b03c6785d8b682320f04871c9f6221a98503b52d10015f89dc4c6c",
   "surface/src/derivedDecorations.ts": "5a0bb22432d23f9c1751d7a94ea96b755f7d2c91c17c59e9288f828aaa875003",
+  "surface/src/draftKey.ts": "d475ea5f0bfc708558f39ef5d3b02574ffd7afc71a20c2255bb989e00aeeaf5c",
   "surface/src/href.ts": "295a734cd7e9577e900fe3467cfff02bcedf586bd12f7595df1b4926d1ba6fcd",
   "surface/src/linkEditor.tsx": "85d0d2e00dccecbe8014626911acd66c43b28240f7c8ac983d50ce70ee7da641",
   "surface/src/linkTarget.tsx": "ce771e5b70c7beff396b8e4957a2e87229ba598bc7bcde5d88f1f5200fe033ee",
@@ -2281,7 +2282,7 @@
   "surface/src/main.tsx": "fe448e5991f2cf2e5a4321b22fb7a359c9c78c8b5d5405400cbab3a3f949e1d6",
   "surface/src/mentionPills.ts": "65df9a010a1cb20909a9f6a79f939b0927b12686ede2d7c9836108e59fa8a540",
   "surface/src/settledWarnings.ts": "9b70d26ad9d98a197f6911cb25197b376feba641324ef736733334013bda704a",
-  "surface/src/shortcutGrace.ts": "d27f038e5d0491a41681c6d5425b3637c76fc812483d7aec53c37580a2d99b02",
+  "surface/src/shortcutGrace.ts": "c11e32864cd5a9d8ecbf5c86172cbb2e427ee5a056874060c9e1d70ed4a87ead",
   "surface/src/styles/fonts.css": "34352320b1bf83c3353f0e972d1293804584806430c1e53347f1fef240097b03",
   "surface/src/styles/github.css": "1d2eacdd898fd8075d1bbd468049d3321a8df5379794bb1659d328f9d0789735",
   "surface/src/styles/index.ts": "c5282e98be0c1682f3d473294729bb95795fe87bdd8ab582ad95a8dca191ae7b",
