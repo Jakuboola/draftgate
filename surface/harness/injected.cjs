@@ -1178,6 +1178,19 @@ function hostDraftState() {
   };
 }
 
+/**
+ * How many `keydown`s the page has received since `arm`, called once per window. A key the harness
+ * sends reaches the page asynchronously, after the send returns, so a read of the page waits for
+ * this to count every key pressed first.
+ */
+function hostKeydowns(arm) {
+  if (arm) {
+    window.__dgKeydowns = 0;
+    window.addEventListener('keydown', () => window.__dgKeydowns++, true);
+  }
+  return window.__dgKeydowns;
+}
+
 /** Is the focus on the `index`th element `selector` matches? */
 function hostFocusedIs(selector, index) {
   const el = document.querySelectorAll(selector)[index];
@@ -1417,6 +1430,7 @@ module.exports = {
   hostControlsDrawn,
   hostDraftState,
   hostFocusedIs,
+  hostKeydowns,
   hostWindowFocusEvents,
   latoAdvances,
   wkForceHover,

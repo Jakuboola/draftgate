@@ -52,7 +52,7 @@ It pauses a send, shows the draft as its destination will render it, lets a huma
 The counts tell a truncated run from a complete one (see "Where facts live" below).
 
 ```sh
-bun test                    # 4081 tests across 111 files; opens no window.  Every suite is bun:test
+bun test                    # 4083 tests across 111 files; opens no window.  Every suite is bun:test
                             # (there is no vitest)
 bun run typecheck           # three configs: ours; core/ at `types: []` + `lib: ES2022` (a host global
                             # is a compile error); the renderer
@@ -68,7 +68,7 @@ bun run surface:probe       # render the window for real: 61 scenarios, 1474 ass
 bun run surface:e2e         # CLI -> real window -> real click -> payload: 22 flows, 164 assertions, ~20s
 bun run build:host          # compile the WebKit host into surface/host/build/<hash>/; a review
                             # builds a missing or stale one itself.  Needs the Command Line Tools
-bun run surface:host        # the host's own guarantees: 145 checks in 11 sections, ~18s
+bun run surface:host        # the host's own guarantees: 160 checks in 11 sections, ~18s
 bun run fonts:lato          # the bundled Lato against Slack's served files, in a harness window
                             # (needs network): the numbers fonts.css cites
 bun run icon:build          # surface/icon/draftgate.svg (and -small.svg, 16 and 32 px) -> the committed

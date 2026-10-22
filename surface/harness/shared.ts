@@ -164,6 +164,7 @@ export interface Injected {
   hostControlsDrawn: () => boolean;
   hostDraftState: () => { draft: string | null; lines: string[]; edits: string[]; textStyle: string | null; edited: boolean };
   hostFocusedIs: (selector: string, index: number) => boolean;
+  hostKeydowns: (arm: boolean) => number;
   hostWindowFocusEvents: (arm: boolean) => number;
 }
 

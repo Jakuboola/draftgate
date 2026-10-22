@@ -427,6 +427,7 @@ await section('a window that comes forward focuses nothing: stray typing changes
       check(drawn, `${shape.name}: the page drew its controls, ${shape.reaches} first, before the window came forward`);
     }
     const before = await s.evaluate<DraftState>(INJECTED.hostDraftState);
+    await s.evaluate(INJECTED.hostKeydowns, true);
     await sleep(SHORTCUT_GRACE_PAST_MS);
     await s.evaluate(INJECTED.hostWindowFocusEvents, true);
     if (drawnFirst) await s.show();
@@ -435,9 +436,16 @@ await section('a window that comes forward focuses nothing: stray typing changes
     check(focusEvent, `${shape.name}: becoming key gave the page its window focus event, which restarts the grace`);
     return { w, s, before };
   };
+  /** Press keys, and wait until the page has received every one, so a read after sees them all. */
+  const pressAll = async (s: WKSession, keys: readonly string[]) => {
+    const from = await s.evaluate<number>(INJECTED.hostKeydowns, false);
+    const chord: Record<string, [string, number]> = { 'Shift-Tab': ['Tab', MODIFIER.shift], '⌘J': ['j', MODIFIER.command], '⌘↵': ['Enter', MODIFIER.command] };
+    for (const key of keys) await s.press(...(chord[key] ?? [key, 0]));
+    return until(async () => (await s.evaluate<number>(INJECTED.hostKeydowns, false)) >= from + keys.length, { timeoutMs: 5000 });
+  };
   /** ⌘J, and whether the focus went where the reviewer edits first. */
   const draftKeyFocuses = async (s: WKSession, shape: Shape) => {
-    await s.press('j', MODIFIER.command);
+    await pressAll(s, ['⌘J']);
     return until(() => s.evaluate<boolean>(INJECTED.hostFocusedIs, shape.target, 0), { timeoutMs: 2000 });
   };
   /** A ⌘↵, once the grace has passed: it approves. Not awaited: it ends the window. */
@@ -451,14 +459,16 @@ await section('a window that comes forward focuses nothing: stray typing changes
   const stray = async (shape: Shape, { check }: { check: Check }) => {
     const { w, s, before } = await comeForward(shape, 'stray', check);
     try {
-      // Inside the grace the reply comes back; one that approved ends the window under it.
-      const answered = await s.press('Enter', MODIFIER.command).then(() => true, () => false);
+      // Inside the grace the page receives it and nothing happens; one that approved would end the
+      // window under the count.
+      const answered = await pressAll(s, ['⌘↵']).catch(() => false);
       const waited = answered && w.undecided();
       check(waited, `${shape.name}: a ⌘↵ in the first second after it came forward decided nothing`);
       if (!waited) return;
-      await s.press('j', MODIFIER.command);
+      await pressAll(s, ['⌘J']);
       const typedAtTheWindow = async (when: string) => {
-        for (const key of STRAY) await (key === 'Shift-Tab' ? s.press('Tab', MODIFIER.shift) : s.press(key));
+        const arrived = await pressAll(s, STRAY);
+        check(arrived, `${shape.name}: ${when}, every stray key reached the page`);
         const focused = await s.evaluate<{ tag: string } | null>(INJECTED.focusedControl);
         check(focused === null, `${shape.name}: ${when}, nothing in the page holds the focus`, JSON.stringify(focused));
         const after = await s.evaluate<DraftState>(INJECTED.hostDraftState);
@@ -472,7 +482,7 @@ await section('a window that comes forward focuses nothing: stray typing changes
       const inDraft = await draftKeyFocuses(s, shape);
       const focused = await s.evaluate<{ tag: string } | null>(INJECTED.focusedControl);
       check(inDraft, `${shape.name}: ⌘J past the grace put the focus in ${shape.target}`, JSON.stringify(focused));
-      await s.press('j', MODIFIER.command);
+      await pressAll(s, ['⌘J']);
       const after = await s.evaluate<DraftState>(INJECTED.hostDraftState);
       check(JSON.stringify(after) === JSON.stringify(before), `${shape.name}: ⌘J, pressed twice, changed nothing`,
         `before ${JSON.stringify(before)}\nafter  ${JSON.stringify(after)}`);
@@ -497,13 +507,13 @@ await section('a window that comes forward focuses nothing: stray typing changes
       if (!inDraft) return;
       if (shape.boxes) {
         // The previews between the edit boxes take no stop.
-        await s.press('Tab');
+        await pressAll(s, ['Tab']);
         const second = await s.evaluate<boolean>(INJECTED.hostFocusedIs, shape.target, 1);
-        await s.press('Tab', MODIFIER.shift);
+        await pressAll(s, ['Shift-Tab']);
         const first = await s.evaluate<boolean>(INJECTED.hostFocusedIs, shape.target, 0);
         check(second && first, `${shape.name}: Tab moves to the next edit box and Shift-Tab back`, JSON.stringify({ second, first }));
       }
-      await s.press('Q');
+      await pressAll(s, ['Q']);
       const { how, raw, decision } = await approveByKey(w);
       const shown = shownFields(shape);
       const sent = decision?.action === 'approve' && decision.edited === true ? decision.fields : undefined;
