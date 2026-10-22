@@ -17,7 +17,7 @@
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, mock, test } from 'bun:test';
 import { GlobalRegistrator } from '@happy-dom/global-registrator';
-import type { Editor as TipTapEditor } from '@tiptap/core';
+import type { Editor as TipTapEditor, TiptapEditorHTMLElement } from '@tiptap/core';
 import type { PluginKey } from '@tiptap/pm/state';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -1069,9 +1069,33 @@ describe('⌘J puts the caret in the draft, and nothing else does from the keybo
     expect(document.activeElement).toBe(c.querySelector('input.dg-prose-field'));
   });
 
+  test('after a pointer press in the page, a Tab with nothing focused is the browser\'s again', async () => {
+    // A click on a button, or a closed repair preview, leaves the focus on the page.
+    await mountApp('Hello.\n', 'jira');
+    expect(press('Tab').defaultPrevented).toBe(true);
+    document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    expect(press('Tab').defaultPrevented, 'a deliberate reviewer lost Tab').toBe(false);
+  });
+
+  test('⌘J is matched where the layout types a J, and where a J sits when its letters are not Latin', async () => {
+    const { isDraftKey } = await import('./src/draftKey');
+    const key = (init: KeyboardEventInit) => isDraftKey(new KeyboardEvent('keydown', { metaKey: true, ...init }));
+    expect(key({ key: 'j', code: 'KeyJ' })).toBe(true);
+    expect(key({ key: 'о', code: 'KeyJ' }), 'Russian: the J key reports its own letter').toBe(true);
+    // Dvorak types an H at the J position: the letter decides, not the position.
+    expect(key({ key: 'h', code: 'KeyJ' })).toBe(false);
+    expect(key({ key: 'j', code: 'KeyC' })).toBe(true);
+    expect(key({ key: 'j', code: 'KeyJ', shiftKey: true })).toBe(false);
+    expect(isDraftKey(new KeyboardEvent('keydown', { key: 'j', code: 'KeyJ' }))).toBe(false);
+  });
+
   test('the footer names the key until something is edited', async () => {
     const c = await mountApp('Hello.\n', 'jira');
     expect(c.querySelector('.dg-hint')?.textContent).toContain('⌘J to edit.');
+    const pm = c.querySelector('.dg-compose .ProseMirror') as TiptapEditorHTMLElement | null;
+    pm!.editor!.commands.insertContent('x');
+    await settle();
+    expect(c.querySelector('.dg-hint')?.textContent).toBe('Your edited text will be sent.');
   });
 });
 

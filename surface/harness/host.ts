@@ -487,7 +487,9 @@ await section('a window that comes forward focuses nothing: stray typing changes
     try {
       await sleep(SHORTCUT_GRACE_PAST_MS);
       await s.press('j', MODIFIER.command);
-      await until(() => s.evaluate<boolean>(INJECTED.hostFocusedIs, shape.target, 0), { timeoutMs: 2000 });
+      const inDraft = await until(() => s.evaluate<boolean>(INJECTED.hostFocusedIs, shape.target, 0), { timeoutMs: 2000 });
+      check(inDraft, `${shape.name}: ⌘J past the grace put the focus in ${shape.target}, where the next key goes`);
+      if (!inDraft) return;
       if (shape.target === 'textarea.dg-edit-text') {
         // A patch's edit boxes are a Tab apart, the previews between them taking no stop.
         await s.press('Tab');

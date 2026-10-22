@@ -8,7 +8,7 @@
  * that way -- so there is no state in which shutting this down sends the message.
  */
 
-import { Component, Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Component, Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import type {
   Audience, DestinationName, EditFieldValue, FixOffer, PmNode, RenderResult, ReviewFieldValue,
@@ -505,12 +505,23 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
    * stronger than a guard in `onKey`. `surface/window.test.tsx` dispatches the real event.
    */
   const shortcutArmed = useShortcutArmed();
+  /*
+   * Has the reviewer done something deliberate in the page: pressed a pointer in it, or a `⌘J` that
+   * was honoured. Until then a Tab with nothing focused would hand the keyboard to the page's first
+   * control, and stray typing after it to the draft (`draftKey.ts`). A ref: nothing redraws on it.
+   */
+  const engaged = useRef(false);
+  useEffect(() => {
+    const engage = () => {
+      engaged.current = true;
+    };
+    window.addEventListener('pointerdown', engage, true);
+    return () => window.removeEventListener('pointerdown', engage, true);
+  }, []);
   useEffect(() => {
     if (editorError !== null) return;
     const onKey = (e: KeyboardEvent) => {
-      // With nothing focused a Tab would hand the keyboard to the page's first control, and stray
-      // typing after it to the draft: `⌘J` is the way in (`draftKey.ts`).
-      if (e.key === 'Tab' && nothingFocused()) {
+      if (e.key === 'Tab' && !engaged.current && nothingFocused()) {
         e.preventDefault();
         return;
       }
@@ -537,8 +548,10 @@ function Review({ state, onChange, onPlainChange, applyFix, themePref, themeChos
        */
       e.preventDefault();
       if (e.repeat || !shortcutArmed()) return;
-      if (draftKey) focusDraft();
-      else if (rejecting) reject();
+      if (draftKey) {
+        engaged.current = true;
+        focusDraft();
+      } else if (rejecting) reject();
       else approve();
     };
     window.addEventListener('keydown', onKey);
