@@ -1148,32 +1148,53 @@ function hostEditorText() {
 
 /**
  * Has the page drawn the controls a keyboard can reach (the toolbar's text-style select for markdown,
- * the textarea for plain, the footer), on screen or not? `isRendered` waits for a frame, which a
- * window not ordered in never draws.
+ * the textarea for plain, a patch's edit boxes, the footer), on screen or not? `isRendered` waits
+ * for a frame, which a window not ordered in never draws.
  */
 function hostControlsDrawn() {
+  const footer = document.querySelectorAll('.dg-footer .dg-btn').length > 0;
   const compose = document.querySelector('.dg-compose');
-  if (!compose) return false;
+  if (!compose) return footer && document.querySelector('textarea.dg-edit-text') !== null;
   const surface = compose.querySelector('.ProseMirror')
     ? document.querySelector('.dg-toolbar .dg-tb-select')
     : compose.querySelector('textarea.dg-plain-body');
-  return surface !== null && document.querySelectorAll('.dg-footer .dg-btn').length > 0;
+  return footer && surface !== null;
 }
 
 /**
  * Everything stray typing could have changed, read off the page: the draft's text, each line
- * field, the text-style select, and the "edited" badge.
+ * field, each edit box of a patch, the text-style select, and the "edited" badge.
  */
 function hostDraftState() {
-  const pm = document.querySelector('.ProseMirror');
+  const pm = document.querySelector('.dg-compose .ProseMirror');
   const plain = document.querySelector('textarea.dg-plain-body');
   const select = document.querySelector('.dg-tb-select');
   return {
     draft: pm ? pm.textContent : plain ? plain.value : null,
     lines: [...document.querySelectorAll('input.dg-prose-field')].map((i) => i.value),
+    edits: [...document.querySelectorAll('textarea.dg-edit-text')].map((t) => t.value),
     textStyle: select ? select.value : null,
     edited: document.querySelector('.dg-edited') !== null,
   };
+}
+
+/**
+ * How many `keydown`s the page has received since `arm`, called once per window. A key the harness
+ * sends reaches the page asynchronously, after the send returns, so a read of the page waits for
+ * this to count every key pressed first.
+ */
+function hostKeydowns(arm) {
+  if (arm) {
+    window.__dgKeydowns = 0;
+    window.addEventListener('keydown', () => window.__dgKeydowns++, true);
+  }
+  return window.__dgKeydowns;
+}
+
+/** Is the focus on the `index`th element `selector` matches? */
+function hostFocusedIs(selector, index) {
+  const el = document.querySelectorAll(selector)[index];
+  return el !== undefined && document.activeElement === el;
 }
 
 /**
@@ -1408,6 +1429,8 @@ module.exports = {
   hostEditorText,
   hostControlsDrawn,
   hostDraftState,
+  hostFocusedIs,
+  hostKeydowns,
   hostWindowFocusEvents,
   latoAdvances,
   wkForceHover,

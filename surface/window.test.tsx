@@ -17,7 +17,7 @@
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, mock, test } from 'bun:test';
 import { GlobalRegistrator } from '@happy-dom/global-registrator';
-import type { Editor as TipTapEditor } from '@tiptap/core';
+import type { Editor as TipTapEditor, TiptapEditorHTMLElement } from '@tiptap/core';
 import type { PluginKey } from '@tiptap/pm/state';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -34,6 +34,7 @@ import * as realSettled from './src/settledWarnings';
 import * as realShortcutGrace from './src/shortcutGrace';
 import { useSettledWarnings } from './src/settledWarnings';
 import { rangeOfPath } from './src/lostHighlight';
+import { isDraftKey } from './src/draftKey';
 import { LINK } from './src/linkEditor';
 import { bubbleInstalled } from './src/GuardedBubbleMenu';
 import {
@@ -334,6 +335,16 @@ async function mountApp(
   stubBridge(canonical, destination, audience, destinationLabel, routeInferred, prose, protocol, toolName);
   return mount(<App />);
 }
+
+/** Press a key at what holds the focus, as the keyboard does; return the event. */
+function press(key: string, mods: { metaKey?: boolean; shiftKey?: boolean; repeat?: boolean } = {}): KeyboardEvent {
+  const e = new KeyboardEvent('keydown', { key, ...mods, bubbles: true, cancelable: true });
+  (document.activeElement ?? document.body).dispatchEvent(e);
+  return e;
+}
+
+/** `⌘J`, the key into the draft (`draftKey.ts`). */
+const pressDraftKey = (repeat = false) => press('j', { metaKey: true, repeat });
 
 function pressCmdEnter({ repeat = false }: { repeat?: boolean } = {}) {
   window.dispatchEvent(
@@ -1003,6 +1014,98 @@ describe('the shortcut is dead for a moment after the window appears', () => {
 });
 
 /**
+ * `⌘J` is the keyboard's way into the draft, past the same grace (`draftKey.ts`), and a Tab with
+ * nothing focused does nothing. happy-dom moves no focus on a Tab, so the Tab tests assert the
+ * cancelled event; `surface:host` presses a real one.
+ */
+describe('⌘J puts the caret in the draft, and nothing else does from the keyboard', () => {
+
+  test('inside the grace ⌘J does nothing; past it the caret goes in the draft, not the title', async () => {
+    const c = await mountApp('Hello.\n', 'jira', undefined, undefined, undefined, [{ field: 'summary', value: 'A title' }]);
+    window.dispatchEvent(new Event('focus'));
+    pressDraftKey();
+    await settle();
+    expect(c.contains(document.activeElement), 'a ⌘J inside the grace focused something').toBe(false);
+
+    await pastShortcutGrace();
+    pressDraftKey();
+    await settle();
+    expect(document.activeElement).toBe(c.querySelector('.dg-compose .ProseMirror'));
+  });
+
+  test('a held ⌘J never acts', async () => {
+    const c = await mountApp('Hello.\n', 'jira');
+    await pastShortcutGrace();
+    pressDraftKey(true);
+    await settle();
+    expect(c.contains(document.activeElement)).toBe(false);
+  });
+
+  test('⌘J changes nothing: an approval after it is unedited', async () => {
+    decisions = [];
+    const c = await mountApp('Hello.\n', 'jira');
+    await pastShortcutGrace();
+    pressDraftKey();
+    await settle();
+    expect(document.activeElement).toBe(c.querySelector('.dg-compose .ProseMirror'));
+    pressDraftKey();
+    await settle();
+    await clickApprove(c);
+    expect(decisions).toEqual(approvedUntouched('Hello.\n', 'jira'));
+  });
+
+  test('with nothing focused a Tab and a Shift-Tab are cancelled; once the draft has the caret they are not', async () => {
+    const c = await mountApp('Hello.\n', 'jira');
+    await pastShortcutGrace();
+    expect(press('Tab').defaultPrevented, 'a Tab from nothing focused went through').toBe(true);
+    expect(press('Tab', { shiftKey: true }).defaultPrevented, 'a Shift-Tab from nothing focused went through').toBe(true);
+    pressDraftKey();
+    await settle();
+    expect(document.activeElement).toBe(c.querySelector('.dg-compose .ProseMirror'));
+    expect(press('Tab', { shiftKey: true }).defaultPrevented).toBe(false);
+  });
+
+  test('a call with no body: ⌘J goes to its first field', async () => {
+    const c = await mountApp(null, 'jira', undefined, undefined, undefined, [{ field: 'summary', value: 'A title' }]);
+    await pastShortcutGrace();
+    pressDraftKey();
+    await settle();
+    expect(document.activeElement).toBe(c.querySelector('input.dg-prose-field'));
+  });
+
+  test('after a pointer press in the page, a Tab with nothing focused is the browser\'s again, until the window comes forward again', async () => {
+    // A click on a button, or a closed repair preview, leaves the focus on the page.
+    await mountApp('Hello.\n', 'jira');
+    expect(press('Tab').defaultPrevented).toBe(true);
+    document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    expect(press('Tab').defaultPrevented, 'a deliberate reviewer lost Tab').toBe(false);
+    // The window taking the keyboard again starts it over, as it restarts the grace.
+    window.dispatchEvent(new Event('focus'));
+    expect(press('Tab').defaultPrevented, 'a Tab after the window came forward again went through').toBe(true);
+  });
+
+  test('⌘J is matched where the layout types a J, and where a J sits when its letters are not Latin', () => {
+    const key = (init: KeyboardEventInit) => isDraftKey(new KeyboardEvent('keydown', { metaKey: true, ...init }));
+    expect(key({ key: 'j', code: 'KeyJ' })).toBe(true);
+    expect(key({ key: 'о', code: 'KeyJ' }), 'Russian: the J key reports its own letter').toBe(true);
+    // Dvorak types an H at the J position: the letter decides, not the position.
+    expect(key({ key: 'h', code: 'KeyJ' })).toBe(false);
+    expect(key({ key: 'j', code: 'KeyC' })).toBe(true);
+    expect(key({ key: 'j', code: 'KeyJ', shiftKey: true })).toBe(false);
+    expect(isDraftKey(new KeyboardEvent('keydown', { key: 'j', code: 'KeyJ' }))).toBe(false);
+  });
+
+  test('the footer names the key until something is edited', async () => {
+    const c = await mountApp('Hello.\n', 'jira');
+    expect(c.querySelector('.dg-hint')?.textContent).toContain('⌘J to edit.');
+    const pm = c.querySelector('.dg-compose .ProseMirror') as TiptapEditorHTMLElement | null;
+    pm!.editor!.commands.insertContent('x');
+    await settle();
+    expect(c.querySelector('.dg-hint')?.textContent).toBe('Your edited text will be sent.');
+  });
+});
+
+/**
  * The audience banner: who receives this, from data the CLI supplied. Mounted, because both
  * failures are wiring: a banner drawn for the wrong shape, and an "unavailable" choice that is a
  * real control (`addCommentToJiraIssue` has no audience parameter, probed). It informs and never
@@ -1484,7 +1587,7 @@ describe('the footer\'s warning row', () => {
     expect(el.querySelector('.dg-status[data-blocked="true"]')).toBeNull();
     // And the footer's promise.
     expect(el.querySelector('.dg-hint')?.textContent).toBe(
-      'Exactly what you see above will be sent.'
+      'Exactly what you see above will be sent. ⌘J to edit.'
     );
     // The tool name is in the OS title bar only (`windowTitle.cjs`): a full MCP name here ellipses
     // to `mcp__claude_ai_Atlas…` and names nothing.
@@ -2414,7 +2517,7 @@ describe('the round trip cannot change the draft invisibly', () => {
     // This is the `edited === false` footer under a panel saying draftgate rewrote the draft, so it
     // names the body on screen and never "as written".
     expect(el.querySelector('.dg-hint')?.textContent).toBe(
-      'Exactly what you see above will be sent.'
+      'Exactly what you see above will be sent. ⌘J to edit.'
     );
   });
 
@@ -2500,11 +2603,6 @@ describe('the repair preview is modal, and its body cannot go stale', () => {
     return el;
   }
 
-  const press = (key: string, shiftKey = false) =>
-    document.activeElement?.dispatchEvent(
-      new KeyboardEvent('keydown', { key, shiftKey, bubbles: true, cancelable: true })
-    );
-
   test('focus moves INTO the dialog when it opens', async () => {
     const el = await openPreview();
     // The panel, not "Apply fix": applying discards the editor's undo, and Enter would be one
@@ -2525,7 +2623,7 @@ describe('the repair preview is modal, and its body cannot go stale', () => {
 
     // And backward off the first stop wraps to the last.
     cancel.focus();
-    press('Tab', true);
+    press('Tab', { shiftKey: true });
     await settle();
     expect(document.activeElement, 'Shift+Tab off "Cancel" escaped the dialog').toBe(apply);
   });
@@ -3054,6 +3152,14 @@ describe('a review of a patch', () => {
     expect([...c.querySelectorAll('button')].some((b) => b.textContent?.includes('Approve'))).toBe(false);
   });
 
+  test('⌘J goes to the first edit box, past the title', async () => {
+    const c = await mountPatch();
+    await pastShortcutGrace();
+    pressDraftKey();
+    await settle();
+    expect(document.activeElement).toBe(c.querySelector('textarea.dg-edit-text'));
+  });
+
   test('a non-empty edit is previewed as the destination draws it; an empty one is not', async () => {
     const c = await mountPatch();
     expect(cards(c).map((e) => e.querySelector('.dg-edit-preview') !== null)).toEqual([true, false, true, true]);
@@ -3062,7 +3168,7 @@ describe('a review of a patch', () => {
   test('approving untouched reports every edit, as shown, and no edit by a person', async () => {
     decisions = [];
     const c = await mountPatch();
-    expect(c.textContent).toContain('Exactly these edits will be sent');
+    expect(c.textContent).toContain('Exactly these edits will be sent. ⌘J to edit.');
     await clickApprove(c);
     expect(decisions[0]).toMatchObject({ action: 'approve', edited: false, bodyEdited: false });
     expect((decisions[0] as { fields: Record<string, string> }).fields).toEqual({
