@@ -45,7 +45,7 @@ import { pluginsHere, readInstalledPlugins, type PluginRecord } from '../../../c
 import { renderHookOutput, type HookDecision } from './hookOutput';
 import { SESSION_VAR, forgetSetupNames, keepSetupNames, keptSetupNames } from './setupNames';
 import {
-  answeredToolsJson, declinedAfter, describeReconciliation, knownHalves, ownToolEntry, ownToolRefusal, reconcileTools,
+  answeredToolsJson, declinedAfter, describeReconciliation, knownHalves, ownToolEntry, ownToolRoute, reconcileTools,
   type Reconciliation,
 } from './reconcile';
 import {
@@ -962,7 +962,7 @@ async function writeToolsAnswer(o: {
   if (o.answer === undefined) {
     process.stderr.write(
       'draftgate: --write needs the answer to write: --review and the tools to review, and --decline ' +
-        'and the tools not to, or --decline alone to review every one.\n'
+        'and the tools not to, or --review-all to review every one.\n'
     );
     return 1;
   }
@@ -1044,6 +1044,32 @@ function writeToolsFile(text: string, toolsPath: string, what: string): ToolConf
 }
 
 /**
+ * `tools.json` read once, both for what a change may touch and for what is written back: a second
+ * read that failed or saw another write would write back something else, `{}` at worst. Null when
+ * it could not be read, and stderr says nothing was `verb`. No file is an empty one when
+ * `absentIsEmpty`.
+ */
+function readToolsOnce(
+  toolsPath: string,
+  verb: string,
+  absentIsEmpty: boolean
+): { tools: ToolConfig; existing: Record<string, unknown> } | null {
+  try {
+    let text: string;
+    try {
+      text = readFileSync(toolsPath, 'utf8');
+    } catch (e) {
+      if (!absentIsEmpty || (e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+      text = '{}';
+    }
+    return { tools: toolConfigFrom(text, toolsPath), existing: JSON.parse(text) as Record<string, unknown> };
+  } catch (e) {
+    process.stderr.write(`draftgate: could not read ${toolsPath} (${(e as Error).message}), so nothing was ${verb}.\n`);
+    return null;
+  }
+}
+
+/**
  * `--propose-tools --drop <name>...`: take out `tools.json` entries that replace a default entry of
  * the same name, so the default applies. Any other name is refused, and nothing is written: an
  * alias or a tool of the operator's own taken out would change what is reviewed.
@@ -1053,18 +1079,9 @@ async function dropToolEntries(names: string[], toolsPath: string): Promise<numb
     process.stderr.write(`draftgate: --drop needs the tools.json entries to drop, by their full names.\n`);
     return 1;
   }
-  // One read, both for what may be dropped and for what is written back: a second read that failed
-  // or saw another write would write back something else, `{}` at worst.
-  let tools: ToolConfig;
-  let existing: Record<string, unknown>;
-  try {
-    const text = readFileSync(toolsPath, 'utf8');
-    tools = toolConfigFrom(text, toolsPath);
-    existing = JSON.parse(text) as Record<string, unknown>;
-  } catch (e) {
-    process.stderr.write(`draftgate: could not read ${toolsPath} (${(e as Error).message}), so nothing was dropped.\n`);
-    return 1;
-  }
+  const read = readToolsOnce(toolsPath, 'dropped', false);
+  if (read === null) return 1;
+  const { tools, existing } = read;
   const shadowing = new Set(tools.shadows.map((s) => s.name));
   const stray = names.filter((name) => !shadowing.has(name));
   if (stray.length > 0) {
@@ -1086,9 +1103,8 @@ async function dropToolEntries(names: string[], toolsPath: string): Promise<numb
 
 /**
  * `--propose-tools --add <name> <destination> <field>`: a tool of the operator's own, reviewed as
- * `destination` with its message read from `field` (`ownToolEntry`), added to `tools.json` once
- * `ownToolRefusal` and the loader take it. Setup runs it only after the person says yes and picks
- * the destination; `register` then adds the settings entry that reviews it.
+ * `destination` with its message read from `field` (`ownToolEntry`). Setup runs it only after the
+ * person says yes and picks the destination; `register` then adds the settings entry that reviews it.
  */
 async function addOwnTool(args: string[], toolsPath: string): Promise<number> {
   if (args.length !== 3) {
@@ -1099,35 +1115,17 @@ async function addOwnTool(args: string[], toolsPath: string): Promise<number> {
     return 1;
   }
   const [name, destination, bodyField] = args as [string, string, string];
-  // One read, as `dropToolEntries`: a second that failed or saw another write would write back
-  // something else, `{}` at worst. No file is an empty one.
-  let tools: ToolConfig;
-  let existing: Record<string, unknown>;
-  try {
-    let text = '{}';
-    try {
-      text = readFileSync(toolsPath, 'utf8');
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
-    }
-    tools = toolConfigFrom(text, toolsPath);
-    existing = JSON.parse(text) as Record<string, unknown>;
-  } catch (e) {
-    process.stderr.write(`draftgate: could not read ${toolsPath} (${(e as Error).message}), so nothing was added.\n`);
+  const read = readToolsOnce(toolsPath, 'added', true);
+  if (read === null) return 1;
+  const checked = ownToolRoute(name, destination, bodyField, read.tools, read.existing);
+  if ('error' in checked) {
+    process.stderr.write(`draftgate: ${checked.error} Nothing was written.\n`);
     return 1;
   }
-  const refusal = ownToolRefusal(name, destination, bodyField, tools, existing);
-  if (refusal !== null) {
-    process.stderr.write(`draftgate: ${refusal} Nothing was written.\n`);
-    return 1;
-  }
-  // `ownToolRefusal` took it, so it names a profile.
-  const to = destination as DestinationName;
-  if (writeToolsFile(JSON.stringify({ ...existing, [name]: ownToolEntry(to, bodyField) }, null, 2), toolsPath, 'adding it') === null) {
-    return 1;
-  }
+  const entry = ownToolEntry(checked.destination, bodyField);
+  if (writeToolsFile(JSON.stringify({ ...read.existing, [name]: entry }, null, 2), toolsPath, 'adding it') === null) return 1;
   await printStdout(
-    `draftgate: added ${oneLine(name)} to ${toolsPath}, reviewed as ${profiles[to].displayName}, ` +
+    `draftgate: added ${oneLine(name)} to ${toolsPath}, reviewed as ${profiles[checked.destination].displayName}, ` +
       `its message read from ${oneLine(bodyField)}.\n` +
       `${REMEDY.pluginSetup} adds the Claude Code settings entry that reviews it.\n`
   );
@@ -1154,7 +1152,7 @@ async function replacedByRegister(block: HookBlock | null): Promise<string[]> {
  * `draftgate propose-tools` passes its arguments as they are, and an `--unregister` among them would
  * otherwise run that mode.
  */
-const PROPOSE_FLAGS = ['--propose-tools', '--decline', '--review', '--write', '--known', '--drop', '--add'];
+const PROPOSE_FLAGS = ['--propose-tools', '--decline', '--review', '--review-all', '--write', '--known', '--drop', '--add'];
 
 export async function main(argv: string[]): Promise<number> {
   if (argv.includes('--propose-tools')) {
@@ -1163,7 +1161,7 @@ export async function main(argv: string[]): Promise<number> {
       // Refused, not skipped: `--decline=x` skipped would drop the answer and exit 0.
       process.stderr.write(
         `draftgate: ${REMEDY.proposeTools} does not take ${other}. Pass tool names after it ` +
-          'and tool halves after --review and --decline, space-separated, --write to write the answer, --known ' +
+          'and tool halves after --review and --decline (or --review-all), space-separated, --write to write the answer, --known ' +
           'alone to list the tool halves it knows, --drop and the tools.json entries to drop, or --add ' +
           'and a tool of your own, its destination and the field its message is in.\n'
       );
@@ -1232,8 +1230,10 @@ export async function main(argv: string[]): Promise<number> {
     let into: string[] | undefined;
     let write = false;
     let known = false;
+    let reviewAll = false;
     for (const arg of argv) {
       if (arg === '--write') write = true;
+      else if (arg === '--review-all') reviewAll = true;
       else if (arg === '--known') known = true;
       else if (arg === '--propose-tools') into = names;
       else if (arg === '--decline') into = chosen ??= [];
@@ -1247,7 +1247,7 @@ export async function main(argv: string[]): Promise<number> {
     // one of the two would be dropped while exiting 0.
     const given = {
       names: names.length > 0,
-      answer: chosen !== undefined || reviewing !== undefined || write,
+      answer: chosen !== undefined || reviewing !== undefined || reviewAll || write,
       add: adding !== undefined,
       drop: dropping !== undefined,
       known,
@@ -1301,12 +1301,13 @@ export async function main(argv: string[]): Promise<number> {
     const existing = existingToolsJson(toolsPath);
     const reconciliation = reconcileTools(names, toolMap, tools);
     let answer: string[] | undefined;
-    if (chosen !== undefined || reviewing !== undefined) {
-      const after = declinedAfter(reconciliation, tools.declined, chosen ?? [], reviewing ?? null);
-      if ('error' in after) {
-        process.stderr.write(`draftgate: ${after.error}\n`);
-        return 1;
-      }
+    if (reviewAll && (chosen !== undefined || reviewing !== undefined)) {
+      return refuse('--review-all is the whole answer: it takes no --review or --decline beside it.');
+    }
+    if (reviewAll || chosen !== undefined || reviewing !== undefined) {
+      const reviewed = reviewAll ? reconciliation.halves.map((h) => h.half) : (reviewing ?? []);
+      const after = declinedAfter(reconciliation, tools.declined, chosen ?? [], reviewed);
+      if ('error' in after) return refuse(after.error);
       answer = after.declined;
     }
     if (write) {

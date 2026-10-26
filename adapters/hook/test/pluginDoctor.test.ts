@@ -241,7 +241,7 @@ describe('doctor, from the plugin: what it advises', () => {
     noCheckoutAdvice(r.stdout);
 
     // What setup runs: --write names it in the words the skill asks on, and register takes it out.
-    const write = m.draftgate('propose-tools', ...SESSION, '--decline', '--write');
+    const write = m.draftgate('propose-tools', ...SESSION, '--review-all', '--write');
     expect(write.stdout).toContain(`${OLD_ENTRY}, which runs:\n  ${join(REPO, HOOK_IN_REPO)}\n`);
     const skill = readFileSync(join(REPO, 'plugin', 'skills', 'setup', 'SKILL.md'), 'utf8').replace(/\s+/g, ' ');
     expect(skill).toContain(OLD_ENTRY);
@@ -249,7 +249,7 @@ describe('doctor, from the plugin: what it advises', () => {
     expect(m.readSettings().hooks).toBeUndefined();
     expect(m.readSettings().enabledPlugins).toEqual({ [PLUGIN_ID]: true });
     expect(m.draftgate('doctor').status).toBe(0);
-    expect(m.draftgate('propose-tools', ...SESSION, '--decline', '--write').stdout).not.toContain(OLD_ENTRY);
+    expect(m.draftgate('propose-tools', ...SESSION, '--review-all', '--write').stdout).not.toContain(OLD_ENTRY);
   });
 
   test("beside the entry for your own tools, only the other install's is an old entry", () => {
@@ -258,7 +258,7 @@ describe('doctor, from the plugin: what it advises', () => {
     const settings = m.readSettings();
     settings.hooks.PreToolUse.push(checkoutBlock(DEFAULT_TOOL_MAP));
     m.writeSettings(settings);
-    const write = m.draftgate('propose-tools', ...SESSION, '--decline', '--write');
+    const write = m.draftgate('propose-tools', ...SESSION, '--review-all', '--write');
     expect(write.stdout).toContain(`${OLD_ENTRY}, which runs:\n  ${join(REPO, HOOK_IN_REPO)}\n\``);
     expect(write.stdout).not.toContain(`  ${join(m.root, HOOK_IN_REPO)}\n`);
   });
@@ -266,7 +266,7 @@ describe('doctor, from the plugin: what it advises', () => {
   test('an old entry is named beside tools to add, and so is this version\'s own once nothing needs it', () => {
     const m = withTool('old-and-offered');
     m.writeSettings({ ...m.readSettings(), hooks: { PreToolUse: [checkoutBlock(DEFAULT_TOOL_MAP)] } });
-    const both = m.draftgate('propose-tools', ...SESSION, '--decline', '--write').stdout;
+    const both = m.draftgate('propose-tools', ...SESSION, '--review-all', '--write').stdout;
     expect(both).toContain("draftgate can't watch these by default:");
     expect(both).toContain(`${OLD_ENTRY}, which runs:\n  ${join(REPO, HOOK_IN_REPO)}\n`);
     expect(m.draftgate('register').status).toBe(0);
@@ -292,7 +292,7 @@ describe('doctor, from the plugin: what it advises', () => {
     );
     expect(r.stdout).toContain(`      ${NOTE_TOOL}\n    Run \`/draftgate:setup\``);
     // Setup offers the tool again, and register points the link at this version.
-    expect(m.draftgate('propose-tools', ...SESSION, '--decline', '--write').stdout).toContain("can't watch these by default");
+    expect(m.draftgate('propose-tools', ...SESSION, '--review-all', '--write').stdout).toContain("can't watch these by default");
     expect(m.draftgate('register').status).toBe(0);
     expect(readlinkSync(m.link)).toBe(m.root);
     expect(m.draftgate('doctor').stdout).toContain('No problems found.');
@@ -463,7 +463,7 @@ describe('an entry for your own tools that names a version folder', () => {
         `    ${m.root}, so it does not follow draftgate's updates.\n    \`/draftgate:setup\` points it at this one`
     );
     // Covered, so nothing is offered; named as an entry register replaces, so setup asks.
-    const write = m.draftgate('propose-tools', ...SESSION, '--decline', '--write').stdout;
+    const write = m.draftgate('propose-tools', ...SESSION, '--review-all', '--write').stdout;
     expect(write).not.toContain("can't watch");
     expect(write).toContain(`${OLD_ENTRY}, which runs:\n  ${join(m.root, HOOK_IN_REPO)}\n`);
     const reg = m.draftgate('register');
@@ -474,7 +474,7 @@ describe('an entry for your own tools that names a version folder', () => {
     const after = m.draftgate('doctor').stdout;
     expect(after).toContain('No problems found.');
     expect(after).not.toContain('NOTE: the entry for your own tools');
-    expect(m.draftgate('propose-tools', ...SESSION, '--decline', '--write').stdout).not.toContain(OLD_ENTRY);
+    expect(m.draftgate('propose-tools', ...SESSION, '--review-all', '--write').stdout).not.toContain(OLD_ENTRY);
   });
 
   test('naming a version Claude Code removed, it is noted as gone and its tools as uncovered', () => {

@@ -375,7 +375,7 @@ ${SETUP} runs it after asking. It keeps a backup and refuses a file it cannot re
 settings. It takes no options.
 `,
 
-  'propose-tools': `draftgate propose-tools <tool name>... [--review <tool>...] [--decline <tool>...] [--write]
+  'propose-tools': `draftgate propose-tools <tool name>... [--review <tool>... --decline <tool>... | --review-all] [--write]
 draftgate propose-tools --known
 draftgate propose-tools --drop <tool name>...
 draftgate propose-tools --add <tool name> <destination> <field>
@@ -387,7 +387,8 @@ choose not to review. ${SETUP} runs it.
                         one of them changes nothing here
   --review <tool>...    the tools to review, by the short names the list prints
   --decline <tool>...   the tools not to review, likewise. An answer names every tool in the list
-                        after one of the two, or it is refused. --decline alone reviews every one
+                        after one of the two, or it is refused
+  --review-all          the answer that reviews every one
   --write               write that answer to ~/.draftgate/tools.json. Needs one. With no
                         tool names, it takes the ones the last run in this Claude Code session kept.
                         It drops the entries that say just what draftgate's own entry says, and

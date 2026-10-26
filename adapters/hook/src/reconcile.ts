@@ -16,8 +16,10 @@
 import { REMEDY } from '../../../core/src/remedies';
 import { oneLine } from '../../../cli/src/text';
 import { isKnownDestination, profiles, type DestinationName } from '../../../core/src/index';
+import { ALL } from '../../../cli/src/payload';
 import {
   DECLINED_KEY,
+  KNOWN_DESTINATION_NAMES,
   declinedHalfOf,
   restates,
   entryForHalf,
@@ -199,20 +201,19 @@ export const UNANSWERED = 'the answer leaves these unanswered';
  * (`--review`) are the full answer for the halves shown; a half declined earlier and not shown (its
  * connector not loaded here) stays declined.
  *
- * An answer that names any half names every one shown, each once: a question whose answer never
- * came back would otherwise be read as one, declining what the person never declined or
- * re-enabling what they did. `--decline` alone, naming none, reviews every one shown.
+ * An answer names every half shown, each once (`--review-all` names them all): a question whose
+ * answer never came back would otherwise be read as one, declining what the person never declined
+ * or re-enabling what they did. An answer naming none is no answer, unless nothing is shown.
  */
 export function declinedAfter(
   r: Reconciliation,
   existing: readonly string[],
   chosen: readonly string[],
-  /** Null when `--review` was not given: only then does an answer naming nothing mean "every one". */
-  reviewed: readonly string[] | null
+  reviewed: readonly string[]
 ): { declined: string[] } | { error: string } {
   const shown = new Set(r.halves.map((h) => h.half));
   const quoted = (halves: readonly string[]) => halves.map((h) => `"${oneLine(h)}"`).join(', ');
-  const named = [...chosen, ...(reviewed ?? [])];
+  const named = [...chosen, ...reviewed];
   const stray = named.filter((h) => !shown.has(h));
   if (stray.length > 0) {
     return {
@@ -221,23 +222,21 @@ export function declinedAfter(
         '(e.g. slack_send_message).',
     };
   }
-  const both = chosen.filter((h) => reviewed?.includes(h));
+  const both = chosen.filter((h) => reviewed.includes(h));
   if (both.length > 0) return { error: `${quoted(both)} is after both --decline and --review. Name each tool once.` };
-  if (named.length > 0 || reviewed !== null) {
-    const answered = new Set(named);
-    const open = r.halves.filter((h) => !answered.has(h.half));
-    if (open.length > 0) {
-      const groups = [...new Set(open.map((h) => h.group))].map(
-        (group) => `  ${oneLine(group)}: ${open.filter((h) => h.group === group).map((h) => oneLine(h.half)).join(' ')}`
-      );
-      return {
-        error:
-          `${UNANSWERED}, so it was not taken:\n` +
-          groups.join('\n') +
-          '\nAn answer names every tool in the checklist, after --review or --decline. Ask about these too, ' +
-          'then pass the whole answer.',
-      };
-    }
+  const answered = new Set(named);
+  const open = r.halves.filter((h) => !answered.has(h.half));
+  if (open.length > 0) {
+    const groups = [...new Set(open.map((h) => h.group))].map(
+      (group) => `  ${oneLine(group)}: ${open.filter((h) => h.group === group).map((h) => oneLine(h.half)).join(' ')}`
+    );
+    return {
+      error:
+        `${UNANSWERED}, so it was not taken:\n` +
+        groups.join('\n') +
+        '\nAn answer names every tool in the checklist, after --review or --decline, or is --review-all. ' +
+        'Ask about these too, then pass the whole answer.',
+    };
   }
   const kept = existing.filter((h) => !shown.has(h));
   return { declined: [...new Set([...kept, ...chosen])].sort() };
@@ -332,8 +331,8 @@ export function describeReconciliation(
       lines.push(`      [${h.declined ? ' ' : 'x'}] ${oneLine(h.half).padEnd(width)}  ${via}`);
     }
     lines.push('  To answer, run this again with --review and every tool to review, and --decline and');
-    lines.push('  every tool not to: every tool above, under one of the two. --decline alone reviews');
-    lines.push('  every one, and re-enables any declined above.');
+    lines.push('  every tool not to: every tool above, under one of the two. --review-all reviews every');
+    lines.push('  one, and re-enables any declined above.');
   }
   // With an answer, the proposals that answer leaves standing: the list the printed file is built from.
   const proposals = answer === undefined ? r.proposed : proposalsFor(r, answer);
@@ -391,40 +390,40 @@ export const NOT_OWN_SERVERS: readonly { prefix: string; what: string }[] = [
 
 /** The entry `--add` writes for a tool of the person's own: every field it sends shown beside the draft. */
 export function ownToolEntry(destination: DestinationName, bodyField: string): Record<string, unknown> {
-  return { destination, bodyField, contextFields: ['*'] };
+  return { destination, bodyField, contextFields: [ALL] };
 }
 
 /**
- * Why `--add` refuses a tool, or null. Only a tool of a server the person set up, ending in a half
- * draftgate does not route or decline (one that does is reviewed, or declined, already), with no
- * `tools.json` entry yet, to a destination draftgate has. The loader checks the rest when it is
- * written.
+ * The destination `--add` reviews a tool as, or why it refuses the tool. Only a tool of a server the
+ * person set up, ending in a half draftgate neither routes nor declines (one that does is reviewed,
+ * or declined, already), with no `tools.json` entry yet, to a destination draftgate has. The loader
+ * checks the rest when it is written.
  */
-export function ownToolRefusal(
+export function ownToolRoute(
   name: string,
   destination: string,
   bodyField: string,
   tools: Pick<ToolConfig, 'map' | 'declined' | 'declinedRoutes'>,
   existing: Record<string, unknown>
-): string | null {
+): { destination: DestinationName } | { error: string } {
   const shown = `"${oneLine(name)}"`;
   const half = toolHalfOf(name);
-  if (half === null) return `${shown} is not an MCP tool name (mcp__<server>__<tool>).`;
+  if (half === null) return { error: `${shown} is not an MCP tool name (mcp__<server>__<tool>).` };
   const server = NOT_OWN_SERVERS.find((s) => name.startsWith(s.prefix));
   if (server !== undefined) {
-    return `${shown} is a tool of ${server.what}, not of a server you set up, so it is not offered.`;
+    return { error: `${shown} is a tool of ${server.what}, not of a server you set up, so it is not offered.` };
   }
   // Every declined half, a decline no route uses included: an entry for one is dormant at once.
   if (tools.declined.includes(half)) {
-    return `${shown} ends in ${oneLine(half)}, which tools.json declines: setup's choice turns it back on.`;
+    return { error: `${shown} ends in ${oneLine(half)}, which tools.json declines: setup's choice turns it back on.` };
   }
   if (knownHalves(tools).includes(half)) {
-    return `${shown} ends in ${oneLine(half)}, a tool draftgate routes already: setup's choice covers it.`;
+    return { error: `${shown} ends in ${oneLine(half)}, a tool draftgate routes already: setup's choice covers it.` };
   }
-  if (Object.hasOwn(existing, name)) return `${shown} has a tools.json entry already.`;
+  if (Object.hasOwn(existing, name)) return { error: `${shown} has a tools.json entry already.` };
   if (!isKnownDestination(destination)) {
-    return `"${oneLine(destination)}" is not a destination. Name one of: ${Object.keys(profiles).join(', ')}.`;
+    return { error: `"${oneLine(destination)}" is not a destination. Name one of: ${KNOWN_DESTINATION_NAMES}.` };
   }
-  if (bodyField.trim() === '') return 'the field the message is in is empty. Name the input field that holds it.';
-  return null;
+  if (bodyField.trim() === '') return { error: 'the field the message is in is empty. Name the input field that holds it.' };
+  return { destination };
 }

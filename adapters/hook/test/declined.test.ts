@@ -193,7 +193,7 @@ describe('reconcile: the checklist and the answer', () => {
     const { map, declined, declinedRoutes } = declining('slack_send_message', 'save_comment');
     // This session has no Linear connector, so `save_comment` was never on the checklist.
     const r = reconcileTools([SLACK, JIRA], map, { declined, declinedRoutes, shadows: [] });
-    expect(declinedAfter(r, declined, [], null)).toEqual({ declined: ['save_comment'] });
+    expect(declinedAfter(r, declined, [], ['addCommentToJiraIssue', 'slack_send_message'])).toEqual({ declined: ['save_comment'] });
     expect(declinedAfter(r, declined, ['addCommentToJiraIssue'], ['slack_send_message'])).toEqual({
       declined: ['addCommentToJiraIssue', 'save_comment'],
     });
@@ -221,10 +221,8 @@ describe('reconcile: the checklist and the answer', () => {
       expect(after.error).toContain('  Slack: messages, sent now or scheduled: slack_send_message\n');
       if (!reviewed.includes('save_comment')) expect(after.error).toContain('  Linear: comments: save_comment\n');
     }
-    // `--review` given with nothing after it, and nothing declined: no answer reached it, so Slack's
-    // earlier decline stands. Only `--decline` alone means "review every one".
+    // Nothing named: no answer reached it, so Slack's earlier decline stands.
     expect(declinedAfter(r, declined, [], [])).toHaveProperty('error');
-    expect(declinedAfter(r, declined, [], null)).toEqual({ declined: [] });
     // Answered whole, it is taken.
     expect(declinedAfter(r, declined, ['addCommentToJiraIssue'], ['save_comment', 'slack_send_message'])).toEqual({
       declined: ['addCommentToJiraIssue'],
@@ -321,12 +319,12 @@ describe('--propose-tools --decline, through the real entry point', () => {
       const run = (...args: string[]) =>
         spawnSync('bun', [HOOK_SELF, ...args], { env: { ...process.env, DRAFTGATE_HOME: home }, encoding: 'utf8' });
       const names = [JIRA, SLACK, LINEAR, 'mcp__claude_ai_Github_MCP__add_issue_comment'];
+      // The other shapes of a partial answer are `declinedAfter`'s, above; these two cross `main`'s
+      // parse.
       for (const answer of [
         ['--review', 'addCommentToJiraIssue', '--decline', 'slack_send_message'],
-        ['--decline', 'addCommentToJiraIssue', 'slack_send_message'],
-        ['--review', 'addCommentToJiraIssue', 'slack_send_message'],
-        // Every answer lost: step 4's command with nothing after either flag.
-        ['--review', '--decline'],
+        // Every answer lost: nothing after the flag.
+        ['--decline'],
       ]) {
         const r = run('--propose-tools', ...names, ...answer, '--write');
         expect(r.status, answer.join(' ')).toBe(1);
@@ -336,6 +334,10 @@ describe('--propose-tools --decline, through the real entry point', () => {
         expect(r.stderr).toContain('  GitHub: issues and issue comments: add_issue_comment\n');
         expect(readFileSync(file, 'utf8')).toBe('{}');
       }
+      const both = run('--propose-tools', ...names, '--review-all', '--decline', 'slack_send_message', '--write');
+      expect(both.status).toBe(1);
+      expect(both.stderr).toContain('--review-all is the whole answer');
+      expect(readFileSync(file, 'utf8')).toBe('{}');
       // The whole answer is written.
       const whole = run(
         '--propose-tools', ...names, '--review', 'addCommentToJiraIssue', 'save_comment',

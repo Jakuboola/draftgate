@@ -689,7 +689,7 @@ describe('setup\'s commands, through bin/draftgate', () => {
 
   test('a tool of the operator\'s own: named, registered, checked, and taken out again', () => {
     const m = machine('extra', { [NOTE_TOOL]: 'jira' });
-    const write = m.draftgate('propose-tools', ...SESSION, '--decline', '--write');
+    const write = m.draftgate('propose-tools', ...SESSION, '--review-all', '--write');
     expect(write.status).toBe(0);
     expect(write.stdout).toContain(`draftgate can't watch these by default:\n  ${NOTE_TOOL}\n`);
 
@@ -710,7 +710,7 @@ describe('setup\'s commands, through bin/draftgate', () => {
     expect(doctor.stdout).not.toContain('no registered matcher is byte-identical');
 
     // Asked again, setup has nothing to ask: the entry covers the tool already.
-    expect(m.draftgate('propose-tools', ...SESSION, '--decline', '--write').stdout).not.toContain("can't watch");
+    expect(m.draftgate('propose-tools', ...SESSION, '--review-all', '--write').stdout).not.toContain("can't watch");
     expect(m.draftgate('register').stdout).toContain('Nothing changed.');
 
     // The tool gone from tools.json: the entry would only deny it, so register takes it out.
@@ -753,15 +753,10 @@ describe('setup\'s commands, through bin/draftgate', () => {
   test('--add takes a tool of a server you set up, and setup reviews it from there', () => {
     const m = machine('add-own');
     const OWN = 'mcp__jsm__jira_add_internal_note';
-    // Not offered: a vendor's connector or a plugin's server, a half draftgate routes already, a name
-    // that is no MCP tool, a destination draftgate has no profile for, no field, the wrong count.
+    // Each refusal is `ownToolRoute`'s (`reconcile.test.ts`); through the launcher, one of them, and
+    // the count.
     for (const [args, says] of [
       [['mcp__claude_ai_Jsm__jira_add_internal_note', 'jira', 'commentBody'], 'a claude.ai connector'],
-      [['mcp__plugin_kit_jsm__jira_add_internal_note', 'jira', 'commentBody'], "a plugin's server"],
-      [['mcp__jsm__addCommentToJiraIssue', 'jira', 'commentBody'], 'a tool draftgate routes already'],
-      [['jira_add_internal_note', 'jira', 'commentBody'], 'is not an MCP tool name'],
-      [[OWN, 'email', 'commentBody'], '"email" is not a destination'],
-      [[OWN, 'jira', ' '], 'the field the message is in is empty'],
       [[OWN, 'jira'], '--add takes three things'],
     ] as [string[], string][]) {
       const r = m.draftgate('propose-tools', '--add', ...args);
@@ -779,17 +774,9 @@ describe('setup\'s commands, through bin/draftgate', () => {
     // The route reviews read: the operator's, so a call without that field asks, never allows.
     const route = mergeToolConfig(DEFAULT_TOOL_MAP, file, m.toolsFile).map[OWN];
     expect(route).toMatchObject({ destination: 'jira', bodyField: 'commentBody', schemaOwner: 'operator' });
-    expect(m.draftgate('propose-tools', '--add', OWN, 'slack', 'text').stderr).toContain('routes already');
-    // A decline no route uses still declines the half: an entry for it would be dormant at once,
-    // while `--add` said it was reviewed.
-    writeFileSync(m.toolsFile, JSON.stringify({ ...file, declined: ['post_note'] }));
-    const declinedHalf = m.draftgate('propose-tools', '--add', 'mcp__notes__post_note', 'slack', 'text');
-    expect(declinedHalf.status).toBe(1);
-    expect(declinedHalf.stderr).toContain('ends in post_note, which tools.json declines');
-    writeFileSync(m.toolsFile, JSON.stringify(file));
 
     // Setup's answer then offers it to register, and the closing names it.
-    const write = m.inSession('session-a')('propose-tools', ...SESSION, '--decline', '--write');
+    const write = m.inSession('session-a')('propose-tools', ...SESSION, '--review-all', '--write');
     expect(write.stdout).toContain(`draftgate can't watch these by default:\n  ${OWN}\n`);
     expect(m.draftgate('register').status).toBe(0);
     expect(m.draftgate('doctor', '--setup').stdout).toContain(`Also reviewed: ${OWN} (your own tool).`);
@@ -812,7 +799,7 @@ describe('setup\'s commands, through bin/draftgate', () => {
     expect(m.draftgate('register').status).toBe(0);
     const before = readFileSync(m.settings, 'utf8');
     for (const flag of ['--unregister', '--register', '--doctor']) {
-      const r = m.draftgate('propose-tools', ...SESSION, flag, '--decline', '--write');
+      const r = m.draftgate('propose-tools', ...SESSION, flag, '--review-all', '--write');
       expect(r.status, flag).toBe(1);
       expect(r.stderr).toContain(`does not take ${flag}`);
     }
@@ -825,7 +812,7 @@ describe('setup\'s commands, through bin/draftgate', () => {
     // The plugin's own file unreadable: every default tool reads as uncovered too, and register
     // cannot help with those.
     rmSync(join(m.root, PLUGIN_HOOKS_IN_ROOT));
-    const r = m.draftgate('propose-tools', ...SESSION, '--decline', '--write');
+    const r = m.draftgate('propose-tools', ...SESSION, '--review-all', '--write');
     expect(r.stdout).toContain(`draftgate can't watch these by default:\n  ${NOTE_TOOL}\n\``);
   });
 
@@ -849,7 +836,7 @@ describe('setup\'s commands, through bin/draftgate', () => {
     expect(halves).toContain('slack_send_message');
     expect(halves).toContain('post_internal_note');
     expect(halves).toEqual(toolHalvesOf(withNote));
-    for (const extra of [[...SESSION], ['--decline'], ['--write']]) {
+    for (const extra of [[...SESSION], ['--decline'], ['--review-all'], ['--write']]) {
       const refused = m.draftgate('propose-tools', '--known', ...extra);
       expect(refused.status, extra.join(' ')).toBe(1);
       expect(refused.stdout).toBe('');
@@ -889,11 +876,11 @@ describe('setup\'s commands, through bin/draftgate', () => {
     expect(existsSync(m.keptFile)).toBe(false);
     // `session-c` kept none.
     for (const run of [m.inSession('session-c'), m.draftgate]) {
-      expect(run('propose-tools', '--decline', '--write').stderr).toContain('--write has no tool names');
+      expect(run('propose-tools', '--review-all', '--write').stderr).toContain('--write has no tool names');
     }
     expect(m.inSession('session-a')('propose-tools', ...SESSION).status).toBe(0);
     for (const run of [m.inSession('session-b'), m.draftgate]) {
-      const r = run('propose-tools', '--decline', '--write');
+      const r = run('propose-tools', '--review-all', '--write');
       expect(r.status).toBe(1);
       expect(r.stdout).toBe('');
       expect(r.stderr).toContain('--write has no tool names to record an answer about');
@@ -913,21 +900,21 @@ describe('setup\'s commands, through bin/draftgate', () => {
     const names = ['mcp__dummy__slack_send_message', ...SESSION];
     expect(run('propose-tools', ...names).status).toBe(0);
     const kept = readFileSync(m.keptFile, 'utf8');
-    for (const preview of [[], ['--decline'], ['--decline', 'slack_send_message', '--review', 'save_customer_need']]) {
+    for (const preview of [[], ['--review-all'], ['--decline', 'slack_send_message', '--review', 'save_customer_need']]) {
       const r = run('propose-tools', ...preview);
       expect(r.status, preview.join(' ')).toBe(0);
       expect(r.stdout).toStartWith(`draftgate: reconciled ${names.length} tool name(s)`);
       expect(readFileSync(m.keptFile, 'utf8')).toBe(kept);
     }
-    expect(run('propose-tools', '--decline', '--write').status).toBe(0);
+    expect(run('propose-tools', '--review-all', '--write').status).toBe(0);
     expect(Object.keys(JSON.parse(readFileSync(m.toolsFile, 'utf8')))).toEqual(['mcp__dummy__slack_send_message']);
   });
 
   test('another session\'s --write leaves this session\'s names kept', () => {
     const m = machine('kept-two');
     expect(m.inSession('session-a')('propose-tools', ...SESSION).status).toBe(0);
-    expect(m.inSession('session-b')('propose-tools', ...SESSION, '--decline', '--write').status).toBe(0);
-    expect(m.inSession('session-a')('propose-tools', '--decline', '--write').status).toBe(0);
+    expect(m.inSession('session-b')('propose-tools', ...SESSION, '--review-all', '--write').status).toBe(0);
+    expect(m.inSession('session-a')('propose-tools', '--review-all', '--write').status).toBe(0);
     expect(existsSync(m.keptFile)).toBe(false);
   });
 
@@ -937,7 +924,7 @@ describe('setup\'s commands, through bin/draftgate', () => {
     const shown = run('propose-tools');
     expect(shown.status).toBe(0);
     expect(shown.stdout).toContain('NOTHING given matches');
-    const written = run('propose-tools', '--decline', '--write');
+    const written = run('propose-tools', '--review-all', '--write');
     expect(written.status).toBe(0);
     expect(written.stdout).toContain(`draftgate can't watch these by default:\n  ${NOTE_TOOL}\n`);
   });

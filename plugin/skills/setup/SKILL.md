@@ -19,8 +19,8 @@ Rules:
 2. Run only `draftgate` commands. Change nothing of Claude Code's yourself: no settings file, no
    hook. The one change to Claude Code's settings is `draftgate register` in step 5, and only after
    I say yes there.
-3. If a command in steps 1 to 5 exits non-zero, show me what it printed, exactly, in a code block,
-   and stop, unless its step says what to do instead: steps 3, 4 and 6 do. A gate that looks installed and is not is
+3. If a command in steps 1 to 5 exits non-zero, show me what it printed, exactly, in a code
+   block, and stop, unless its step says what to do instead: steps 3, 4 and 6 do. A gate that looks installed and is not is
    worse than one that is obviously missing.
 
 Steps:
@@ -92,7 +92,7 @@ Steps:
 
    For "Review everything":
 
-       draftgate propose-tools --decline --write
+       draftgate propose-tools --review-all --write
 
    For "Let me choose", every heading in the CHOOSE list, under exactly one of the two flags:
 
