@@ -12,14 +12,14 @@ import { renderHookOutput } from '../src/hookOutput';
 import { inspectRegistration } from '../src/registration';
 import { checkoutSettings } from './checkoutEntry';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HOOK_SELF = fileURLToPath(new URL('../src/main.ts', import.meta.url));
 import {
-  declinedAfter, describeReconciliation, proposalsFor, proposedToolsJson, reconcileTools,
+  UNANSWERED, declinedAfter, describeReconciliation, proposalsFor, proposedToolsJson, reconcileTools,
 } from '../src/reconcile';
 import {
   DEFAULT_TOOL_MAP,
@@ -33,6 +33,7 @@ import {
 const SLACK = 'mcp__claude_ai_Slack__slack_send_message';
 const SLACK_ALIAS = 'mcp__slack__slack_send_message';
 const JIRA = 'mcp__claude_ai_Atlassian_Rovo__addCommentToJiraIssue';
+const LINEAR = 'mcp__claude_ai_Linear__save_comment';
 
 const declining = (...halves: string[]) =>
   mergeToolConfig(DEFAULT_TOOL_MAP, { declined: halves }, 'tools.json');
@@ -192,15 +193,59 @@ describe('reconcile: the checklist and the answer', () => {
     const { map, declined, declinedRoutes } = declining('slack_send_message', 'save_comment');
     // This session has no Linear connector, so `save_comment` was never on the checklist.
     const r = reconcileTools([SLACK, JIRA], map, { declined, declinedRoutes, shadows: [] });
-    expect(declinedAfter(r, declined, [])).toEqual({ declined: ['save_comment'] });
-    expect(declinedAfter(r, declined, ['addCommentToJiraIssue'])).toEqual({
+    expect(declinedAfter(r, declined, [], ['addCommentToJiraIssue', 'slack_send_message'])).toEqual({ declined: ['save_comment'] });
+    expect(declinedAfter(r, declined, ['addCommentToJiraIssue'], ['slack_send_message'])).toEqual({
       declined: ['addCommentToJiraIssue', 'save_comment'],
     });
   });
 
-  test('a decline that names nothing on the checklist is refused', () => {
+  test('a name that is not on the checklist is refused, after either flag', () => {
     const r = reconcileTools(NAMES, DEFAULT_TOOL_MAP);
-    expect(declinedAfter(r, [], ['slack_send_mesage'])).toHaveProperty('error');
+    expect(declinedAfter(r, [], ['slack_send_mesage'], ['addCommentToJiraIssue'])).toHaveProperty('error');
+    expect(declinedAfter(r, [], ['addCommentToJiraIssue'], ['slack_send_mesage'])).toHaveProperty('error');
+  });
+
+  test('an answer that leaves a shown tool unanswered declines nothing, re-enables nothing', () => {
+    // Slack declined earlier; this run shows Jira, Slack and Linear, and only Jira's answer came back.
+    const { map, declined, declinedRoutes } = declining('slack_send_message');
+    const r = reconcileTools([JIRA, SLACK, LINEAR], map, { declined, declinedRoutes, shadows: [] });
+    for (const [chosen, reviewed] of [
+      [['addCommentToJiraIssue'], []],
+      [[], ['addCommentToJiraIssue']],
+      [['addCommentToJiraIssue'], ['save_comment']],
+    ] as [string[], string[]][]) {
+      const after = declinedAfter(r, declined, chosen, reviewed);
+      expect(after, `${chosen} / ${reviewed}`).toHaveProperty('error');
+      if (!('error' in after)) continue;
+      // It names what is open, under the heading setup asks about it by.
+      expect(after.error).toContain('  Slack: messages, sent now or scheduled: slack_send_message\n');
+      if (!reviewed.includes('save_comment')) expect(after.error).toContain('  Linear: comments: save_comment\n');
+    }
+    // Nothing named: no answer reached it, so Slack's earlier decline stands.
+    expect(declinedAfter(r, declined, [], [])).toHaveProperty('error');
+    // Answered whole, it is taken.
+    expect(declinedAfter(r, declined, ['addCommentToJiraIssue'], ['save_comment', 'slack_send_message'])).toEqual({
+      declined: ['addCommentToJiraIssue'],
+    });
+    expect(declinedAfter(r, declined, [], ['addCommentToJiraIssue', 'save_comment', 'slack_send_message'])).toEqual({
+      declined: [],
+    });
+  });
+
+  test('setup asks which to review, one question per call, and asks again on the words the refusal uses', () => {
+    const skill = readFileSync(fileURLToPath(new URL('../../../plugin/skills/setup/SKILL.md', import.meta.url)), 'utf8')
+      .replace(/\s+/g, ' ');
+    expect(skill).toContain('"Which of these should draftgate review?"');
+    expect(skill).toContain('never two questions in one call');
+    expect(skill).not.toMatch(/NOT review/);
+    expect(skill).toContain(`"${UNANSWERED}"`);
+    expect(skill).toContain('draftgate propose-tools --review <short name> ... --decline <short name> ... --write');
+  });
+
+  test('a tool after both flags is refused', () => {
+    const r = reconcileTools([JIRA, SLACK], DEFAULT_TOOL_MAP);
+    const after = declinedAfter(r, [], ['slack_send_message'], ['slack_send_message', 'addCommentToJiraIssue']);
+    expect(after).toEqual({ error: expect.stringContaining('after both --decline and --review') });
   });
 
   test('the printed file KEEPS the aliases a decline covers, and loads', () => {
@@ -247,8 +292,8 @@ describe('--propose-tools --decline, through the real entry point', () => {
       const run = (...args: string[]) =>
         spawnSync('bun', [HOOK_SELF, ...args], { env: { ...process.env, DRAFTGATE_HOME: home }, encoding: 'utf8' });
       for (const args of [
-        ['--propose-tools', SLACK, JIRA, '--decline', 'slack_send_message'],
-        ['--decline', 'slack_send_message', '--propose-tools', SLACK, JIRA],
+        ['--propose-tools', SLACK, JIRA, '--decline', 'slack_send_message', '--review', 'addCommentToJiraIssue'],
+        ['--review', 'addCommentToJiraIssue', '--decline', 'slack_send_message', '--propose-tools', SLACK, JIRA],
       ]) {
         const out = run(...args);
         expect(out.status, args.join(' ')).toBe(0);
@@ -259,6 +304,47 @@ describe('--propose-tools --decline, through the real entry point', () => {
       const eq = run('--propose-tools', SLACK, '--decline=slack_send_message');
       expect(eq.status).toBe(1);
       expect(eq.stderr).toContain('does not take --decline=slack_send_message');
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test('setup with the Linear and GitHub answers lost writes nothing, and names what is open', () => {
+    // Four connectors' tools; the person was asked about each, and only Jira's and Slack's answers
+    // reached the command.
+    const home = mkdtempSync(join(tmpdir(), 'draftgate-declined-'));
+    try {
+      const file = join(home, 'tools.json');
+      writeFileSync(file, '{}');
+      const run = (...args: string[]) =>
+        spawnSync('bun', [HOOK_SELF, ...args], { env: { ...process.env, DRAFTGATE_HOME: home }, encoding: 'utf8' });
+      const names = [JIRA, SLACK, LINEAR, 'mcp__claude_ai_Github_MCP__add_issue_comment'];
+      // The other shapes of a partial answer are `declinedAfter`'s, above; these two cross `main`'s
+      // parse.
+      for (const answer of [
+        ['--review', 'addCommentToJiraIssue', '--decline', 'slack_send_message'],
+        // Every answer lost: nothing after the flag.
+        ['--decline'],
+      ]) {
+        const r = run('--propose-tools', ...names, ...answer, '--write');
+        expect(r.status, answer.join(' ')).toBe(1);
+        expect(r.stdout).toBe('');
+        expect(r.stderr).toContain('the answer leaves these unanswered, so it was not taken:\n');
+        expect(r.stderr).toContain('  Linear: comments: save_comment\n');
+        expect(r.stderr).toContain('  GitHub: issues and issue comments: add_issue_comment\n');
+        expect(readFileSync(file, 'utf8')).toBe('{}');
+      }
+      const both = run('--propose-tools', ...names, '--review-all', '--decline', 'slack_send_message', '--write');
+      expect(both.status).toBe(1);
+      expect(both.stderr).toContain('--review-all is the whole answer');
+      expect(readFileSync(file, 'utf8')).toBe('{}');
+      // The whole answer is written.
+      const whole = run(
+        '--propose-tools', ...names, '--review', 'addCommentToJiraIssue', 'save_comment',
+        '--decline', 'slack_send_message', 'add_issue_comment', '--write'
+      );
+      expect(whole.status).toBe(0);
+      expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({ declined: ['add_issue_comment', 'slack_send_message'] });
     } finally {
       rmSync(home, { recursive: true, force: true });
     }

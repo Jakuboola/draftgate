@@ -8,9 +8,10 @@
 
 import { describe, expect, test } from 'bun:test';
 import {
-  CHOICE_GROUPS, answeredToolsJson, declinedAfter, describeReconciliation, groupOf, knownHalves, proposedToolsJson,
-  reconcileTools,
+  CHOICE_GROUPS, answeredToolsJson, declinedAfter, describeReconciliation, groupOf, knownHalves, ownToolRoute,
+  proposedToolsJson, reconcileTools,
 } from '../src/reconcile';
+import { profiles } from '../../../core/src/index';
 import {
   DEFAULT_TOOL_MAP, matcherFor, mergeToolConfig, mergeToolMap, resolveRoute, toolHalfOf, toolHalvesOf, type ToolMap,
 } from '../src/toolMap';
@@ -281,7 +282,7 @@ describe('the choice groups', () => {
         '      [x] pull_request_review_write          1 connector\n'
     );
     expect(text).toContain('      [x] slack_send_message                 2 connectors');
-    expect(text).toContain('every tool under a group, to decline the group');
+    expect(text).toContain('every tool above, under one of the two');
   });
 });
 
@@ -329,11 +330,37 @@ describe('knownHalves: the names setup passes', () => {
     // The declined half only the file routes is offered back, so a re-enable stays possible.
     expect(few.halves.map((h) => h.half)).toContain('post_customer_reply');
     for (const chosen of [[], ['slack_send_message'], ['post_internal_note', 'save_customer_need']]) {
-      const a = declinedAfter(all, tools.declined, chosen);
-      const f = declinedAfter(few, tools.declined, chosen);
+      // The whole answer: every half shown, reviewed unless declined.
+      const reviewed = all.halves.map((h) => h.half).filter((h) => !chosen.includes(h));
+      const a = declinedAfter(all, tools.declined, chosen, reviewed);
+      const f = declinedAfter(few, tools.declined, chosen, reviewed);
       expect(f).toEqual(a);
       if ('error' in a || 'error' in f) throw new Error('a shown half was refused');
       expect(answeredToolsJson(few, file, f.declined)).toBe(answeredToolsJson(all, file, a.declined));
     }
+  });
+});
+
+describe('ownToolRoute: which tools --add takes', () => {
+  const OWN = 'mcp__jsm__jira_add_internal_note';
+  const tools = mergeToolConfig(DEFAULT_TOOL_MAP, { declined: ['post_note'] }, 'tools.json');
+
+  test('a tool of a server the person set up, to a destination draftgate has', () => {
+    expect(ownToolRoute(OWN, 'jira', 'commentBody', tools, {})).toEqual({ destination: 'jira' });
+  });
+
+  test.each([
+    ['mcp__claude_ai_Jsm__jira_add_internal_note', 'jira', 'commentBody', {}, 'a claude.ai connector'],
+    ['mcp__plugin_kit_jsm__jira_add_internal_note', 'jira', 'commentBody', {}, "a plugin's server"],
+    ['mcp__jsm__addCommentToJiraIssue', 'jira', 'commentBody', {}, 'a tool draftgate routes already'],
+    // A decline no route uses still declines the half: an entry for it would be dormant at once.
+    ['mcp__notes__post_note', 'slack', 'text', {}, 'ends in post_note, which tools.json declines'],
+    ['jira_add_internal_note', 'jira', 'commentBody', {}, 'is not an MCP tool name'],
+    [OWN, 'jira', 'commentBody', { [OWN]: 'jira' }, 'has a tools.json entry already'],
+    [OWN, 'email', 'commentBody', {}, `"email" is not a destination. Name one of: ${Object.keys(profiles).join(', ')}.`],
+    [OWN, 'jira', ' ', {}, 'the field the message is in is empty'],
+  ] as [string, string, string, Record<string, unknown>, string][])('refuses %s as %s', (name, destination, field, existing, says) => {
+    const route = ownToolRoute(name, destination, field, tools, existing);
+    expect(route).toEqual({ error: expect.stringContaining(says) });
   });
 });

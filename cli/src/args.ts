@@ -375,23 +375,32 @@ ${SETUP} runs it after asking. It keeps a backup and refuses a file it cannot re
 settings. It takes no options.
 `,
 
-  'propose-tools': `draftgate propose-tools <tool name>... [--decline <tool>...] [--write]
+  'propose-tools': `draftgate propose-tools <tool name>... [--review <tool>... --decline <tool>... | --review-all] [--write]
 draftgate propose-tools --known
 draftgate propose-tools --drop <tool name>...
+draftgate propose-tools --add <tool name> <destination> <field>
 
 Compare a session's MCP tool names with the tools draftgate reviews, and list the ones you can
 choose not to review. ${SETUP} runs it.
 
   --known               list the short tool names draftgate knows. A name that does not end in
                         one of them changes nothing here
-  --decline <tool>...   the tools not to review, by the short names the list prints. --decline
-                        alone reviews every one
-  --write               write that answer to ~/.draftgate/tools.json. Needs --decline. With no
+  --review <tool>...    the tools to review, by the short names the list prints
+  --decline <tool>...   the tools not to review, likewise. An answer names every tool in the list
+                        after one of the two, or it is refused
+  --review-all          the answer that reviews every one
+  --write               write that answer to ~/.draftgate/tools.json. Needs one. With no
                         tool names, it takes the ones the last run in this Claude Code session kept.
                         It drops the entries that say just what draftgate's own entry says, and
                         names the ones that override it
   --drop <tool name>... take these entries out of ~/.draftgate/tools.json, so draftgate's own entry
                         for the tool applies. Only an entry for one of draftgate's own tools
+  --add <tool name> <destination> <field>
+                        review a tool of a server you set up yourself (not a claude.ai connector
+                        or a plugin's), its message read from <field>. <destination> is one of:
+                        ${Object.keys(profiles).join(', ')}. The tool must take what draftgate hands
+                        it: for jira, an ADF document as a JSON string with contentFormat "adf";
+                        markdown for the rest. Then run ${SETUP} again
 `,
 
   review: `draftgate review --dest <name> --in <path> [options]
