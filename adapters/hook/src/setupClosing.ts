@@ -84,7 +84,11 @@ export function setupClosing(facts: ClosingFacts): string {
     'Ask Claude to run:',
     ...commandTable(COMMANDS),
     '',
-    `After adding a connector, run ${typed(REMEDY.pluginSetup)} again.`
+    // Setup chooses from the tool list of the session it runs in, and a project's `.mcp.json`
+    // server is in that list only when Claude Code starts in the project's folder.
+    'Setup saw only the connectors loaded in this session. A project\'s own MCP servers (its',
+    `.mcp.json) load only when Claude Code starts in that folder: run ${typed(REMEDY.pluginSetup)} there for`,
+    `those, and again after adding a connector.`
   );
   return lines.join('\n') + '\n';
 }

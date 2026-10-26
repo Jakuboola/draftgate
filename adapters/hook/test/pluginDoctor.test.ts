@@ -272,7 +272,7 @@ describe('doctor, from the plugin: what it advises', () => {
     expect(m.draftgate('register').status).toBe(0);
 
     // The tool declined: the entry written for it covers nothing anyone wants, and register drops it.
-    const declined = m.draftgate('propose-tools', ...SESSION, '--decline', 'post_internal_note', '--write').stdout;
+    const declined = m.draftgate('propose-tools', ...SESSION, '--review', 'slack_send_message', '--decline', 'post_internal_note', '--write').stdout;
     expect(declined).toContain(`${OLD_ENTRY}, which runs:\n  ${join(m.link, HOOK_IN_REPO)}\n`);
     expect(m.draftgate('register').stdout).toContain('is not needed and was removed');
     expect(lstatSync(m.link, { throwIfNoEntry: false })).toBeUndefined();
@@ -382,7 +382,9 @@ describe('doctor --setup: what setup ends with', () => {
       '  draftgate doctor   check the gate is working',
       '  draftgate help     the command list',
       '',
-      'After adding a connector, run /draftgate:setup again.',
+      'Setup saw only the connectors loaded in this session. A project\'s own MCP servers (its',
+      '.mcp.json) load only when Claude Code starts in that folder: run /draftgate:setup there for',
+      'those, and again after adding a connector.',
       '',
     ].join('\n');
   /** A machine whose reviews write the log, as a user's do: the harness turns it off by default. */
@@ -396,7 +398,8 @@ describe('doctor --setup: what setup ends with', () => {
     // writes. A decline that routes nothing is no choice, so the closing does not name it.
     const m = logging(withTool('closing-answers'));
     const session = ['mcp__claude_ai_Atlassian_Rovo__addWorklogToJiraIssue', ...SESSION];
-    expect(m.draftgate('propose-tools', ...session, '--decline', 'addWorklogToJiraIssue', '--write').status).toBe(0);
+    const answer = ['--review', 'post_internal_note', 'slack_send_message', '--decline', 'addWorklogToJiraIssue', '--write'];
+    expect(m.draftgate('propose-tools', ...session, ...answer).status).toBe(0);
     const tools = JSON.parse(readFileSync(join(m.env.DRAFTGATE_HOME!, 'tools.json'), 'utf8'));
     m.tools({ ...tools, declined: [...tools.declined, 'slack_send_mesage'] });
     expect(m.draftgate('register').status).toBe(0);

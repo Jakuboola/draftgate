@@ -669,7 +669,7 @@ describe('setup\'s commands, through bin/draftgate', () => {
 
   test('--write records the answer, and names nothing to add when the plugin covers every tool', () => {
     const m = machine('write-plain');
-    const r = m.draftgate('propose-tools', ...SESSION, '--decline', 'save_customer_need', '--write');
+    const r = m.draftgate('propose-tools', ...SESSION, '--review', 'slack_send_message', '--decline', 'save_customer_need', '--write');
     expect(r.status).toBe(0);
     expect(r.stdout).toContain(`wrote ${m.toolsFile} (1 tool(s) declined)`);
     expect(JSON.parse(readFileSync(m.toolsFile, 'utf8')).declined).toEqual(['save_customer_need']);
@@ -677,11 +677,11 @@ describe('setup\'s commands, through bin/draftgate', () => {
     expect(r.stdout).not.toContain("can't watch");
   });
 
-  test('--write without --decline writes nothing', () => {
+  test('--write without an answer writes nothing', () => {
     const m = machine('write-noanswer');
     const r = m.draftgate('propose-tools', ...SESSION, '--write');
     expect(r.status).toBe(1);
-    expect(r.stderr).toContain('--write needs --decline');
+    expect(r.stderr).toContain('--write needs the answer to write');
     expect(existsSync(m.toolsFile)).toBe(false);
   });
 
@@ -776,7 +776,8 @@ describe('setup\'s commands, through bin/draftgate', () => {
     writeFileSync(real, '{}');
     mkdirSync(join(m.toolsFile, '..'), { recursive: true });
     symlinkSync(real, m.toolsFile);
-    expect(m.draftgate('propose-tools', ...SESSION, '--decline', 'save_customer_need', '--write').status).toBe(0);
+    const answer = ['--review', 'slack_send_message', '--decline', 'save_customer_need', '--write'];
+    expect(m.draftgate('propose-tools', ...SESSION, ...answer).status).toBe(0);
     expect(lstatSync(m.toolsFile).isSymbolicLink()).toBe(true);
     expect(JSON.parse(readFileSync(real, 'utf8')).declined).toEqual(['save_customer_need']);
   });
@@ -809,7 +810,7 @@ describe('setup\'s commands, through bin/draftgate', () => {
     expect(shown.stdout).toBe(twice.draftgate('propose-tools', ...names).stdout.replaceAll(twice.home, once.home));
     expect(statSync(once.keptFile).mode & 0o777).toBe(0o600);
 
-    const answer = ['--decline', 'save_customer_need', '--write'];
+    const answer = ['--review', 'post_internal_note', 'save_issue', 'slack_send_message', '--decline', 'save_customer_need', '--write'];
     const written = run('propose-tools', ...answer);
     expect(written.status).toBe(0);
     expect(written.stdout).toBe(twice.draftgate('propose-tools', ...names, ...answer).stdout.replaceAll(twice.home, once.home));
@@ -853,7 +854,7 @@ describe('setup\'s commands, through bin/draftgate', () => {
     const names = ['mcp__dummy__slack_send_message', ...SESSION];
     expect(run('propose-tools', ...names).status).toBe(0);
     const kept = readFileSync(m.keptFile, 'utf8');
-    for (const preview of [[], ['--decline'], ['--decline', 'slack_send_message']]) {
+    for (const preview of [[], ['--decline'], ['--decline', 'slack_send_message', '--review', 'save_customer_need']]) {
       const r = run('propose-tools', ...preview);
       expect(r.status, preview.join(' ')).toBe(0);
       expect(r.stdout).toStartWith(`draftgate: reconciled ${names.length} tool name(s)`);

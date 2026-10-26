@@ -960,8 +960,8 @@ async function writeToolsAnswer(o: {
 }): Promise<number> {
   if (o.answer === undefined) {
     process.stderr.write(
-      'draftgate: --write needs --decline, the answer to write: the tools NOT to review, or ' +
-        '--decline alone to review every one.\n'
+      'draftgate: --write needs the answer to write: --review and the tools to review, and --decline ' +
+        'and the tools not to, or --decline alone to review every one.\n'
     );
     return 1;
   }
@@ -1103,7 +1103,7 @@ async function replacedByRegister(block: HookBlock | null): Promise<string[]> {
  * `draftgate propose-tools` passes its arguments as they are, and an `--unregister` among them would
  * otherwise run that mode.
  */
-const PROPOSE_FLAGS = ['--propose-tools', '--decline', '--write', '--known', '--drop'];
+const PROPOSE_FLAGS = ['--propose-tools', '--decline', '--review', '--write', '--known', '--drop'];
 
 export async function main(argv: string[]): Promise<number> {
   if (argv.includes('--propose-tools')) {
@@ -1112,7 +1112,7 @@ export async function main(argv: string[]): Promise<number> {
       // Refused, not skipped: `--decline=x` skipped would drop the answer and exit 0.
       process.stderr.write(
         `draftgate: ${REMEDY.proposeTools} does not take ${other}. Pass tool names after it ` +
-          'and tool halves after --decline, space-separated, --write to write the answer, --known ' +
+          'and tool halves after --review and --decline, space-separated, --write to write the answer, --known ' +
           'alone to list the tool halves it knows, or --drop and the tools.json entries to drop.\n'
       );
       return 1;
@@ -1170,9 +1170,11 @@ export async function main(argv: string[]): Promise<number> {
     // `~/.claude.json` has no claude.ai-managed connectors.
     //
     // Each flag owns the bare arguments after it, in either order: tool names after
-    // `--propose-tools`, tool halves after `--decline`, entries after `--drop`. `--write` owns none.
+    // `--propose-tools`, tool halves after `--decline` and `--review`, entries after `--drop`.
+    // `--write` owns none.
     let names: string[] = [];
     let chosen: string[] | undefined;
+    let reviewing: string[] | undefined;
     let dropping: string[] | undefined;
     let into: string[] | undefined;
     let write = false;
@@ -1182,13 +1184,14 @@ export async function main(argv: string[]): Promise<number> {
       else if (arg === '--known') known = true;
       else if (arg === '--propose-tools') into = names;
       else if (arg === '--decline') into = chosen ??= [];
+      else if (arg === '--review') into = reviewing ??= [];
       else if (arg === '--drop') into = dropping ??= [];
       else into?.push(arg);
     }
     const toolsPath = join(draftgateHome(), CONFIG_BASENAME);
     // Alone, like `--known`: it needs no names, and beside an answer one of the two would be lost.
     if (dropping !== undefined) {
-      if (names.length > 0 || chosen !== undefined || write || known) {
+      if (names.length > 0 || chosen !== undefined || reviewing !== undefined || write || known) {
         process.stderr.write('draftgate: --drop takes nothing else: only the tools.json entries to drop.\n');
         return 1;
       }
@@ -1197,7 +1200,7 @@ export async function main(argv: string[]): Promise<number> {
     // The halves a name must end in to matter (`knownHalves`), one per line. Alone: beside names or
     // an answer it would drop them while exiting 0.
     if (known) {
-      if (names.length > 0 || chosen !== undefined || write) {
+      if (names.length > 0 || chosen !== undefined || reviewing !== undefined || write) {
         process.stderr.write('draftgate: --known takes nothing else: it lists the tool halves draftgate knows.\n');
         return 1;
       }
@@ -1234,8 +1237,8 @@ export async function main(argv: string[]): Promise<number> {
     const existing = existingToolsJson(toolsPath);
     const reconciliation = reconcileTools(names, toolMap, tools);
     let answer: string[] | undefined;
-    if (chosen !== undefined) {
-      const after = declinedAfter(reconciliation, tools.declined, chosen);
+    if (chosen !== undefined || reviewing !== undefined) {
+      const after = declinedAfter(reconciliation, tools.declined, chosen ?? [], reviewing ?? []);
       if ('error' in after) {
         process.stderr.write(`draftgate: ${after.error}\n`);
         return 1;

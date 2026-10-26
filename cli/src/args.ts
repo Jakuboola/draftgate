@@ -375,7 +375,7 @@ ${SETUP} runs it after asking. It keeps a backup and refuses a file it cannot re
 settings. It takes no options.
 `,
 
-  'propose-tools': `draftgate propose-tools <tool name>... [--decline <tool>...] [--write]
+  'propose-tools': `draftgate propose-tools <tool name>... [--review <tool>...] [--decline <tool>...] [--write]
 draftgate propose-tools --known
 draftgate propose-tools --drop <tool name>...
 
@@ -384,9 +384,10 @@ choose not to review. ${SETUP} runs it.
 
   --known               list the short tool names draftgate knows. A name that does not end in
                         one of them changes nothing here
-  --decline <tool>...   the tools not to review, by the short names the list prints. --decline
-                        alone reviews every one
-  --write               write that answer to ~/.draftgate/tools.json. Needs --decline. With no
+  --review <tool>...    the tools to review, by the short names the list prints
+  --decline <tool>...   the tools not to review, likewise. An answer names every tool in the list
+                        after one of the two, or it is refused. --decline alone reviews every one
+  --write               write that answer to ~/.draftgate/tools.json. Needs one. With no
                         tool names, it takes the ones the last run in this Claude Code session kept.
                         It drops the entries that say just what draftgate's own entry says, and
                         names the ones that override it

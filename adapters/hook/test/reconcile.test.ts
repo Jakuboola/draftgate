@@ -281,7 +281,7 @@ describe('the choice groups', () => {
         '      [x] pull_request_review_write          1 connector\n'
     );
     expect(text).toContain('      [x] slack_send_message                 2 connectors');
-    expect(text).toContain('every tool under a group, to decline the group');
+    expect(text).toContain('every tool above, under one of the two');
   });
 });
 
@@ -329,8 +329,10 @@ describe('knownHalves: the names setup passes', () => {
     // The declined half only the file routes is offered back, so a re-enable stays possible.
     expect(few.halves.map((h) => h.half)).toContain('post_customer_reply');
     for (const chosen of [[], ['slack_send_message'], ['post_internal_note', 'save_customer_need']]) {
-      const a = declinedAfter(all, tools.declined, chosen);
-      const f = declinedAfter(few, tools.declined, chosen);
+      // The whole answer: every half shown, reviewed unless declined.
+      const reviewed = chosen.length === 0 ? [] : all.halves.map((h) => h.half).filter((h) => !chosen.includes(h));
+      const a = declinedAfter(all, tools.declined, chosen, reviewed);
+      const f = declinedAfter(few, tools.declined, chosen, reviewed);
       expect(f).toEqual(a);
       if ('error' in a || 'error' in f) throw new Error('a shown half was refused');
       expect(answeredToolsJson(few, file, f.declined)).toBe(answeredToolsJson(all, file, a.declined));

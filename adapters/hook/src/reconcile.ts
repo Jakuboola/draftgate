@@ -191,24 +191,51 @@ export function proposalsFor(r: Reconciliation, declined: readonly string[]): Pr
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** The words `/draftgate:setup` asks again on (`plugin/skills/setup/SKILL.md`). */
+export const UNANSWERED = 'the answer leaves these unanswered';
+
 /**
- * The `declined` list after a setup answer, or a refusal when the answer names a half the checklist
- * never offered. `chosen` is the full answer for the halves shown, so a shown half left out is
- * re-enabled; a half declined earlier and not shown (its connector not loaded here) stays declined.
+ * The `declined` list after a setup answer, or a refusal. `chosen` (`--decline`) and `reviewed`
+ * (`--review`) are the full answer for the halves shown; a half declined earlier and not shown (its
+ * connector not loaded here) stays declined.
+ *
+ * An answer that names any half names every one shown, each once: a question whose answer never
+ * came back would otherwise be read as one, declining what the person never declined or
+ * re-enabling what they did. Naming none (`--decline` alone) reviews every one shown.
  */
 export function declinedAfter(
   r: Reconciliation,
   existing: readonly string[],
-  chosen: readonly string[]
+  chosen: readonly string[],
+  reviewed: readonly string[]
 ): { declined: string[] } | { error: string } {
   const shown = new Set(r.halves.map((h) => h.half));
-  const stray = chosen.filter((h) => !shown.has(h));
+  const quoted = (halves: readonly string[]) => halves.map((h) => `"${oneLine(h)}"`).join(', ');
+  const stray = [...chosen, ...reviewed].filter((h) => !shown.has(h));
   if (stray.length > 0) {
     return {
       error:
-        `--decline names ${stray.map((h) => `"${oneLine(h)}"`).join(', ')}, which is not a tool ` +
-        'in the checklist. Name tools as the checklist prints them (e.g. slack_send_message).',
+        `${quoted(stray)} is not a tool in the checklist. Name tools as the checklist prints them ` +
+        '(e.g. slack_send_message).',
     };
+  }
+  const both = chosen.filter((h) => reviewed.includes(h));
+  if (both.length > 0) return { error: `${quoted(both)} is after both --decline and --review. Name each tool once.` };
+  if (chosen.length + reviewed.length > 0) {
+    const answered = new Set([...chosen, ...reviewed]);
+    const open = r.halves.filter((h) => !answered.has(h.half));
+    if (open.length > 0) {
+      const groups = [...new Set(open.map((h) => h.group))].map(
+        (group) => `  ${oneLine(group)}: ${open.filter((h) => h.group === group).map((h) => oneLine(h.half)).join(' ')}`
+      );
+      return {
+        error:
+          `${UNANSWERED}, so it was not taken:\n` +
+          groups.join('\n') +
+          '\nAn answer names every tool in the checklist, after --review or --decline. Ask about these too, ' +
+          'then pass the whole answer.',
+      };
+    }
   }
   const kept = existing.filter((h) => !shown.has(h));
   return { declined: [...new Set([...kept, ...chosen])].sort() };
@@ -271,7 +298,7 @@ export function describeReconciliation(
   existing: Record<string, unknown>,
   /** Where that file lives. `draftgateHome` honours `DRAFTGATE_HOME`; a hardcoded `~` does not. */
   toolsPath: string,
-  /** The `declined` list setup's answer produces (`declinedAfter`), when `--decline` was given. */
+  /** The `declined` list setup's answer produces (`declinedAfter`), when it was given. */
   answer?: readonly string[]
 ): string {
   const lines: string[] = [];
@@ -302,9 +329,9 @@ export function describeReconciliation(
       const via = `${h.connectors} connector${h.connectors === 1 ? '' : 's'}`;
       lines.push(`      [${h.declined ? ' ' : 'x'}] ${oneLine(h.half).padEnd(width)}  ${via}`);
     }
-    lines.push('  To answer, run this again with --decline and every tool NOT to review');
-    lines.push('  (every tool under a group, to decline the group). --decline alone declines none');
-    lines.push('  and re-enables any declined above.');
+    lines.push('  To answer, run this again with --review and every tool to review, and --decline and');
+    lines.push('  every tool not to: every tool above, under one of the two. --decline alone reviews');
+    lines.push('  every one, and re-enables any declined above.');
   }
   // With an answer, the proposals that answer leaves standing: the list the printed file is built from.
   const proposals = answer === undefined ? r.proposed : proposalsFor(r, answer);

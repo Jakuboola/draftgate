@@ -41,17 +41,35 @@ Steps:
 2. Ask me ONE question, with two options in this order: "Review everything (recommended)" and
    "Let me choose". Use AskUserQuestion if you have it, otherwise ask in plain text and wait.
    - Review everything: my answer declines nothing.
-   - Let me choose: the CHOOSE list it printed puts the tools under plain headings. Ask which
-     headings draftgate should NOT review, one option per heading, in questions of 2 to 4 options.
-     Selecting nothing means review everything. Declining a heading declines every tool under it.
+   - Let me choose: the CHOOSE list it printed puts the tools under plain headings, each starting
+     with where it sends ("Jira: comments"). Ask about the headings one destination at a time, in
+     the list's order, each in its own question and its own AskUserQuestion call: never two
+     questions in one call. Wait for each answer before you ask the next.
+     - A destination with two to four headings: "Which of these should draftgate review?", one
+       option per heading, in the words the list prints, with multiSelect on. More than four:
+       split them into questions of up to four, each its own call.
+     - A destination with one heading: "Should draftgate review <the heading>?", with two options
+       in this order: "Review it" and "Don't review it".
+     - Check each answer before you go on. A question that came back with no answer, or with an
+       answer that is not one of its options: ask it again. One that came back with nothing
+       picked: ask me ONE question, "Don't review any of these: <its headings>?", with two options
+       in this order: "Ask me again" and "Don't review them". Never take a missing or empty answer
+       as a choice: only "Don't review it" and "Don't review them" decline a heading.
 
 3. Record my answer. Do not repeat the names from step 1: draftgate kept them for this.
 
-       draftgate propose-tools --decline <short name> <short name> ... --write
+   For "Review everything":
 
-   After --decline, give the SHORT names as the CHOOSE list prints them (`slack_send_message`, not
-   `mcp__..._slack_send_message`), every one under each heading I declined. Always pass --decline,
-   with nothing after it for "review everything".
+       draftgate propose-tools --decline --write
+
+   For "Let me choose", every heading in the CHOOSE list, under exactly one of the two flags:
+
+       draftgate propose-tools --review <short name> ... --decline <short name> ... --write
+
+   Give the SHORT names as the CHOOSE list prints them (`slack_send_message`, not
+   `mcp__..._slack_send_message`): after --review every one under each heading I chose to review,
+   after --decline every one under each heading I chose not to. If it says "the answer leaves these
+   unanswered", ask me about the headings it lists as in step 2, then run it again with the whole answer.
 
 4. Only if that output says "draftgate can't watch these by default", ask me ONE question, in these
    words: "draftgate can't watch these by default: <the tool names it lists>. Add them?", with two
