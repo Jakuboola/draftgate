@@ -193,7 +193,7 @@ describe('reconcile: the checklist and the answer', () => {
     const { map, declined, declinedRoutes } = declining('slack_send_message', 'save_comment');
     // This session has no Linear connector, so `save_comment` was never on the checklist.
     const r = reconcileTools([SLACK, JIRA], map, { declined, declinedRoutes, shadows: [] });
-    expect(declinedAfter(r, declined, [], [])).toEqual({ declined: ['save_comment'] });
+    expect(declinedAfter(r, declined, [], null)).toEqual({ declined: ['save_comment'] });
     expect(declinedAfter(r, declined, ['addCommentToJiraIssue'], ['slack_send_message'])).toEqual({
       declined: ['addCommentToJiraIssue', 'save_comment'],
     });
@@ -221,6 +221,10 @@ describe('reconcile: the checklist and the answer', () => {
       expect(after.error).toContain('  Slack: messages, sent now or scheduled: slack_send_message\n');
       if (!reviewed.includes('save_comment')) expect(after.error).toContain('  Linear: comments: save_comment\n');
     }
+    // `--review` given with nothing after it, and nothing declined: no answer reached it, so Slack's
+    // earlier decline stands. Only `--decline` alone means "review every one".
+    expect(declinedAfter(r, declined, [], [])).toHaveProperty('error');
+    expect(declinedAfter(r, declined, [], null)).toEqual({ declined: [] });
     // Answered whole, it is taken.
     expect(declinedAfter(r, declined, ['addCommentToJiraIssue'], ['save_comment', 'slack_send_message'])).toEqual({
       declined: ['addCommentToJiraIssue'],
@@ -321,6 +325,8 @@ describe('--propose-tools --decline, through the real entry point', () => {
         ['--review', 'addCommentToJiraIssue', '--decline', 'slack_send_message'],
         ['--decline', 'addCommentToJiraIssue', 'slack_send_message'],
         ['--review', 'addCommentToJiraIssue', 'slack_send_message'],
+        // Every answer lost: step 4's command with nothing after either flag.
+        ['--review', '--decline'],
       ]) {
         const r = run('--propose-tools', ...names, ...answer, '--write');
         expect(r.status, answer.join(' ')).toBe(1);

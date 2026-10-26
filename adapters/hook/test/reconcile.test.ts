@@ -330,7 +330,7 @@ describe('knownHalves: the names setup passes', () => {
     expect(few.halves.map((h) => h.half)).toContain('post_customer_reply');
     for (const chosen of [[], ['slack_send_message'], ['post_internal_note', 'save_customer_need']]) {
       // The whole answer: every half shown, reviewed unless declined.
-      const reviewed = chosen.length === 0 ? [] : all.halves.map((h) => h.half).filter((h) => !chosen.includes(h));
+      const reviewed = chosen.length === 0 ? null : all.halves.map((h) => h.half).filter((h) => !chosen.includes(h));
       const a = declinedAfter(all, tools.declined, chosen, reviewed);
       const f = declinedAfter(few, tools.declined, chosen, reviewed);
       expect(f).toEqual(a);

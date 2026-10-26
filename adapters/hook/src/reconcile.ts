@@ -15,7 +15,7 @@
 
 import { REMEDY } from '../../../core/src/remedies';
 import { oneLine } from '../../../cli/src/text';
-import { profiles, type DestinationName } from '../../../core/src/index';
+import { isKnownDestination, profiles, type DestinationName } from '../../../core/src/index';
 import {
   DECLINED_KEY,
   declinedHalfOf,
@@ -201,17 +201,19 @@ export const UNANSWERED = 'the answer leaves these unanswered';
  *
  * An answer that names any half names every one shown, each once: a question whose answer never
  * came back would otherwise be read as one, declining what the person never declined or
- * re-enabling what they did. Naming none (`--decline` alone) reviews every one shown.
+ * re-enabling what they did. `--decline` alone, naming none, reviews every one shown.
  */
 export function declinedAfter(
   r: Reconciliation,
   existing: readonly string[],
   chosen: readonly string[],
-  reviewed: readonly string[]
+  /** Null when `--review` was not given: only then does an answer naming nothing mean "every one". */
+  reviewed: readonly string[] | null
 ): { declined: string[] } | { error: string } {
   const shown = new Set(r.halves.map((h) => h.half));
   const quoted = (halves: readonly string[]) => halves.map((h) => `"${oneLine(h)}"`).join(', ');
-  const stray = [...chosen, ...reviewed].filter((h) => !shown.has(h));
+  const named = [...chosen, ...(reviewed ?? [])];
+  const stray = named.filter((h) => !shown.has(h));
   if (stray.length > 0) {
     return {
       error:
@@ -219,10 +221,10 @@ export function declinedAfter(
         '(e.g. slack_send_message).',
     };
   }
-  const both = chosen.filter((h) => reviewed.includes(h));
+  const both = chosen.filter((h) => reviewed?.includes(h));
   if (both.length > 0) return { error: `${quoted(both)} is after both --decline and --review. Name each tool once.` };
-  if (chosen.length + reviewed.length > 0) {
-    const answered = new Set([...chosen, ...reviewed]);
+  if (named.length > 0 || reviewed !== null) {
+    const answered = new Set(named);
     const open = r.halves.filter((h) => !answered.has(h.half));
     if (open.length > 0) {
       const groups = [...new Set(open.map((h) => h.group))].map(
@@ -402,7 +404,7 @@ export function ownToolRefusal(
   name: string,
   destination: string,
   bodyField: string,
-  tools: Pick<ToolConfig, 'map' | 'declinedRoutes'>,
+  tools: Pick<ToolConfig, 'map' | 'declined' | 'declinedRoutes'>,
   existing: Record<string, unknown>
 ): string | null {
   const shown = `"${oneLine(name)}"`;
@@ -412,11 +414,15 @@ export function ownToolRefusal(
   if (server !== undefined) {
     return `${shown} is a tool of ${server.what}, not of a server you set up, so it is not offered.`;
   }
+  // Every declined half, a decline no route uses included: an entry for one is dormant at once.
+  if (tools.declined.includes(half)) {
+    return `${shown} ends in ${oneLine(half)}, which tools.json declines: setup's choice turns it back on.`;
+  }
   if (knownHalves(tools).includes(half)) {
     return `${shown} ends in ${oneLine(half)}, a tool draftgate routes already: setup's choice covers it.`;
   }
   if (Object.hasOwn(existing, name)) return `${shown} has a tools.json entry already.`;
-  if (!Object.hasOwn(profiles, destination)) {
+  if (!isKnownDestination(destination)) {
     return `"${oneLine(destination)}" is not a destination. Name one of: ${Object.keys(profiles).join(', ')}.`;
   }
   if (bodyField.trim() === '') return 'the field the message is in is empty. Name the input field that holds it.';

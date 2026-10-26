@@ -28,6 +28,7 @@ import {
 } from '../src/pluginHooks';
 import { PLUGIN_HOOK_TIMEOUT_S } from '../src/main';
 import { NOT_OWN_SERVERS } from '../src/reconcile';
+import { profiles } from '../../../core/src/index';
 import { SESSION_VAR } from '../src/setupNames';
 import { PLUGIN_REVIEW_CEILING_MS } from '../src/reviewTimeout';
 import { checkoutBlock } from './checkoutEntry';
@@ -779,6 +780,13 @@ describe('setup\'s commands, through bin/draftgate', () => {
     const route = mergeToolConfig(DEFAULT_TOOL_MAP, file, m.toolsFile).map[OWN];
     expect(route).toMatchObject({ destination: 'jira', bodyField: 'commentBody', schemaOwner: 'operator' });
     expect(m.draftgate('propose-tools', '--add', OWN, 'slack', 'text').stderr).toContain('routes already');
+    // A decline no route uses still declines the half: an entry for it would be dormant at once,
+    // while `--add` said it was reviewed.
+    writeFileSync(m.toolsFile, JSON.stringify({ ...file, declined: ['post_note'] }));
+    const declinedHalf = m.draftgate('propose-tools', '--add', 'mcp__notes__post_note', 'slack', 'text');
+    expect(declinedHalf.status).toBe(1);
+    expect(declinedHalf.stderr).toContain('ends in post_note, which tools.json declines');
+    writeFileSync(m.toolsFile, JSON.stringify(file));
 
     // Setup's answer then offers it to register, and the closing names it.
     const write = m.inSession('session-a')('propose-tools', ...SESSION, '--decline', '--write');
@@ -791,6 +799,9 @@ describe('setup\'s commands, through bin/draftgate', () => {
     const skill = readFileSync(join(REPO, 'plugin', 'skills', 'setup', 'SKILL.md'), 'utf8').replace(/\s+/g, ' ');
     for (const { prefix } of NOT_OWN_SERVERS) expect(skill).toContain(`\`${prefix}\``);
     expect(skill).toContain('"Do you want draftgate to review any of your own tools?"');
+    // The destinations it offers are the ones --add takes.
+    const names = Object.values(profiles).map((p) => `"${p.displayName}"`);
+    expect(skill).toContain(`options in this order: ${names.slice(0, -1).join(', ')} and ${names.at(-1)}.`);
     const guide = skill.match(/https:\/\/github\.com\/Jakuboola\/draftgate\/blob\/main\/([^\s"]+)/);
     expect(guide?.[1]).toBe('docs/gating-your-own-sends.md');
     expect(existsSync(join(REPO, guide![1]!))).toBe(true);

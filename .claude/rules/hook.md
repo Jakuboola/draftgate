@@ -57,8 +57,9 @@ Claude Code's `PreToolUse` adapter, wrapping the CLI as a subprocess.
   `--review ... --decline ... --write` it writes the answer's `tools.json` itself (the setup skill
   has only `Bash(draftgate *)`) and names the tools no registered matcher covers. `draftgate
   propose-tools` is the same mode.
-- **An answer that names any tool names every one on the checklist** (`declinedAfter`), under
-  `--review` or `--decline`; one left out refuses the whole answer and writes nothing. Setup asks
+- **An answer that names any tool, or gives `--review`, names every one on the checklist**
+  (`declinedAfter`), under `--review` or `--decline`; one left out refuses the whole answer and
+  writes nothing. Setup asks
   one question per call, and an answer that never came back must not read as a decline, or as a
   re-enable of a tool the person declined. `--decline` alone is "review everything".
 - `--add <name> <destination> <field>` writes a tool of the operator's own (`ownToolEntry`), only

@@ -1090,7 +1090,7 @@ async function dropToolEntries(names: string[], toolsPath: string): Promise<numb
  * `ownToolRefusal` and the loader take it. Setup runs it only after the person says yes and picks
  * the destination; `register` then adds the settings entry that reviews it.
  */
-async function addOwnTool(args: string[], tools: ToolConfig, toolsPath: string): Promise<number> {
+async function addOwnTool(args: string[], toolsPath: string): Promise<number> {
   if (args.length !== 3) {
     process.stderr.write(
       'draftgate: --add takes three things: the full tool name, its destination and the input field its ' +
@@ -1099,7 +1099,23 @@ async function addOwnTool(args: string[], tools: ToolConfig, toolsPath: string):
     return 1;
   }
   const [name, destination, bodyField] = args as [string, string, string];
-  const existing = existingToolsJson(toolsPath);
+  // One read, as `dropToolEntries`: a second that failed or saw another write would write back
+  // something else, `{}` at worst. No file is an empty one.
+  let tools: ToolConfig;
+  let existing: Record<string, unknown>;
+  try {
+    let text = '{}';
+    try {
+      text = readFileSync(toolsPath, 'utf8');
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+    }
+    tools = toolConfigFrom(text, toolsPath);
+    existing = JSON.parse(text) as Record<string, unknown>;
+  } catch (e) {
+    process.stderr.write(`draftgate: could not read ${toolsPath} (${(e as Error).message}), so nothing was added.\n`);
+    return 1;
+  }
   const refusal = ownToolRefusal(name, destination, bodyField, tools, existing);
   if (refusal !== null) {
     process.stderr.write(`draftgate: ${refusal} Nothing was written.\n`);
@@ -1113,7 +1129,7 @@ async function addOwnTool(args: string[], tools: ToolConfig, toolsPath: string):
   await printStdout(
     `draftgate: added ${oneLine(name)} to ${toolsPath}, reviewed as ${profiles[to].displayName}, ` +
       `its message read from ${oneLine(bodyField)}.\n` +
-      `${REMEDY.register} adds the Claude Code settings entry that reviews it.\n`
+      `${REMEDY.pluginSetup} adds the Claude Code settings entry that reviews it.\n`
   );
   return 0;
 }
@@ -1227,28 +1243,31 @@ export async function main(argv: string[]): Promise<number> {
       else into?.push(arg);
     }
     const toolsPath = join(draftgateHome(), CONFIG_BASENAME);
-    // Alone, like `--known`: it needs no names, and beside an answer one of the two would be lost.
+    // `--add`, `--drop` and `--known` each run alone: beside names, an answer or another of them,
+    // one of the two would be dropped while exiting 0.
+    const given = {
+      names: names.length > 0,
+      answer: chosen !== undefined || reviewing !== undefined || write,
+      add: adding !== undefined,
+      drop: dropping !== undefined,
+      known,
+    };
+    const alone = (mode: keyof typeof given) => Object.entries(given).every(([k, v]) => k === mode || !v);
+    const refuse = (message: string) => {
+      process.stderr.write(`draftgate: ${message}\n`);
+      return 1;
+    };
     if (adding !== undefined) {
-      if (names.length > 0 || chosen !== undefined || reviewing !== undefined || dropping !== undefined || write || known) {
-        process.stderr.write('draftgate: --add takes nothing else: only the tool, its destination and its field.\n');
-        return 1;
-      }
-      return addOwnTool(adding, tools, toolsPath);
+      if (!alone('add')) return refuse('--add takes nothing else: only the tool, its destination and its field.');
+      return addOwnTool(adding, toolsPath);
     }
     if (dropping !== undefined) {
-      if (names.length > 0 || chosen !== undefined || reviewing !== undefined || write || known) {
-        process.stderr.write('draftgate: --drop takes nothing else: only the tools.json entries to drop.\n');
-        return 1;
-      }
+      if (!alone('drop')) return refuse('--drop takes nothing else: only the tools.json entries to drop.');
       return dropToolEntries(dropping, toolsPath);
     }
-    // The halves a name must end in to matter (`knownHalves`), one per line. Alone: beside names or
-    // an answer it would drop them while exiting 0.
+    // The halves a name must end in to matter (`knownHalves`), one per line.
     if (known) {
-      if (names.length > 0 || chosen !== undefined || reviewing !== undefined || write) {
-        process.stderr.write('draftgate: --known takes nothing else: it lists the tool halves draftgate knows.\n');
-        return 1;
-      }
+      if (!alone('known')) return refuse('--known takes nothing else: it lists the tool halves draftgate knows.');
       await printStdout(knownHalves(tools).map((h) => `${oneLine(h)}\n`).join(''));
       return 0;
     }
@@ -1283,7 +1302,7 @@ export async function main(argv: string[]): Promise<number> {
     const reconciliation = reconcileTools(names, toolMap, tools);
     let answer: string[] | undefined;
     if (chosen !== undefined || reviewing !== undefined) {
-      const after = declinedAfter(reconciliation, tools.declined, chosen ?? [], reviewing ?? []);
+      const after = declinedAfter(reconciliation, tools.declined, chosen ?? [], reviewing ?? null);
       if ('error' in after) {
         process.stderr.write(`draftgate: ${after.error}\n`);
         return 1;

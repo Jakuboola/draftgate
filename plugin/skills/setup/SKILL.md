@@ -20,7 +20,7 @@ Rules:
    hook. The one change to Claude Code's settings is `draftgate register` in step 5, and only after
    I say yes there.
 3. If a command in steps 1 to 5 exits non-zero, show me what it printed, exactly, in a code block,
-   and stop; step 3 and step 6 say what to do for theirs. A gate that looks installed and is not is
+   and stop, unless its step says what to do instead: steps 3, 4 and 6 do. A gate that looks installed and is not is
    worse than one that is obviously missing.
 
 Steps:
@@ -102,7 +102,7 @@ Steps:
    `mcp__..._slack_send_message`): after --review every one under each heading I chose to review,
    after --decline every one under each heading I chose not to. If it says "the answer leaves these
    unanswered", ask me about the headings it lists as in step 2, then run it again with the whole
-   answer.
+   answer. Any other non-zero exit: as rule 3, show it and stop.
 
 5. Only if that output says "draftgate can't watch these by default", ask me ONE question, in these
    words: "draftgate can't watch these by default: <the tool names it lists>. Add them?", with two
