@@ -52,7 +52,7 @@ It pauses a send, shows the draft as its destination will render it, lets a huma
 The counts tell a truncated run from a complete one (see "Where facts live" below).
 
 ```sh
-bun test                    # 4083 tests across 111 files; opens no window.  Every suite is bun:test
+bun test                    # 4089 tests across 111 files; opens no window.  Every suite is bun:test
                             # (there is no vitest)
 bun run typecheck           # three configs: ours; core/ at `types: []` + `lib: ES2022` (a host global
                             # is a compile error); the renderer

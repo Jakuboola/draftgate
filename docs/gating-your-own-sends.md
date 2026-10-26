@@ -64,6 +64,10 @@ entry, its review says "Internal note" and that the reporter never sees it. The 
 such entry, because the server key is yours. The same name under a server nobody mapped is still
 reviewed, with the audience shown as unknown.
 
+Or let setup write it: `/draftgate:setup`, run where your server is loaded, offers the send tools of
+servers you set up yourself, asks where each one sends, and adds the entry with the field its
+message is in (`draftgate propose-tools --add <tool> <destination> <field>`).
+
 Then run `/draftgate:setup` in Claude Code. The plugin's matcher covers every tool half draftgate
 knows, under any server. For a tool with a new half, setup adds one settings entry whose matcher is
 generated from your map; a tool no matcher covers is never reviewed. Run setup again after removing

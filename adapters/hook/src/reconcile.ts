@@ -376,3 +376,49 @@ export function describeReconciliation(
   lines.push('  missing from the lists above, but what is reviewed does not depend on the names given here.');
   return lines.join('\n') + '\n';
 }
+
+/**
+ * The servers a person did not set up themselves, by the prefix Claude Code gives their tools:
+ * claude.ai's connectors and the servers plugins bring. Setup offers only a person's own servers'
+ * tools for `--add`: a vendor's connector tool draftgate does not list is not a send it reviews.
+ */
+export const NOT_OWN_SERVERS: readonly { prefix: string; what: string }[] = [
+  { prefix: 'mcp__claude_ai_', what: 'a claude.ai connector' },
+  { prefix: 'mcp__plugin_', what: "a plugin's server" },
+];
+
+/** The entry `--add` writes for a tool of the person's own: every field it sends shown beside the draft. */
+export function ownToolEntry(destination: DestinationName, bodyField: string): Record<string, unknown> {
+  return { destination, bodyField, contextFields: ['*'] };
+}
+
+/**
+ * Why `--add` refuses a tool, or null. Only a tool of a server the person set up, ending in a half
+ * draftgate does not route or decline (one that does is reviewed, or declined, already), with no
+ * `tools.json` entry yet, to a destination draftgate has. The loader checks the rest when it is
+ * written.
+ */
+export function ownToolRefusal(
+  name: string,
+  destination: string,
+  bodyField: string,
+  tools: Pick<ToolConfig, 'map' | 'declinedRoutes'>,
+  existing: Record<string, unknown>
+): string | null {
+  const shown = `"${oneLine(name)}"`;
+  const half = toolHalfOf(name);
+  if (half === null) return `${shown} is not an MCP tool name (mcp__<server>__<tool>).`;
+  const server = NOT_OWN_SERVERS.find((s) => name.startsWith(s.prefix));
+  if (server !== undefined) {
+    return `${shown} is a tool of ${server.what}, not of a server you set up, so it is not offered.`;
+  }
+  if (knownHalves(tools).includes(half)) {
+    return `${shown} ends in ${oneLine(half)}, a tool draftgate routes already: setup's choice covers it.`;
+  }
+  if (Object.hasOwn(existing, name)) return `${shown} has a tools.json entry already.`;
+  if (!Object.hasOwn(profiles, destination)) {
+    return `"${oneLine(destination)}" is not a destination. Name one of: ${Object.keys(profiles).join(', ')}.`;
+  }
+  if (bodyField.trim() === '') return 'the field the message is in is empty. Name the input field that holds it.';
+  return null;
+}

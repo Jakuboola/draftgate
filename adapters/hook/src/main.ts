@@ -24,7 +24,7 @@ import {
 import { homedir, userInfo } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { DestinationName } from '../../../core/src/index';
+import { profiles, type DestinationName } from '../../../core/src/index';
 import {
   PRIVATE_DIR_MODE, PRIVATE_FILE_MODE, applyRetention, auditPath, draftgateHome, ensurePrivateDir, writePrivateFile,
 } from '../../../cli/src/audit';
@@ -45,7 +45,8 @@ import { pluginsHere, readInstalledPlugins, type PluginRecord } from '../../../c
 import { renderHookOutput, type HookDecision } from './hookOutput';
 import { SESSION_VAR, forgetSetupNames, keepSetupNames, keptSetupNames } from './setupNames';
 import {
-  answeredToolsJson, declinedAfter, describeReconciliation, knownHalves, reconcileTools, type Reconciliation,
+  answeredToolsJson, declinedAfter, describeReconciliation, knownHalves, ownToolEntry, ownToolRefusal, reconcileTools,
+  type Reconciliation,
 } from './reconcile';
 import {
   inspectRegistration,
@@ -1083,6 +1084,40 @@ async function dropToolEntries(names: string[], toolsPath: string): Promise<numb
   return 0;
 }
 
+/**
+ * `--propose-tools --add <name> <destination> <field>`: a tool of the operator's own, reviewed as
+ * `destination` with its message read from `field` (`ownToolEntry`), added to `tools.json` once
+ * `ownToolRefusal` and the loader take it. Setup runs it only after the person says yes and picks
+ * the destination; `register` then adds the settings entry that reviews it.
+ */
+async function addOwnTool(args: string[], tools: ToolConfig, toolsPath: string): Promise<number> {
+  if (args.length !== 3) {
+    process.stderr.write(
+      'draftgate: --add takes three things: the full tool name, its destination and the input field its ' +
+        'message is in, e.g. --add mcp__notes__post_note slack text\n'
+    );
+    return 1;
+  }
+  const [name, destination, bodyField] = args as [string, string, string];
+  const existing = existingToolsJson(toolsPath);
+  const refusal = ownToolRefusal(name, destination, bodyField, tools, existing);
+  if (refusal !== null) {
+    process.stderr.write(`draftgate: ${refusal} Nothing was written.\n`);
+    return 1;
+  }
+  // `ownToolRefusal` took it, so it names a profile.
+  const to = destination as DestinationName;
+  if (writeToolsFile(JSON.stringify({ ...existing, [name]: ownToolEntry(to, bodyField) }, null, 2), toolsPath, 'adding it') === null) {
+    return 1;
+  }
+  await printStdout(
+    `draftgate: added ${oneLine(name)} to ${toolsPath}, reviewed as ${profiles[to].displayName}, ` +
+      `its message read from ${oneLine(bodyField)}.\n` +
+      `${REMEDY.register} adds the Claude Code settings entry that reviews it.\n`
+  );
+  return 0;
+}
+
 /** The words `/draftgate:setup` asks about an old entry on (`plugin/skills/setup/SKILL.md`). */
 export const OLD_ENTRY = "Claude Code's user settings hold a draftgate entry the plugin does not need";
 
@@ -1103,7 +1138,7 @@ async function replacedByRegister(block: HookBlock | null): Promise<string[]> {
  * `draftgate propose-tools` passes its arguments as they are, and an `--unregister` among them would
  * otherwise run that mode.
  */
-const PROPOSE_FLAGS = ['--propose-tools', '--decline', '--review', '--write', '--known', '--drop'];
+const PROPOSE_FLAGS = ['--propose-tools', '--decline', '--review', '--write', '--known', '--drop', '--add'];
 
 export async function main(argv: string[]): Promise<number> {
   if (argv.includes('--propose-tools')) {
@@ -1113,7 +1148,8 @@ export async function main(argv: string[]): Promise<number> {
       process.stderr.write(
         `draftgate: ${REMEDY.proposeTools} does not take ${other}. Pass tool names after it ` +
           'and tool halves after --review and --decline, space-separated, --write to write the answer, --known ' +
-          'alone to list the tool halves it knows, or --drop and the tools.json entries to drop.\n'
+          'alone to list the tool halves it knows, --drop and the tools.json entries to drop, or --add ' +
+          'and a tool of your own, its destination and the field its message is in.\n'
       );
       return 1;
     }
@@ -1170,12 +1206,13 @@ export async function main(argv: string[]): Promise<number> {
     // `~/.claude.json` has no claude.ai-managed connectors.
     //
     // Each flag owns the bare arguments after it, in either order: tool names after
-    // `--propose-tools`, tool halves after `--decline` and `--review`, entries after `--drop`.
-    // `--write` owns none.
+    // `--propose-tools`, tool halves after `--decline` and `--review`, entries after `--drop`, a
+    // tool of the operator's own after `--add`. `--write` owns none.
     let names: string[] = [];
     let chosen: string[] | undefined;
     let reviewing: string[] | undefined;
     let dropping: string[] | undefined;
+    let adding: string[] | undefined;
     let into: string[] | undefined;
     let write = false;
     let known = false;
@@ -1186,10 +1223,18 @@ export async function main(argv: string[]): Promise<number> {
       else if (arg === '--decline') into = chosen ??= [];
       else if (arg === '--review') into = reviewing ??= [];
       else if (arg === '--drop') into = dropping ??= [];
+      else if (arg === '--add') into = adding ??= [];
       else into?.push(arg);
     }
     const toolsPath = join(draftgateHome(), CONFIG_BASENAME);
     // Alone, like `--known`: it needs no names, and beside an answer one of the two would be lost.
+    if (adding !== undefined) {
+      if (names.length > 0 || chosen !== undefined || reviewing !== undefined || dropping !== undefined || write || known) {
+        process.stderr.write('draftgate: --add takes nothing else: only the tool, its destination and its field.\n');
+        return 1;
+      }
+      return addOwnTool(adding, tools, toolsPath);
+    }
     if (dropping !== undefined) {
       if (names.length > 0 || chosen !== undefined || reviewing !== undefined || write || known) {
         process.stderr.write('draftgate: --drop takes nothing else: only the tools.json entries to drop.\n');

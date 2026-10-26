@@ -17,10 +17,10 @@ Rules:
    else: no step names, no summary of what a command printed, no "done". The last command prints
    what setup ends with.
 2. Run only `draftgate` commands. Change nothing of Claude Code's yourself: no settings file, no
-   hook. The one change to Claude Code's settings is `draftgate register` in step 4, and only after
+   hook. The one change to Claude Code's settings is `draftgate register` in step 5, and only after
    I say yes there.
-3. If a command in steps 1 to 4 exits non-zero, show me what it printed, exactly, in a code block,
-   and stop; step 5 says what to show for its command. A gate that looks installed and is not is
+3. If a command in steps 1 to 5 exits non-zero, show me what it printed, exactly, in a code block,
+   and stop; step 3 and step 6 say what to do for theirs. A gate that looks installed and is not is
    worse than one that is obviously missing.
 
 Steps:
@@ -56,7 +56,39 @@ Steps:
        in this order: "Ask me again" and "Don't review them". Never take a missing or empty answer
        as a choice: only "Don't review it" and "Don't review them" decline a heading.
 
-3. Record my answer. Do not repeat the names from step 1: draftgate kept them for this.
+3. My own tools. Look through your MCP tools for ones from servers I set up myself: a name that
+   does not start with `mcp__claude_ai_` (claude.ai's connectors) or `mcp__plugin_` (plugins'
+   servers), and does not end in one of the names `--known` printed. If you have none, skip this
+   step and say nothing.
+
+   Otherwise ask me ONE question, in these words: "Do you want draftgate to review any of your own
+   tools?", with two options in this order: "No" and "Yes".
+   - No: go on to step 4.
+   - Yes: first tell me, in these words: "draftgate hands your tool the message as you approved it,
+     in the destination's format: for Jira an ADF document as a JSON string, with contentFormat
+     "adf" beside it; for Slack, Linear and GitHub markdown. Your tool has to take that as it is,
+     or it sends something other than what you approved. How to build one:
+     https://github.com/Jakuboola/draftgate/blob/main/docs/gating-your-own-sends.md"
+     Then pick, from those servers' tools, the ones whose name or description says they send a
+     message, comment or note to people. With none, tell me in one line, "None of your own tools
+     looks like it sends messages.", and go on to step 4. For each one, one question per call:
+     1. "Should draftgate review <the full tool name>? <what its description says it does, in one
+        line>", with two options in this order: "Review it" and "Don't review it".
+     2. Only for "Review it": "Where does <the full tool name> send?", with four options in this
+        order: "Jira", "Slack", "Linear" and "GitHub".
+     3. Find the input field in its schema that holds the message text. If you can't tell which,
+        ask me "Which field of <the full tool name> holds the message?", one option per text field,
+        up to four. Then run:
+
+            draftgate propose-tools --add <the full tool name> <jira, slack, linear or github> <that field>
+
+        If it exits non-zero, show me what it printed, exactly, in a code block, and go on with the
+        next tool.
+
+     Check each answer as in step 2: one that came back missing, empty or not one of its options,
+     ask again. Only "Review it" and a destination add a tool.
+
+4. Record my answer. Do not repeat the names from step 1: draftgate kept them for this.
 
    For "Review everything":
 
@@ -69,9 +101,10 @@ Steps:
    Give the SHORT names as the CHOOSE list prints them (`slack_send_message`, not
    `mcp__..._slack_send_message`): after --review every one under each heading I chose to review,
    after --decline every one under each heading I chose not to. If it says "the answer leaves these
-   unanswered", ask me about the headings it lists as in step 2, then run it again with the whole answer.
+   unanswered", ask me about the headings it lists as in step 2, then run it again with the whole
+   answer.
 
-4. Only if that output says "draftgate can't watch these by default", ask me ONE question, in these
+5. Only if that output says "draftgate can't watch these by default", ask me ONE question, in these
    words: "draftgate can't watch these by default: <the tool names it lists>. Add them?", with two
    options in this order: "Add them (recommended)" and "Leave them unreviewed". If the output does
    not say it, skip this question.
@@ -99,7 +132,7 @@ Steps:
    - Then, only if I chose "Use draftgate's" for any, run `draftgate propose-tools --drop` with
      the full tool name of each one I chose, space-separated.
 
-5. Run:
+6. Run:
 
        draftgate doctor --setup
 
@@ -107,5 +140,5 @@ Steps:
      and add nothing before or after it.
    - Exit 1: it printed the doctor's report. Show me only its `PROBLEM:` paragraphs and its last
      line, exactly as printed, in a code block, and stop. If I chose "Leave them unreviewed" or
-     "Leave it" in step 4, the report names what I chose to leave: then add one line after the
+     "Leave it" in step 5, the report names what I chose to leave: then add one line after the
      block, "That is what you chose in setup."

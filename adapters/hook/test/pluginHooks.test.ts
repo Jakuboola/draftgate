@@ -27,6 +27,7 @@ import {
   uncoveredByPlugin,
 } from '../src/pluginHooks';
 import { PLUGIN_HOOK_TIMEOUT_S } from '../src/main';
+import { NOT_OWN_SERVERS } from '../src/reconcile';
 import { SESSION_VAR } from '../src/setupNames';
 import { PLUGIN_REVIEW_CEILING_MS } from '../src/reviewTimeout';
 import { checkoutBlock } from './checkoutEntry';
@@ -34,7 +35,7 @@ import { assembledRoot as assemble } from './pluginRoot';
 import { BUN_PLACES, FIND_BUN, PLUGIN_FAIL_CLOSED_SCRIPT, commandTokens, readCommand, shQuote } from '../src/hookCommand';
 import { inspectRegistration, type SettingsRead } from '../src/registration';
 import { reviewDeadline } from '../src/reviewTimeout';
-import { DEFAULT_TOOL_MAP, matcherFor, toolHalvesOf, type ToolMap } from '../src/toolMap';
+import { DEFAULT_TOOL_MAP, matcherFor, mergeToolConfig, toolHalvesOf, type ToolMap } from '../src/toolMap';
 import { HOOK_IN_REPO, PLUGIN_LINK_BASENAME, SETUP_NAMES_BASENAME } from '../../../cli/src/hookModes';
 import { PLUGIN_ID } from '../../../cli/src/claudePlugin';
 import { REMEDY } from '../../../core/src/remedies';
@@ -746,6 +747,53 @@ describe('setup\'s commands, through bin/draftgate', () => {
     const reg = m.draftgate('register');
     expect(reg.status).toBe(0);
     expect(m.hooks().PreToolUse).toEqual([block]);
+  });
+
+  test('--add takes a tool of a server you set up, and setup reviews it from there', () => {
+    const m = machine('add-own');
+    const OWN = 'mcp__jsm__jira_add_internal_note';
+    // Not offered: a vendor's connector or a plugin's server, a half draftgate routes already, a name
+    // that is no MCP tool, a destination draftgate has no profile for, no field, the wrong count.
+    for (const [args, says] of [
+      [['mcp__claude_ai_Jsm__jira_add_internal_note', 'jira', 'commentBody'], 'a claude.ai connector'],
+      [['mcp__plugin_kit_jsm__jira_add_internal_note', 'jira', 'commentBody'], "a plugin's server"],
+      [['mcp__jsm__addCommentToJiraIssue', 'jira', 'commentBody'], 'a tool draftgate routes already'],
+      [['jira_add_internal_note', 'jira', 'commentBody'], 'is not an MCP tool name'],
+      [[OWN, 'email', 'commentBody'], '"email" is not a destination'],
+      [[OWN, 'jira', ' '], 'the field the message is in is empty'],
+      [[OWN, 'jira'], '--add takes three things'],
+    ] as [string[], string][]) {
+      const r = m.draftgate('propose-tools', '--add', ...args);
+      expect(r.status, args.join(' ')).toBe(1);
+      expect(r.stderr).toContain(says);
+      expect(existsSync(m.toolsFile)).toBe(false);
+    }
+    expect(m.draftgate('propose-tools', '--add', OWN, 'jira', 'commentBody', '--write').stderr).toContain('--add takes nothing else');
+
+    const added = m.draftgate('propose-tools', '--add', OWN, 'jira', 'commentBody');
+    expect(added.status).toBe(0);
+    expect(added.stdout).toContain(`added ${OWN} to ${m.toolsFile}, reviewed as Jira, its message read from commentBody.`);
+    const file = JSON.parse(readFileSync(m.toolsFile, 'utf8'));
+    expect(file).toEqual({ [OWN]: { destination: 'jira', bodyField: 'commentBody', contextFields: ['*'] } });
+    // The route reviews read: the operator's, so a call without that field asks, never allows.
+    const route = mergeToolConfig(DEFAULT_TOOL_MAP, file, m.toolsFile).map[OWN];
+    expect(route).toMatchObject({ destination: 'jira', bodyField: 'commentBody', schemaOwner: 'operator' });
+    expect(m.draftgate('propose-tools', '--add', OWN, 'slack', 'text').stderr).toContain('routes already');
+
+    // Setup's answer then offers it to register, and the closing names it.
+    const write = m.inSession('session-a')('propose-tools', ...SESSION, '--decline', '--write');
+    expect(write.stdout).toContain(`draftgate can't watch these by default:\n  ${OWN}\n`);
+    expect(m.draftgate('register').status).toBe(0);
+    expect(m.draftgate('doctor', '--setup').stdout).toContain(`Also reviewed: ${OWN} (your own tool).`);
+  });
+
+  test("setup offers only the servers --add takes, and links the guide that exists", () => {
+    const skill = readFileSync(join(REPO, 'plugin', 'skills', 'setup', 'SKILL.md'), 'utf8').replace(/\s+/g, ' ');
+    for (const { prefix } of NOT_OWN_SERVERS) expect(skill).toContain(`\`${prefix}\``);
+    expect(skill).toContain('"Do you want draftgate to review any of your own tools?"');
+    const guide = skill.match(/https:\/\/github\.com\/Jakuboola\/draftgate\/blob\/main\/([^\s"]+)/);
+    expect(guide?.[1]).toBe('docs/gating-your-own-sends.md');
+    expect(existsSync(join(REPO, guide![1]!))).toBe(true);
   });
 
   test('propose-tools runs no other mode handed to it', () => {

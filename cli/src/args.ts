@@ -378,6 +378,7 @@ settings. It takes no options.
   'propose-tools': `draftgate propose-tools <tool name>... [--review <tool>...] [--decline <tool>...] [--write]
 draftgate propose-tools --known
 draftgate propose-tools --drop <tool name>...
+draftgate propose-tools --add <tool name> <destination> <field>
 
 Compare a session's MCP tool names with the tools draftgate reviews, and list the ones you can
 choose not to review. ${SETUP} runs it.
@@ -393,6 +394,12 @@ choose not to review. ${SETUP} runs it.
                         names the ones that override it
   --drop <tool name>... take these entries out of ~/.draftgate/tools.json, so draftgate's own entry
                         for the tool applies. Only an entry for one of draftgate's own tools
+  --add <tool name> <destination> <field>
+                        review a tool of a server you set up yourself (not a claude.ai connector
+                        or a plugin's) as jira, slack, linear or github, its message read from
+                        <field>. The tool must take what draftgate hands it: for jira, an ADF
+                        document as a JSON string with contentFormat "adf"; markdown for the rest.
+                        Then run draftgate register
 `,
 
   review: `draftgate review --dest <name> --in <path> [options]
