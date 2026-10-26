@@ -382,9 +382,9 @@ describe('doctor --setup: what setup ends with', () => {
       '  draftgate doctor   check the gate is working',
       '  draftgate help     the command list',
       '',
-      'Setup saw only the connectors loaded in this session. A project\'s own MCP servers (its',
-      '.mcp.json) load only when Claude Code starts in that folder: run /draftgate:setup there for',
-      'those, and again after adding a connector.',
+      'Setup saw only the connectors loaded in this session. A server added for one project (its',
+      '.mcp.json, or claude mcp add there) loads only when Claude Code starts in that folder: run',
+      '/draftgate:setup there for those, and again after adding a connector.',
       '',
     ].join('\n');
   /** A machine whose reviews write the log, as a user's do: the harness turns it off by default. */

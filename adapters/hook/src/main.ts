@@ -30,7 +30,6 @@ import {
 } from '../../../cli/src/audit';
 // The liveness rule, shared with the WebKit host's harness gate.
 import { nonceIsLive } from '../../../cli/src/harnessNonce';
-import { isPlainObject } from '../../../cli/src/json';
 import { gitDirs } from '../../../cli/src/gitDirs';
 import { CLI_ENTRY, HOOK_IN_REPO, PLUGIN_LINK_BASENAME, checkoutKind } from '../../../cli/src/hookModes';
 import { classificationStates } from '../../../cli/src/classificationStores';
@@ -110,20 +109,6 @@ export function loadToolConfig(env: NodeJS.ProcessEnv = process.env): ToolConfig
   const path = join(draftgateHome(env), CONFIG_BASENAME);
   if (!existsSync(path)) return mergeToolConfig(DEFAULT_TOOL_MAP, {}, path);
   return toolConfigFrom(readFileSync(path, 'utf8'), path);
-}
-
-/**
- * The operator's `tools.json` as it is, under `draftgateHome`, or `{}` when there is none (a broken
- * file never gets here: `loadToolConfig` refused it first).
- */
-function existingToolsJson(toolsPath: string): Record<string, unknown> {
-  try {
-    const parsed: unknown = JSON.parse(readFileSync(toolsPath, 'utf8'));
-    if (isPlainObject(parsed)) return parsed;
-  } catch {
-    // Absent.
-  }
-  return {};
 }
 
 /** A `tools.json`'s text as reviews load it, or the `ToolMapError` that refuses it. */
@@ -948,7 +933,8 @@ function checkoutRegisters(): number {
 }
 
 /**
- * `--propose-tools ... --decline ... --write`: write the answer's `tools.json`, so the setup skill
+ * `--propose-tools ... --review ... --decline ... --write` (or `--review-all --write`): write the
+ * answer's `tools.json`, so the setup skill
  * needs only `draftgate`. The operator's file with the answer applied and the proposals added; a
  * symlink is written through. Checked by the merge reviews load it with before it is written. Then
  * it names the tools no registered matcher covers, which `draftgate register` would.
@@ -1296,17 +1282,20 @@ export async function main(argv: string[]): Promise<number> {
         return 1;
       }
     }
-    // The operator's current file: the report prints it with the proposals added, since only the
-    // new entries would invite deleting the aliases already there.
-    const existing = existingToolsJson(toolsPath);
-    const reconciliation = reconcileTools(names, toolMap, tools);
+    // The operator's current file, read once with the map it makes: the report prints it with the
+    // proposals added, since only the new entries would invite deleting the aliases already there,
+    // and `--write` writes it back.
+    const read = readToolsOnce(toolsPath, 'written', true);
+    if (read === null) return 1;
+    const { existing } = read;
+    const reconciliation = reconcileTools(names, read.tools.map, read.tools);
     let answer: string[] | undefined;
     if (reviewAll && (chosen !== undefined || reviewing !== undefined)) {
       return refuse('--review-all is the whole answer: it takes no --review or --decline beside it.');
     }
     if (reviewAll || chosen !== undefined || reviewing !== undefined) {
       const reviewed = reviewAll ? reconciliation.halves.map((h) => h.half) : (reviewing ?? []);
-      const after = declinedAfter(reconciliation, tools.declined, chosen ?? [], reviewed);
+      const after = declinedAfter(reconciliation, read.tools.declined, chosen ?? [], reviewed);
       if ('error' in after) return refuse(after.error);
       answer = after.declined;
     }

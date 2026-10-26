@@ -415,7 +415,7 @@ export function ownToolRoute(
   }
   // Every declined half, a decline no route uses included: an entry for one is dormant at once.
   if (tools.declined.includes(half)) {
-    return { error: `${shown} ends in ${oneLine(half)}, which tools.json declines: setup's choice turns it back on.` };
+    return { error: `${shown} ends in ${oneLine(half)}, which tools.json declines. Take it out of "declined" first.` };
   }
   if (knownHalves(tools).includes(half)) {
     return { error: `${shown} ends in ${oneLine(half)}, a tool draftgate routes already: setup's choice covers it.` };

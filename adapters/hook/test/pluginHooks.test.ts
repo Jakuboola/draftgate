@@ -28,6 +28,7 @@ import {
 } from '../src/pluginHooks';
 import { PLUGIN_HOOK_TIMEOUT_S } from '../src/main';
 import { NOT_OWN_SERVERS } from '../src/reconcile';
+import { COMMAND_HELP } from '../../../cli/src/args';
 import { profiles } from '../../../core/src/index';
 import { SESSION_VAR } from '../src/setupNames';
 import { PLUGIN_REVIEW_CEILING_MS } from '../src/reviewTimeout';
@@ -789,6 +790,17 @@ describe('setup\'s commands, through bin/draftgate', () => {
     // The destinations it offers are the ones --add takes.
     const names = Object.values(profiles).map((p) => `"${p.displayName}"`);
     expect(skill).toContain(`options in this order: ${names.slice(0, -1).join(', ')} and ${names.at(-1)}.`);
+    // What a tool of your own receives, as setup and --add's help say it: each extra field a
+    // profile sets on approve, and markdown for the rest, named in the sentence.
+    const help = COMMAND_HELP['propose-tools'].replace(/\s+/g, ' ');
+    for (const text of [skill, help]) {
+      for (const p of Object.values(profiles)) {
+        for (const [key, value] of Object.entries(p.extraToolInput)) expect(text).toContain(`${key} "${value}"`);
+      }
+      expect(text).toMatch(/markdown/);
+    }
+    const plain = Object.values(profiles).filter((p) => Object.keys(p.extraToolInput).length === 0);
+    expect(skill).toContain(`for ${plain.slice(0, -1).map((p) => p.displayName).join(', ')} and ${plain.at(-1)!.displayName} markdown`);
     const guide = skill.match(/https:\/\/github\.com\/Jakuboola\/draftgate\/blob\/main\/([^\s"]+)/);
     expect(guide?.[1]).toBe('docs/gating-your-own-sends.md');
     expect(existsSync(join(REPO, guide![1]!))).toBe(true);

@@ -19,8 +19,8 @@ Rules:
 2. Run only `draftgate` commands. Change nothing of Claude Code's yourself: no settings file, no
    hook. The one change to Claude Code's settings is `draftgate register` in step 5, and only after
    I say yes there.
-3. If a command in steps 1 to 5 exits non-zero, show me what it printed, exactly, in a code
-   block, and stop, unless its step says what to do instead: steps 3, 4 and 6 do. A gate that looks installed and is not is
+3. If a command exits non-zero, show me what it printed, exactly, in a code block, and stop,
+   unless its step says what to do instead: steps 3, 4 and 6 do. A gate that looks installed and is not is
    worse than one that is obviously missing.
 
 Steps:
@@ -70,8 +70,12 @@ Steps:
      or it sends something other than what you approved. How to build one:
      https://github.com/Jakuboola/draftgate/blob/main/docs/gating-your-own-sends.md"
      Then pick, from those servers' tools, the ones whose name or description says they send a
-     message, comment or note to people. With none, tell me in one line, "None of your own tools
-     looks like it sends messages.", and go on to step 4. For each one, one question per call:
+     message, comment or note to people. Leave out one whose short name (the part after the
+     server's `__`) a tool of another server you have also ends in: draftgate reviews a tool of
+     your own by that short name under every server, so it would review that tool too. For each one
+     left out, tell me in one line: "<the full tool name> shares its name with <the other tool>, so
+     setup can't add it." With none left, tell me in one line, "None of your own tools looks like it
+     sends messages.", and go on to step 4. For each one, one question per call:
      1. "Should draftgate review <the full tool name>? <what its description says it does, in one
         line>", with two options in this order: "Review it" and "Don't review it".
      2. Only for "Review it": "Where does <the full tool name> send?", with four options in this
@@ -104,10 +108,12 @@ Steps:
    unanswered", ask me about the headings it lists as in step 2, then run it again with the whole
    answer. Any other non-zero exit: as rule 3, show it and stop.
 
-5. Only if that output says "draftgate can't watch these by default", ask me ONE question, in these
-   words: "draftgate can't watch these by default: <the tool names it lists>. Add them?", with two
-   options in this order: "Add them (recommended)" and "Leave them unreviewed". If the output does
-   not say it, skip this question.
+5. Only if that output says "draftgate can't watch these by default":
+   - When every tool it lists there is one I said "Review it" to in step 3, run
+     `draftgate register` without asking: I said yes already.
+   - Otherwise ask me ONE question, in these words: "draftgate can't watch these by default: <the
+     tool names it lists>. Add them?", with two options in this order: "Add them (recommended)" and
+     "Leave them unreviewed".
    - Add them: run `draftgate register`. It writes one entry into Claude Code's settings that
      covers only those tools.
    - Leave them unreviewed: run nothing.
@@ -117,8 +123,8 @@ Steps:
    entry, which can open a second review window for every send, or stop reviewing my own tools
    after an update. Replace it?", with two options in
    this order: "Replace it (recommended)" and "Leave it". If the output does not say it, skip this
-   question, and if you already ran `draftgate register` for "Add them", skip it too: that run
-   replaced the old entry as well.
+   question, and if you already ran `draftgate register` above, skip it too: that run replaced the
+   old entry as well.
    - Replace it: run `draftgate register`. It also adds the entry for any tools that output listed
      under "can't watch these by default". If I chose "Leave them unreviewed" for those, first tell
      me in one line, in these words: "Replacing it reviews <those tool names> too."
