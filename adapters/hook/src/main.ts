@@ -24,13 +24,12 @@ import {
 import { homedir, userInfo } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { DestinationName } from '../../../core/src/index';
+import { profiles, type DestinationName } from '../../../core/src/index';
 import {
   PRIVATE_DIR_MODE, PRIVATE_FILE_MODE, applyRetention, auditPath, draftgateHome, ensurePrivateDir, writePrivateFile,
 } from '../../../cli/src/audit';
 // The liveness rule, shared with the WebKit host's harness gate.
 import { nonceIsLive } from '../../../cli/src/harnessNonce';
-import { isPlainObject } from '../../../cli/src/json';
 import { gitDirs } from '../../../cli/src/gitDirs';
 import { CLI_ENTRY, HOOK_IN_REPO, PLUGIN_LINK_BASENAME, checkoutKind } from '../../../cli/src/hookModes';
 import { classificationStates } from '../../../cli/src/classificationStores';
@@ -45,7 +44,8 @@ import { pluginsHere, readInstalledPlugins, type PluginRecord } from '../../../c
 import { renderHookOutput, type HookDecision } from './hookOutput';
 import { SESSION_VAR, forgetSetupNames, keepSetupNames, keptSetupNames } from './setupNames';
 import {
-  answeredToolsJson, declinedAfter, describeReconciliation, knownHalves, reconcileTools, type Reconciliation,
+  answeredToolsJson, declinedAfter, describeReconciliation, knownHalves, ownToolEntry, ownToolRoute, reconcileTools,
+  type Reconciliation,
 } from './reconcile';
 import {
   inspectRegistration,
@@ -109,20 +109,6 @@ export function loadToolConfig(env: NodeJS.ProcessEnv = process.env): ToolConfig
   const path = join(draftgateHome(env), CONFIG_BASENAME);
   if (!existsSync(path)) return mergeToolConfig(DEFAULT_TOOL_MAP, {}, path);
   return toolConfigFrom(readFileSync(path, 'utf8'), path);
-}
-
-/**
- * The operator's `tools.json` as it is, under `draftgateHome`, or `{}` when there is none (a broken
- * file never gets here: `loadToolConfig` refused it first).
- */
-function existingToolsJson(toolsPath: string): Record<string, unknown> {
-  try {
-    const parsed: unknown = JSON.parse(readFileSync(toolsPath, 'utf8'));
-    if (isPlainObject(parsed)) return parsed;
-  } catch {
-    // Absent.
-  }
-  return {};
 }
 
 /** A `tools.json`'s text as reviews load it, or the `ToolMapError` that refuses it. */
@@ -947,7 +933,8 @@ function checkoutRegisters(): number {
 }
 
 /**
- * `--propose-tools ... --decline ... --write`: write the answer's `tools.json`, so the setup skill
+ * `--propose-tools ... --review ... --decline ... --write` (or `--review-all --write`): write the
+ * answer's `tools.json`, so the setup skill
  * needs only `draftgate`. The operator's file with the answer applied and the proposals added; a
  * symlink is written through. Checked by the merge reviews load it with before it is written. Then
  * it names the tools no registered matcher covers, which `draftgate register` would.
@@ -960,8 +947,8 @@ async function writeToolsAnswer(o: {
 }): Promise<number> {
   if (o.answer === undefined) {
     process.stderr.write(
-      'draftgate: --write needs --decline, the answer to write: the tools NOT to review, or ' +
-        '--decline alone to review every one.\n'
+      'draftgate: --write needs the answer to write: --review and the tools to review, and --decline ' +
+        'and the tools not to, or --review-all to review every one.\n'
     );
     return 1;
   }
@@ -1043,6 +1030,32 @@ function writeToolsFile(text: string, toolsPath: string, what: string): ToolConf
 }
 
 /**
+ * `tools.json` read once, both for what a change may touch and for what is written back: a second
+ * read that failed or saw another write would write back something else, `{}` at worst. Null when
+ * it could not be read, and stderr says nothing was `verb`. No file is an empty one when
+ * `absentIsEmpty`.
+ */
+function readToolsOnce(
+  toolsPath: string,
+  verb: string,
+  absentIsEmpty: boolean
+): { tools: ToolConfig; existing: Record<string, unknown> } | null {
+  try {
+    let text: string;
+    try {
+      text = readFileSync(toolsPath, 'utf8');
+    } catch (e) {
+      if (!absentIsEmpty || (e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+      text = '{}';
+    }
+    return { tools: toolConfigFrom(text, toolsPath), existing: JSON.parse(text) as Record<string, unknown> };
+  } catch (e) {
+    process.stderr.write(`draftgate: could not read ${toolsPath} (${(e as Error).message}), so nothing was ${verb}.\n`);
+    return null;
+  }
+}
+
+/**
  * `--propose-tools --drop <name>...`: take out `tools.json` entries that replace a default entry of
  * the same name, so the default applies. Any other name is refused, and nothing is written: an
  * alias or a tool of the operator's own taken out would change what is reviewed.
@@ -1052,18 +1065,9 @@ async function dropToolEntries(names: string[], toolsPath: string): Promise<numb
     process.stderr.write(`draftgate: --drop needs the tools.json entries to drop, by their full names.\n`);
     return 1;
   }
-  // One read, both for what may be dropped and for what is written back: a second read that failed
-  // or saw another write would write back something else, `{}` at worst.
-  let tools: ToolConfig;
-  let existing: Record<string, unknown>;
-  try {
-    const text = readFileSync(toolsPath, 'utf8');
-    tools = toolConfigFrom(text, toolsPath);
-    existing = JSON.parse(text) as Record<string, unknown>;
-  } catch (e) {
-    process.stderr.write(`draftgate: could not read ${toolsPath} (${(e as Error).message}), so nothing was dropped.\n`);
-    return 1;
-  }
+  const read = readToolsOnce(toolsPath, 'dropped', false);
+  if (read === null) return 1;
+  const { tools, existing } = read;
   const shadowing = new Set(tools.shadows.map((s) => s.name));
   const stray = names.filter((name) => !shadowing.has(name));
   if (stray.length > 0) {
@@ -1079,6 +1083,37 @@ async function dropToolEntries(names: string[], toolsPath: string): Promise<numb
   if (writeToolsFile(JSON.stringify(kept, null, 2), toolsPath, 'dropping them') === null) return 1;
   await printStdout(
     [`draftgate: dropped from ${toolsPath}, so draftgate's own entry applies to:`, ...[...dropped].sort().map((n) => `  ${oneLine(n)}`)].join('\n') + '\n'
+  );
+  return 0;
+}
+
+/**
+ * `--propose-tools --add <name> <destination> <field>`: a tool of the operator's own, reviewed as
+ * `destination` with its message read from `field` (`ownToolEntry`). Setup runs it only after the
+ * person says yes and picks the destination; `register` then adds the settings entry that reviews it.
+ */
+async function addOwnTool(args: string[], toolsPath: string): Promise<number> {
+  if (args.length !== 3) {
+    process.stderr.write(
+      'draftgate: --add takes three things: the full tool name, its destination and the input field its ' +
+        'message is in, e.g. --add mcp__notes__post_note slack text\n'
+    );
+    return 1;
+  }
+  const [name, destination, bodyField] = args as [string, string, string];
+  const read = readToolsOnce(toolsPath, 'added', true);
+  if (read === null) return 1;
+  const checked = ownToolRoute(name, destination, bodyField, read.tools, read.existing);
+  if ('error' in checked) {
+    process.stderr.write(`draftgate: ${checked.error} Nothing was written.\n`);
+    return 1;
+  }
+  const entry = ownToolEntry(checked.destination, bodyField);
+  if (writeToolsFile(JSON.stringify({ ...read.existing, [name]: entry }, null, 2), toolsPath, 'adding it') === null) return 1;
+  await printStdout(
+    `draftgate: added ${oneLine(name)} to ${toolsPath}, reviewed as ${profiles[checked.destination].displayName}, ` +
+      `its message read from ${oneLine(bodyField)}.\n` +
+      `${REMEDY.pluginSetup} adds the Claude Code settings entry that reviews it.\n`
   );
   return 0;
 }
@@ -1103,7 +1138,7 @@ async function replacedByRegister(block: HookBlock | null): Promise<string[]> {
  * `draftgate propose-tools` passes its arguments as they are, and an `--unregister` among them would
  * otherwise run that mode.
  */
-const PROPOSE_FLAGS = ['--propose-tools', '--decline', '--write', '--known', '--drop'];
+const PROPOSE_FLAGS = ['--propose-tools', '--decline', '--review', '--review-all', '--write', '--known', '--drop', '--add'];
 
 export async function main(argv: string[]): Promise<number> {
   if (argv.includes('--propose-tools')) {
@@ -1112,8 +1147,9 @@ export async function main(argv: string[]): Promise<number> {
       // Refused, not skipped: `--decline=x` skipped would drop the answer and exit 0.
       process.stderr.write(
         `draftgate: ${REMEDY.proposeTools} does not take ${other}. Pass tool names after it ` +
-          'and tool halves after --decline, space-separated, --write to write the answer, --known ' +
-          'alone to list the tool halves it knows, or --drop and the tools.json entries to drop.\n'
+          'and tool halves after --review and --decline (or --review-all), space-separated, --write to write the answer, --known ' +
+          'alone to list the tool halves it knows, --drop and the tools.json entries to drop, or --add ' +
+          'and a tool of your own, its destination and the field its message is in.\n'
       );
       return 1;
     }
@@ -1170,37 +1206,54 @@ export async function main(argv: string[]): Promise<number> {
     // `~/.claude.json` has no claude.ai-managed connectors.
     //
     // Each flag owns the bare arguments after it, in either order: tool names after
-    // `--propose-tools`, tool halves after `--decline`, entries after `--drop`. `--write` owns none.
+    // `--propose-tools`, tool halves after `--decline` and `--review`, entries after `--drop`, a
+    // tool of the operator's own after `--add`. `--write` owns none.
     let names: string[] = [];
     let chosen: string[] | undefined;
+    let reviewing: string[] | undefined;
     let dropping: string[] | undefined;
+    let adding: string[] | undefined;
     let into: string[] | undefined;
     let write = false;
     let known = false;
+    let reviewAll = false;
     for (const arg of argv) {
       if (arg === '--write') write = true;
+      else if (arg === '--review-all') reviewAll = true;
       else if (arg === '--known') known = true;
       else if (arg === '--propose-tools') into = names;
       else if (arg === '--decline') into = chosen ??= [];
+      else if (arg === '--review') into = reviewing ??= [];
       else if (arg === '--drop') into = dropping ??= [];
+      else if (arg === '--add') into = adding ??= [];
       else into?.push(arg);
     }
     const toolsPath = join(draftgateHome(), CONFIG_BASENAME);
-    // Alone, like `--known`: it needs no names, and beside an answer one of the two would be lost.
+    // `--add`, `--drop` and `--known` each run alone: beside names, an answer or another of them,
+    // one of the two would be dropped while exiting 0.
+    const given = {
+      names: names.length > 0,
+      answer: chosen !== undefined || reviewing !== undefined || reviewAll || write,
+      add: adding !== undefined,
+      drop: dropping !== undefined,
+      known,
+    };
+    const alone = (mode: keyof typeof given) => Object.entries(given).every(([k, v]) => k === mode || !v);
+    const refuse = (message: string) => {
+      process.stderr.write(`draftgate: ${message}\n`);
+      return 1;
+    };
+    if (adding !== undefined) {
+      if (!alone('add')) return refuse('--add takes nothing else: only the tool, its destination and its field.');
+      return addOwnTool(adding, toolsPath);
+    }
     if (dropping !== undefined) {
-      if (names.length > 0 || chosen !== undefined || write || known) {
-        process.stderr.write('draftgate: --drop takes nothing else: only the tools.json entries to drop.\n');
-        return 1;
-      }
+      if (!alone('drop')) return refuse('--drop takes nothing else: only the tools.json entries to drop.');
       return dropToolEntries(dropping, toolsPath);
     }
-    // The halves a name must end in to matter (`knownHalves`), one per line. Alone: beside names or
-    // an answer it would drop them while exiting 0.
+    // The halves a name must end in to matter (`knownHalves`), one per line.
     if (known) {
-      if (names.length > 0 || chosen !== undefined || write) {
-        process.stderr.write('draftgate: --known takes nothing else: it lists the tool halves draftgate knows.\n');
-        return 1;
-      }
+      if (!alone('known')) return refuse('--known takes nothing else: it lists the tool halves draftgate knows.');
       await printStdout(knownHalves(tools).map((h) => `${oneLine(h)}\n`).join(''));
       return 0;
     }
@@ -1229,17 +1282,21 @@ export async function main(argv: string[]): Promise<number> {
         return 1;
       }
     }
-    // The operator's current file: the report prints it with the proposals added, since only the
-    // new entries would invite deleting the aliases already there.
-    const existing = existingToolsJson(toolsPath);
-    const reconciliation = reconcileTools(names, toolMap, tools);
+    // The operator's current file, read once with the map it makes: the report prints it with the
+    // proposals added, since only the new entries would invite deleting the aliases already there,
+    // and `--write` writes it back.
+    const read = readToolsOnce(toolsPath, 'written', true);
+    if (read === null) return 1;
+    const { existing } = read;
+    const reconciliation = reconcileTools(names, read.tools.map, read.tools);
     let answer: string[] | undefined;
-    if (chosen !== undefined) {
-      const after = declinedAfter(reconciliation, tools.declined, chosen);
-      if ('error' in after) {
-        process.stderr.write(`draftgate: ${after.error}\n`);
-        return 1;
-      }
+    if (reviewAll && (chosen !== undefined || reviewing !== undefined)) {
+      return refuse('--review-all is the whole answer: it takes no --review or --decline beside it.');
+    }
+    if (reviewAll || chosen !== undefined || reviewing !== undefined) {
+      const reviewed = reviewAll ? reconciliation.halves.map((h) => h.half) : (reviewing ?? []);
+      const after = declinedAfter(reconciliation, read.tools.declined, chosen ?? [], reviewed);
+      if ('error' in after) return refuse(after.error);
       answer = after.declined;
     }
     if (write) {

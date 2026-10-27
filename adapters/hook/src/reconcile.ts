@@ -15,9 +15,11 @@
 
 import { REMEDY } from '../../../core/src/remedies';
 import { oneLine } from '../../../cli/src/text';
-import { profiles, type DestinationName } from '../../../core/src/index';
+import { isKnownDestination, profiles, type DestinationName } from '../../../core/src/index';
+import { ALL } from '../../../cli/src/payload';
 import {
   DECLINED_KEY,
+  KNOWN_DESTINATION_NAMES,
   declinedHalfOf,
   restates,
   entryForHalf,
@@ -191,23 +193,49 @@ export function proposalsFor(r: Reconciliation, declined: readonly string[]): Pr
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** The words `/draftgate:setup` asks again on (`plugin/skills/setup/SKILL.md`). */
+export const UNANSWERED = 'the answer leaves these unanswered';
+
 /**
- * The `declined` list after a setup answer, or a refusal when the answer names a half the checklist
- * never offered. `chosen` is the full answer for the halves shown, so a shown half left out is
- * re-enabled; a half declined earlier and not shown (its connector not loaded here) stays declined.
+ * The `declined` list after a setup answer, or a refusal. `chosen` (`--decline`) and `reviewed`
+ * (`--review`) are the full answer for the halves shown; a half declined earlier and not shown (its
+ * connector not loaded here) stays declined.
+ *
+ * An answer names every half shown, each once (`--review-all` names them all): a question whose
+ * answer never came back would otherwise be read as one, declining what the person never declined
+ * or re-enabling what they did. An answer naming none is no answer, unless nothing is shown.
  */
 export function declinedAfter(
   r: Reconciliation,
   existing: readonly string[],
-  chosen: readonly string[]
+  chosen: readonly string[],
+  reviewed: readonly string[]
 ): { declined: string[] } | { error: string } {
   const shown = new Set(r.halves.map((h) => h.half));
-  const stray = chosen.filter((h) => !shown.has(h));
+  const quoted = (halves: readonly string[]) => halves.map((h) => `"${oneLine(h)}"`).join(', ');
+  const named = [...chosen, ...reviewed];
+  const stray = named.filter((h) => !shown.has(h));
   if (stray.length > 0) {
     return {
       error:
-        `--decline names ${stray.map((h) => `"${oneLine(h)}"`).join(', ')}, which is not a tool ` +
-        'in the checklist. Name tools as the checklist prints them (e.g. slack_send_message).',
+        `${quoted(stray)} is not a tool in the checklist. Name tools as the checklist prints them ` +
+        '(e.g. slack_send_message).',
+    };
+  }
+  const both = chosen.filter((h) => reviewed.includes(h));
+  if (both.length > 0) return { error: `${quoted(both)} is after both --decline and --review. Name each tool once.` };
+  const answered = new Set(named);
+  const open = r.halves.filter((h) => !answered.has(h.half));
+  if (open.length > 0) {
+    const groups = [...new Set(open.map((h) => h.group))].map(
+      (group) => `  ${oneLine(group)}: ${open.filter((h) => h.group === group).map((h) => oneLine(h.half)).join(' ')}`
+    );
+    return {
+      error:
+        `${UNANSWERED}, so it was not taken:\n` +
+        groups.join('\n') +
+        '\nAn answer names every tool in the checklist, after --review or --decline, or is --review-all. ' +
+        'Ask about these too, then pass the whole answer.',
     };
   }
   const kept = existing.filter((h) => !shown.has(h));
@@ -271,7 +299,7 @@ export function describeReconciliation(
   existing: Record<string, unknown>,
   /** Where that file lives. `draftgateHome` honours `DRAFTGATE_HOME`; a hardcoded `~` does not. */
   toolsPath: string,
-  /** The `declined` list setup's answer produces (`declinedAfter`), when `--decline` was given. */
+  /** The `declined` list setup's answer produces (`declinedAfter`), when it was given. */
   answer?: readonly string[]
 ): string {
   const lines: string[] = [];
@@ -302,9 +330,9 @@ export function describeReconciliation(
       const via = `${h.connectors} connector${h.connectors === 1 ? '' : 's'}`;
       lines.push(`      [${h.declined ? ' ' : 'x'}] ${oneLine(h.half).padEnd(width)}  ${via}`);
     }
-    lines.push('  To answer, run this again with --decline and every tool NOT to review');
-    lines.push('  (every tool under a group, to decline the group). --decline alone declines none');
-    lines.push('  and re-enables any declined above.');
+    lines.push('  To answer, run this again with --review and every tool to review, and --decline and');
+    lines.push('  every tool not to: every tool above, under one of the two. --review-all reviews every');
+    lines.push('  one, and re-enables any declined above.');
   }
   // With an answer, the proposals that answer leaves standing: the list the printed file is built from.
   const proposals = answer === undefined ? r.proposed : proposalsFor(r, answer);
@@ -348,4 +376,54 @@ export function describeReconciliation(
   lines.push('  This compares only the names it was GIVEN: a connector not loaded in that session is');
   lines.push('  missing from the lists above, but what is reviewed does not depend on the names given here.');
   return lines.join('\n') + '\n';
+}
+
+/**
+ * The servers a person did not set up themselves, by the prefix Claude Code gives their tools:
+ * claude.ai's connectors and the servers plugins bring. Setup offers only a person's own servers'
+ * tools for `--add`: a vendor's connector tool draftgate does not list is not a send it reviews.
+ */
+export const NOT_OWN_SERVERS: readonly { prefix: string; what: string }[] = [
+  { prefix: 'mcp__claude_ai_', what: 'a claude.ai connector' },
+  { prefix: 'mcp__plugin_', what: "a plugin's server" },
+];
+
+/** The entry `--add` writes for a tool of the person's own: every field it sends shown beside the draft. */
+export function ownToolEntry(destination: DestinationName, bodyField: string): Record<string, unknown> {
+  return { destination, bodyField, contextFields: [ALL] };
+}
+
+/**
+ * The destination `--add` reviews a tool as, or why it refuses the tool. Only a tool of a server the
+ * person set up, ending in a half draftgate neither routes nor declines (one that does is reviewed,
+ * or declined, already), with no `tools.json` entry yet, to a destination draftgate has. The loader
+ * checks the rest when it is written.
+ */
+export function ownToolRoute(
+  name: string,
+  destination: string,
+  bodyField: string,
+  tools: Pick<ToolConfig, 'map' | 'declined' | 'declinedRoutes'>,
+  existing: Record<string, unknown>
+): { destination: DestinationName } | { error: string } {
+  const shown = `"${oneLine(name)}"`;
+  const half = toolHalfOf(name);
+  if (half === null) return { error: `${shown} is not an MCP tool name (mcp__<server>__<tool>).` };
+  const server = NOT_OWN_SERVERS.find((s) => name.startsWith(s.prefix));
+  if (server !== undefined) {
+    return { error: `${shown} is a tool of ${server.what}, not of a server you set up, so it is not offered.` };
+  }
+  // Every declined half, a decline no route uses included: an entry for one is dormant at once.
+  if (tools.declined.includes(half)) {
+    return { error: `${shown} ends in ${oneLine(half)}, which tools.json declines. Take it out of "declined" first.` };
+  }
+  if (knownHalves(tools).includes(half)) {
+    return { error: `${shown} ends in ${oneLine(half)}, a tool draftgate routes already: setup's choice covers it.` };
+  }
+  if (Object.hasOwn(existing, name)) return { error: `${shown} has a tools.json entry already.` };
+  if (!isKnownDestination(destination)) {
+    return { error: `"${oneLine(destination)}" is not a destination. Name one of: ${KNOWN_DESTINATION_NAMES}.` };
+  }
+  if (bodyField.trim() === '') return { error: 'the field the message is in is empty. Name the input field that holds it.' };
+  return { destination };
 }

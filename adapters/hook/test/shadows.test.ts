@@ -177,7 +177,7 @@ describe('through the real entry point', () => {
   test('--write drops a restating entry unasked and names an overriding one, which it keeps', () => {
     const m = machine({ [SLACK]: RESTATED, [SAVE_ISSUE]: HAND_WRITTEN });
     try {
-      const r = m.hook(['--propose-tools', SLACK, SAVE_ISSUE, '--decline', '--write']);
+      const r = m.hook(['--propose-tools', SLACK, SAVE_ISSUE, '--review-all', '--write']);
       expect(r.status).toBe(0);
       expect(r.stdout).toContain(`Dropped from tools.json, since each said just what draftgate's own entry says:\n  ${SLACK}\n`);
       expect(r.stdout).toContain(
@@ -197,7 +197,7 @@ describe('through the real entry point', () => {
   test('--write with nothing shadowing says nothing about it', () => {
     const m = machine({ [ALIAS]: 'linear' });
     try {
-      const r = m.hook(['--propose-tools', SLACK, '--decline', '--write']);
+      const r = m.hook(['--propose-tools', SLACK, '--review-all', '--write']);
       expect(r.status).toBe(0);
       expect(r.stdout).not.toContain('Dropped');
       expect(r.stdout).not.toContain('overrides');

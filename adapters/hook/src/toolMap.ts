@@ -22,7 +22,7 @@
 import { isKnownDestination, profiles, type DestinationName } from '../../../core/src/index';
 
 // The destination list for messages, derived from the profiles so a new one is never refused.
-const KNOWN_DESTINATION_NAMES = Object.keys(profiles).join(', ');
+export const KNOWN_DESTINATION_NAMES = Object.keys(profiles).join(', ');
 const KNOWN_DESTINATIONS = Object.keys(profiles)
   .map((d) => `"${d}"`)
   .join(', ');
