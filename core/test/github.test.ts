@@ -18,7 +18,7 @@ describe('the profile declares what it was measured declaring', () => {
   test('preview-only, identity conversion, no delta spelling', () => {
     expect(githubProfile.mode).toBe('preview-only');
     expect(githubProfile.extraToolInput).toEqual({});
-    // Read off all seven live schemas: none carries a patch or an edit-operations array
+    // Read off every live schema: none carries a patch or an edit-operations array
     // (`DestinationProfile.deltaFields`).
     expect(githubProfile.deltaFields).toEqual([]);
     expect(githubProfile.bodyField).toBe('body');
@@ -335,9 +335,10 @@ describe('audience: repository visibility', () => {
   });
 });
 
-describe('audienceProbed covers the seven that were read, and nothing else', () => {
+describe('audienceProbed covers the ones that were read, and nothing else', () => {
   const probed = [
     'add_issue_comment',
+    'update_issue_comment',
     'issue_write',
     'create_pull_request',
     'update_pull_request',
@@ -346,7 +347,7 @@ describe('audienceProbed covers the seven that were read, and nothing else', () 
     'pull_request_review_write',
   ];
 
-  test('each of the seven, under any server prefix', () => {
+  test('each one read, under any server prefix', () => {
     for (const tool of probed) {
       expect(githubProfile.audienceProbed(`mcp__whatever__${tool}`)).toBe(true);
       expect(githubProfile.audienceProbed(tool)).toBe(true);

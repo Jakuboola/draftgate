@@ -318,8 +318,8 @@ export interface AudienceFacts extends JiraAudienceFacts, GitHubAudienceFacts {
    * comment probes were run against `addCommentToJiraIssue` while `addWorklogToJiraIssue` routes to
    * the same profile, so without it a worklog on a service-desk project would claim "Reply to
    * customer -- the reporter sees this in the portal", every clause of which probe J
-   * (`profiles/jira.ts`) shows false. GitHub uses it to refuse a claim made about seven tools for
-   * an eighth.
+   * (`profiles/jira.ts`) shows false. GitHub uses it to refuse a claim made about the tools it read
+   * for another.
    */
   toolName?: string;
   /** `toolName` was routed by inference, not by a map entry. See `AudienceAnswer.routeInferred`. */

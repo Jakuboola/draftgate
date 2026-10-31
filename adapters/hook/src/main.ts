@@ -44,13 +44,15 @@ import { pluginsHere, readInstalledPlugins, type PluginRecord } from '../../../c
 import { renderHookOutput, type HookDecision } from './hookOutput';
 import { SESSION_VAR, forgetSetupNames, keepSetupNames, keptSetupNames } from './setupNames';
 import {
-  answeredToolsJson, declinedAfter, describeReconciliation, knownHalves, ownToolEntry, ownToolRoute, reconcileTools,
+  answeredToolsJson, declinedAfter, describeReconciliation, knownHalves, OTHER_TOOL_FORMAT, ownToolEntry, ownToolRoute,
+  reconcileTools,
   type Reconciliation,
 } from './reconcile';
 import {
   inspectRegistration,
   classifyEntry,
   parseSettings,
+  firesBesidePlugin,
   settingsPaths,
   settingsObject,
   settingsSources,
@@ -904,7 +906,7 @@ function removePluginLink(link: string): string {
   if (linkAt(link).kind !== 'link') return '';
   try {
     unlinkSync(link);
-    return `Removed ${link}, the link the entry for your own tools ran the plugin through.\n`;
+    return `Removed ${link}, the link the entry for the tools you added ran the plugin through.\n`;
   } catch (e) {
     return `Could not remove ${link} (${(e as Error).message}). No entry runs through it now.\n`;
   }
@@ -972,7 +974,7 @@ async function writeToolsAnswer(o: {
   }
   const root = pluginRootOf(process.env, HOOK, realpathOrNull);
   const registered = registrationHere(written.map, root);
-  const uncovered = inspectHere(written, process.cwd(), process.env, root).unregistered;
+  const { unregistered: uncovered, firesTwice } = inspectHere(written, process.cwd(), process.env, root);
   const [heading, offered, remedy] =
     registered !== null
       ? [
@@ -989,9 +991,13 @@ async function writeToolsAnswer(o: {
   // An entry `register` would rewrite: a checkout's, another plugin version's, or this one's when
   // nothing needs it. Named whether or not tools are offered; `--doctor` sends people here.
   if (registered !== null) {
-    // The link entry is old only when there is none to write; a version folder's is old either way.
+    // The link entry is current only when there is one to write and it does not fire beside the
+    // plugin's hook (two windows per send, which only `register` narrows). A version folder's is
+    // old either way.
+    const linkCurrent =
+      registered.block !== null && !firesBesidePlugin(firesTwice, root, userSettingsPath(process.env, homedir));
     const replaced = (await replacedByRegister(registered.block)).filter(
-      (hook) => registered.block === null || hook !== join(registered.link, HOOK_IN_REPO)
+      (hook) => !linkCurrent || hook !== join(registered.link, HOOK_IN_REPO)
     );
     if (replaced.length > 0) {
       lines.push(
@@ -1138,7 +1144,7 @@ async function replacedByRegister(block: HookBlock | null): Promise<string[]> {
  * `draftgate propose-tools` passes its arguments as they are, and an `--unregister` among them would
  * otherwise run that mode.
  */
-const PROPOSE_FLAGS = ['--propose-tools', '--decline', '--review', '--review-all', '--write', '--known', '--drop', '--add'];
+const PROPOSE_FLAGS = ['--propose-tools', '--decline', '--review', '--review-all', '--write', '--known', '--drop', '--add', '--format'];
 
 export async function main(argv: string[]): Promise<number> {
   if (argv.includes('--propose-tools')) {
@@ -1148,8 +1154,9 @@ export async function main(argv: string[]): Promise<number> {
       process.stderr.write(
         `draftgate: ${REMEDY.proposeTools} does not take ${other}. Pass tool names after it ` +
           'and tool halves after --review and --decline (or --review-all), space-separated, --write to write the answer, --known ' +
-          'alone to list the tool halves it knows, --drop and the tools.json entries to drop, or --add ' +
-          'and a tool of your own, its destination and the field its message is in.\n'
+          'alone to list the tool halves it knows, --drop and the tools.json entries to drop, --add ' +
+          'and a tool draftgate does not know, its destination and the field its message is in, or --format ' +
+          'alone for what such a tool is handed.\n'
       );
       return 1;
     }
@@ -1216,11 +1223,13 @@ export async function main(argv: string[]): Promise<number> {
     let into: string[] | undefined;
     let write = false;
     let known = false;
+    let format = false;
     let reviewAll = false;
     for (const arg of argv) {
       if (arg === '--write') write = true;
       else if (arg === '--review-all') reviewAll = true;
       else if (arg === '--known') known = true;
+      else if (arg === '--format') format = true;
       else if (arg === '--propose-tools') into = names;
       else if (arg === '--decline') into = chosen ??= [];
       else if (arg === '--review') into = reviewing ??= [];
@@ -1229,14 +1238,15 @@ export async function main(argv: string[]): Promise<number> {
       else into?.push(arg);
     }
     const toolsPath = join(draftgateHome(), CONFIG_BASENAME);
-    // `--add`, `--drop` and `--known` each run alone: beside names, an answer or another of them,
-    // one of the two would be dropped while exiting 0.
+    // `--add`, `--drop`, `--known` and `--format` each run alone: beside names, an answer or another
+    // of them, one of the two would be dropped while exiting 0.
     const given = {
       names: names.length > 0,
       answer: chosen !== undefined || reviewing !== undefined || reviewAll || write,
       add: adding !== undefined,
       drop: dropping !== undefined,
       known,
+      format,
     };
     const alone = (mode: keyof typeof given) => Object.entries(given).every(([k, v]) => k === mode || !v);
     const refuse = (message: string) => {
@@ -1250,6 +1260,12 @@ export async function main(argv: string[]): Promise<number> {
     if (dropping !== undefined) {
       if (!alone('drop')) return refuse('--drop takes nothing else: only the tools.json entries to drop.');
       return dropToolEntries(dropping, toolsPath);
+    }
+    // What a tool `--add` reviews is handed, for setup to show as printed (`OTHER_TOOL_FORMAT`).
+    if (format) {
+      if (!alone('format')) return refuse('--format takes nothing else: it prints what a tool added with --add is handed.');
+      await printStdout(OTHER_TOOL_FORMAT);
+      return 0;
     }
     // The halves a name must end in to matter (`knownHalves`), one per line.
     if (known) {

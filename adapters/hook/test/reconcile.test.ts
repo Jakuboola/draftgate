@@ -8,7 +8,7 @@
 
 import { describe, expect, test } from 'bun:test';
 import {
-  CHOICE_GROUPS, answeredToolsJson, declinedAfter, describeReconciliation, groupOf, knownHalves, ownToolRoute,
+  CHOICE_GROUPS, CHOICE_HALVES, answeredToolsJson, declinedAfter, describeReconciliation, groupOf, knownHalves, ownToolRoute,
   proposedToolsJson, reconcileTools,
 } from '../src/reconcile';
 import { profiles } from '../../../core/src/index';
@@ -138,10 +138,11 @@ describe('what the report says', () => {
     const text = describeReconciliation(
       reconcileTools(['mcp__atlassian__save_comment'], map), Object.keys(map).length, {}, 't.json'
     );
-    expect(text).toContain('only the names it was GIVEN');
-    expect(text).toContain('missing from the lists above');
+    expect(text).toContain('CHOOSE lists every tool draftgate reviews by default');
+    expect(text).toContain('compare only the names it was GIVEN');
+    expect(text).toContain('missing from them');
     // ...and only from them: the names given never decide what is reviewed.
-    expect(text).toContain('does not depend on the names given here');
+    expect(text).toContain('does not depend on\n  the names given here');
     expect(text).not.toContain('will not be gated');
   });
 
@@ -249,7 +250,7 @@ describe('the choice groups', () => {
   test('every half the default map routes is in exactly one group, and no group names another', () => {
     // A default tool without a group would be asked about under its raw name; a group naming a half
     // nothing routes reads as coverage.
-    const grouped = CHOICE_GROUPS.flatMap((g) => g.halves);
+    const grouped = CHOICE_HALVES;
     expect([...grouped].sort()).toEqual(toolHalvesOf(DEFAULT_TOOL_MAP));
     expect(new Set(grouped).size).toBe(grouped.length);
     expect(new Set(CHOICE_GROUPS.map((g) => g.label)).size).toBe(CHOICE_GROUPS.length);
@@ -269,20 +270,40 @@ describe('the choice groups', () => {
       'mcp__x__slack_send_message',
     ];
     const r = reconcileTools(names, DEFAULT_TOOL_MAP);
-    expect(r.halves.map((h) => h.group)).toEqual([
-      'Jira: comments', 'Slack: messages, sent now or scheduled',
-      'GitHub: pull request reviews', 'GitHub: pull request reviews',
-    ]);
+    // Every heading, in `CHOICE_GROUPS`' order, each tool half under its own.
+    expect(r.halves.map((h) => h.group)).toEqual(
+      CHOICE_GROUPS.flatMap((g) => g.halves.map(() => g.label))
+    );
+    const halves = CHOICE_HALVES.length;
     const text = describeReconciliation(r, 1, {}, '/t.json');
-    expect(text).toContain('CHOOSE which to review -- 4 tool(s) in 3 group(s), x = reviewed:');
-    // The heading, then its tools indented under it.
+    expect(text).toContain(`CHOOSE which to review -- ${halves} tool(s) in ${CHOICE_GROUPS.length} group(s), x = reviewed:`);
+    // The heading, then its tools indented under it; one no given name carries says so.
     expect(text).toContain(
       '    GitHub: pull request reviews\n' +
-        '      [x] add_reply_to_pull_request_comment  1 connector\n' +
-        '      [x] pull_request_review_write          1 connector\n'
+        '      [x] add_comment_to_pending_review      not loaded here\n' +
+        '      [x] add_reply_to_pull_request_comment  1 connector here\n' +
+        '      [x] pull_request_review_write          1 connector here\n'
     );
-    expect(text).toContain('      [x] slack_send_message                 2 connectors');
+    expect(text).toContain('      [x] slack_send_message                 2 connectors here');
     expect(text).toContain('every tool above, under one of the two');
+  });
+
+  test('with no names at all, every heading is still asked about', () => {
+    // A decline is by tool half under every server, so a connector this session never loaded is
+    // the person's to choose too. The names add only the "same tool, different server" section.
+    const r = reconcileTools([], DEFAULT_TOOL_MAP);
+    expect([...new Set(r.halves.map((h) => h.group))]).toEqual(CHOICE_GROUPS.map((g) => g.label));
+    expect(r.halves.map((h) => h.half).sort()).toEqual(toolHalvesOf(DEFAULT_TOOL_MAP));
+    expect(r.halves.every((h) => h.connectors === 0 && !h.declined)).toBe(true);
+    expect(r.proposed).toEqual([]);
+    const text = describeReconciliation(r, 1, {}, '/t.json');
+    for (const g of CHOICE_GROUPS) expect(text).toContain(`\n    ${g.label}\n`);
+    expect(text).not.toContain('SAME TOOL');
+    // A declined heading is shown unticked, and `--review-all` re-enables it.
+    const { map, declined, declinedRoutes } = mergeToolConfig(DEFAULT_TOOL_MAP, { declined: ['save_issue'] }, 't');
+    const d = reconcileTools([], map, { declined, declinedRoutes, shadows: [] });
+    expect(d.halves.find((h) => h.half === 'save_issue')).toMatchObject({ destination: 'linear', declined: true });
+    expect(declinedAfter(d, declined, [], d.halves.map((h) => h.half))).toEqual({ declined: [] });
   });
 });
 

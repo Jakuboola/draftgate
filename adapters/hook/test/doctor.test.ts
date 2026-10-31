@@ -174,6 +174,9 @@ describe('doctorReport', () => {
     expect(ok).toBe(false);
     expect(text).toContain('registered 2 times');
     expect(text).not.toContain('Nothing to register');
+    // Neither is the plugin's, so setup cannot narrow one: whoever wrote them takes one out.
+    expect(text).toContain('Remove all but one.');
+    expect(text).not.toContain('narrows draftgate');
   });
 
   // A decline is the operator's recorded choice, so it is a FACT and never moves the exit.
@@ -656,7 +659,7 @@ describe('what --doctor says', () => {
   test("a switch that stops only the extra-tools entry beside the plugin is a problem", () => {
     const { text, ok } = hooksDoctor(hooksReport([doc('managed', { strictPluginOnlyCustomization: true })], ['plugin', 'user']));
     expect(ok).toBe(false);
-    expect(text).toContain('the entry for your own tools in your settings');
+    expect(text).toContain('the entry for the tools you added in your settings');
   });
 
   test('a managed switch says who can change it, and the way back that leaves the gate running', () => {
