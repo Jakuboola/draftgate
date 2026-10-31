@@ -19,6 +19,7 @@ import { isKnownDestination, profiles, type DestinationName } from '../../../cor
 import { ALL } from '../../../cli/src/payload';
 import {
   DECLINED_KEY,
+  DEFAULT_TOOL_MAP,
   KNOWN_DESTINATION_NAMES,
   declinedHalfOf,
   restates,
@@ -56,8 +57,11 @@ export interface Reconciliation {
    */
   proposedIfEnabled: Proposal[];
   /**
-   * The choice: one row per tool half this session can see and draftgate can route, the unit a
-   * decline records. Sorted by group (`CHOICE_GROUPS`, the order setup asks in), then by half.
+   * The choice: one row per tool half, the unit a decline records. Every half `CHOICE_GROUPS`
+   * names, whether or not a given name carries it: a decline is by half and applies under every
+   * server in every folder, so a connector this session did not load is still the person's to
+   * choose. Plus each half only `tools.json` routes that a given name carries. Sorted by group
+   * (the order setup asks in), then by half.
    */
   halves: HalfChoice[];
   /**
@@ -73,7 +77,7 @@ export interface HalfChoice {
   destination: DestinationName;
   /** The plain-words heading it is asked about under (`groupOf`). */
   group: string;
-  /** How many of the given names carry this half: the connectors it is reachable through. */
+  /** How many of the given names carry this half: the connectors here it is reachable through. */
   connectors: number;
   /** Declined already, so the checklist shows it unticked. */
   declined: boolean;
@@ -94,13 +98,16 @@ export const CHOICE_GROUPS: readonly { label: string; halves: readonly string[] 
   { label: 'Linear: new and edited issues', halves: ['save_issue'] },
   { label: 'Linear: project status updates', halves: ['save_status_update'] },
   { label: 'Linear: customer requests', halves: ['save_customer_need'] },
-  { label: 'GitHub: issues and issue comments', halves: ['add_issue_comment', 'issue_write'] },
+  { label: 'GitHub: issues and issue comments', halves: ['add_issue_comment', 'update_issue_comment', 'issue_write'] },
   { label: 'GitHub: pull requests', halves: ['create_pull_request', 'update_pull_request'] },
   {
     label: 'GitHub: pull request reviews',
     halves: ['add_comment_to_pending_review', 'add_reply_to_pull_request_comment', 'pull_request_review_write'],
   },
 ];
+
+/** Every half a heading names, in the order setup asks. */
+export const CHOICE_HALVES: readonly string[] = CHOICE_GROUPS.flatMap((g) => g.halves);
 
 /** The heading a half is asked about under, and where that heading sorts. */
 export function groupOf(half: string, destination: DestinationName): { label: string; order: number } {
@@ -139,7 +146,8 @@ export function reconcileTools(
   const choices = new Map<string, HalfChoice>();
   /** Where each half's group sorts, read once, with its label, when the half's row is made. */
   const orderOf = new Map<string, number>();
-  const count = (half: string, destination: DestinationName, isDeclined: boolean) => {
+  /** A half's row, made by its first call: a later call's destination and decline change nothing. */
+  const rowFor = (half: string, destination: DestinationName, isDeclined: boolean): HalfChoice => {
     let row = choices.get(half);
     if (row === undefined) {
       const { label: group, order } = groupOf(half, destination);
@@ -147,8 +155,12 @@ export function reconcileTools(
       row = { half, destination, group, connectors: 0, declined: isDeclined };
       choices.set(half, row);
     }
-    row.connectors++;
+    return row;
   };
+  // Every heading, given names or not. Its destination is the default entry's, which its label names.
+  for (const half of CHOICE_HALVES) {
+    rowFor(half, DEFAULT_TOOL_MAP[entryForHalf(DEFAULT_TOOL_MAP, half)!]!.destination, config.declined.includes(half));
+  }
   for (const name of [...new Set(names)].sort()) {
     const half = toolHalfOf(name);
     if (declinedHalfOf(name, config.declined) !== null) {
@@ -156,7 +168,7 @@ export function reconcileTools(
       const routes = config.declinedRoutes;
       const from = entryForHalf(routes, half!);
       if (from === null) continue;
-      count(half!, routes[from]!.destination, true);
+      rowFor(half!, routes[from]!.destination, true).connectors++;
       if (!Object.hasOwn(routes, name)) {
         out.proposedIfEnabled.push({ name, matches: from, route: { ...routes[from]! } });
       }
@@ -165,7 +177,7 @@ export function reconcileTools(
     // `Object.hasOwn`, not `in`: `--propose-tools toString constructor` would print "GATED already".
     if (Object.hasOwn(map, name)) {
       out.gated.push(name);
-      if (half !== null) count(half, map[name]!.destination, false);
+      if (half !== null) rowFor(half, map[name]!.destination, false).connectors++;
       continue;
     }
     if (half === null) { out.notMcp.push(name); continue; }
@@ -173,7 +185,7 @@ export function reconcileTools(
     const matches = entryForHalf(map, half);
     if (matches === null) { out.unknown.push(name); continue; }
     out.proposed.push({ name, matches, route: { ...map[matches]! } });
-    count(half, map[matches]!.destination, false);
+    rowFor(half, map[matches]!.destination, false).connectors++;
   }
   // By group, then by half; a half no group names sorts last, by its own heading.
   out.halves = [...choices.values()].sort(
@@ -198,8 +210,9 @@ export const UNANSWERED = 'the answer leaves these unanswered';
 
 /**
  * The `declined` list after a setup answer, or a refusal. `chosen` (`--decline`) and `reviewed`
- * (`--review`) are the full answer for the halves shown; a half declined earlier and not shown (its
- * connector not loaded here) stays declined.
+ * (`--review`) are the full answer for the halves shown: every heading's, so a decline of one is
+ * answered whether or not its connector is loaded here. A half declined earlier and not shown (one
+ * only `tools.json` routes, with no given name carrying it, or one nothing routes) stays declined.
  *
  * An answer names every half shown, each once (`--review-all` names them all): a question whose
  * answer never came back would otherwise be read as one, declining what the person never declined
@@ -327,7 +340,7 @@ export function describeReconciliation(
     let heading: string | null = null;
     for (const h of r.halves) {
       if (h.group !== heading) lines.push(`    ${oneLine((heading = h.group))}`);
-      const via = `${h.connectors} connector${h.connectors === 1 ? '' : 's'}`;
+      const via = h.connectors === 0 ? 'not loaded here' : `${h.connectors} connector${h.connectors === 1 ? '' : 's'} here`;
       lines.push(`      [${h.declined ? ' ' : 'x'}] ${oneLine(h.half).padEnd(width)}  ${via}`);
     }
     lines.push('  To answer, run this again with --review and every tool to review, and --decline and');
@@ -373,15 +386,32 @@ export function describeReconciliation(
   lines.push('');
   // What is reviewed comes from the map and the registered matchers, never from these names; saying
   // otherwise would have setup pass every name it has.
-  lines.push('  This compares only the names it was GIVEN: a connector not loaded in that session is');
-  lines.push('  missing from the lists above, but what is reviewed does not depend on the names given here.');
+  lines.push('  CHOOSE lists every tool draftgate reviews by default, and a tool added to tools.json when');
+  lines.push('  a name given carries it. The other lists compare only the names it was GIVEN: a connector');
+  lines.push('  not loaded in that session is missing from them, but what is reviewed does not depend on');
+  lines.push('  the names given here.');
   return lines.join('\n') + '\n';
 }
 
+/** How to build a tool that takes what draftgate hands it, for `--add`'s caveat. */
+export const OTHER_TOOLS_GUIDE = 'https://github.com/Jakuboola/draftgate/blob/main/docs/gating-your-own-sends.md';
+
 /**
- * The servers a person did not set up themselves, by the prefix Claude Code gives their tools:
- * claude.ai's connectors and the servers plugins bring. Setup offers only a person's own servers'
- * tools for `--add`: a vendor's connector tool draftgate does not list is not a send it reviews.
+ * What a tool `--add` reviews is handed on approval, and where to read how to build one that takes
+ * it: `--format` prints it, for setup to show as printed. `pluginHooks.test.ts` holds it to the
+ * profiles' `extraToolInput`.
+ */
+export const OTHER_TOOL_FORMAT =
+  'draftgate hands the tool the message as you approved it, in the destination\'s format: for Jira an\n' +
+  'ADF document as a JSON string, with contentFormat "adf" beside it; for Slack, Linear and GitHub\n' +
+  'markdown. The tool has to take that as it is, or it sends something other than what you approved.\n' +
+  `How to build one that does: ${OTHER_TOOLS_GUIDE}\n`;
+
+/**
+ * The servers whose tools setup does not offer for `--add`, by the prefix Claude Code gives their
+ * tools: claude.ai's connectors and the servers plugins bring. Setup cannot tell who built any
+ * server; these two are the ones a person did not add to Claude Code themselves, and a tool of one
+ * that draftgate does not list is not a send it reviews.
  */
 export const NOT_OWN_SERVERS: readonly { prefix: string; what: string }[] = [
   { prefix: 'mcp__claude_ai_', what: 'a claude.ai connector' },
@@ -395,9 +425,9 @@ export function ownToolEntry(destination: DestinationName, bodyField: string): R
 
 /**
  * The destination `--add` reviews a tool as, or why it refuses the tool. Only a tool of a server the
- * person set up, ending in a half draftgate neither routes nor declines (one that does is reviewed,
- * or declined, already), with no `tools.json` entry yet, to a destination draftgate has. The loader
- * checks the rest when it is written.
+ * person added (not `NOT_OWN_SERVERS`), ending in a half draftgate neither routes nor declines
+ * (one that does is reviewed, or declined, already), with no `tools.json` entry yet, to a
+ * destination draftgate has. The loader checks the rest when it is written.
  */
 export function ownToolRoute(
   name: string,
@@ -411,7 +441,7 @@ export function ownToolRoute(
   if (half === null) return { error: `${shown} is not an MCP tool name (mcp__<server>__<tool>).` };
   const server = NOT_OWN_SERVERS.find((s) => name.startsWith(s.prefix));
   if (server !== undefined) {
-    return { error: `${shown} is a tool of ${server.what}, not of a server you set up, so it is not offered.` };
+    return { error: `${shown} is a tool of ${server.what}, not of a server you added, so it is not offered.` };
   }
   // Every declined half, a decline no route uses included: an entry for one is dormant at once.
   if (tools.declined.includes(half)) {

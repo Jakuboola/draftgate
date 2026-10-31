@@ -473,13 +473,13 @@ const GITHUB_TOKENS: readonly MentionTokenPattern[] = [
 
 /**
  * The tools whose audience claim has been probed, matched on the tool half of an MCP name: the
- * seven write tools whose schemas were read. What each writes lands in the repository named by
+ * write tools whose schemas were read. What each writes lands in the repository named by
  * `owner`/`repo`, readable by exactly its readers. Another tool may write elsewhere (a gist, a
  * discussion in another org, a release draft), so it gets `unknown` naming itself
  * (`POSTS_REQUEST_COMMENT`'s argument, one destination over).
  */
 const PROBED_TOOLS =
-  /(?:^|__)(?:add_issue_comment|issue_write|create_pull_request|update_pull_request|add_comment_to_pending_review|add_reply_to_pull_request_comment|pull_request_review_write)$/;
+  /(?:^|__)(?:add_issue_comment|update_issue_comment|issue_write|create_pull_request|update_pull_request|add_comment_to_pending_review|add_reply_to_pull_request_comment|pull_request_review_write)$/;
 
 /**
  * Who can read this, from the repository's visibility. `owner` and `repo` are names, and turning
@@ -617,7 +617,7 @@ export const githubProfile = {
   name: 'github',
   displayName: 'GitHub',
   /**
-   * The markdown is the payload: each of the seven gated tools takes a GFM `body` string and GitHub
+   * The markdown is the payload: each gated tool takes a GFM `body` string and GitHub
    * stores the markdown (`POST /markdown` is a rendering endpoint), so `convert` is the identity.
    */
   mode: 'preview-only' as const,
@@ -681,7 +681,7 @@ export const githubProfile = {
       'a repository is named by BOTH halves -- one alone matches repositories that are not the ' +
       'scratch one',
   },
-  // None: all seven live schemas carry a whole `body`, with no patch, edit-operations array or
+  // None: every live schema read carries a whole `body`, with no patch, edit-operations array or
   // other delta spelling.
   deltaFields: [],
 

@@ -72,7 +72,7 @@ export const DRAFTGATE_FILES: Readonly<Record<string, string>> = {
   [RELEASE_STATE_BASENAME]: "the daily release check's last answer",
   [THEME_BASENAME]: "the review window's theme",
   'window.json': "the review window's size and zoom",
-  [PLUGIN_LINK_BASENAME]: 'the link to the plugin version that reviews your own tools',
+  [PLUGIN_LINK_BASENAME]: 'the link to the plugin version that reviews the tools you added',
 };
 
 /**

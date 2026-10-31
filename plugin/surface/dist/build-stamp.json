@@ -1,6 +1,6 @@
 {
  "version": 1,
- "stamp": "3776ca52f130a9483b714acc8711b23f16d5aca0e0114f8a5d1de76caa10bce1",
+ "stamp": "2515b732253a40357c40c13474210361bccae5d9d16cd385e19444576e613fbd",
  "inputs": {
   "bun.lock": "f03a0efd080da0db0173edd7988ab157213fa7bd2420ba2d6e373b2905c184cf",
   "cli/src/buildSurface.ts": "0ad69378e18637b8017f0dcb6aac8fb6df50e793d8f10202e980875673a32194",
@@ -29,8 +29,8 @@
   "core/src/mentions.ts": "21bfda344a9b3f8a6afe4ba501bc0b11a886952dee4263f7e74d22cb5e728b06",
   "core/src/patch.ts": "aa1a5e954ecc16c12e1520fc05330aea2e14ffc29a79acd8c3ab9e1daf21dcdd",
   "core/src/plainObject.ts": "c4b6479f4d28332c27ebdeae31fb38dcbb5c077d311bf957cbc36501b4eefb78",
-  "core/src/profiles/github.ts": "f95b1a173950e3b7e15e5f1b00e4c72b964d76e86773e2e856143163c297d699",
-  "core/src/profiles/index.ts": "25e6ff57cc42048b3e2cd6ec3054ccde6b13f4ec86c4f47cc1d9e631b2de9d15",
+  "core/src/profiles/github.ts": "f2d15bd65f8140d9672ebbf40b4806d6057f70938e344dca6d3755272624160b",
+  "core/src/profiles/index.ts": "1beb83f92082b40df88c9b661d665312e67297448d74de48abd4e5ddaee7b400",
   "core/src/profiles/jira.ts": "5b5ed52db2c81b80f425f7a317c222603a3db1e73a1bacbc79e383063491ea6f",
   "core/src/profiles/linear.ts": "e61c2c14b3bcad7a4772349fb4c1ef3c79f75265f1e93d2877b480273b094e14",
   "core/src/profiles/slack.ts": "7aaefe065b1743dccdef2c671ce5884dca3003bb58cdae6c45f9f87ebc438b60",

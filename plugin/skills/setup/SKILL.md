@@ -9,8 +9,8 @@ Set up draftgate in this session. draftgate holds the messages my tools send to 
 and GitHub, and shows each one to me in a window before it goes.
 
 The draftgate plugin already reviews every send tool draftgate knows, under any server name. So
-nothing below turns the gate on: it narrows it to what I want reviewed, and covers tools of my own
-the plugin cannot see. If we stop halfway, every tool it knows stays reviewed.
+nothing below turns the gate on: it narrows it to what I want reviewed, and adds other tools that
+send messages, which the plugin cannot see. If we stop halfway, every tool it knows stays reviewed.
 
 Rules:
 1. Do not narrate. Ask the questions below in the words given, run the commands, and write nothing
@@ -35,8 +35,9 @@ Steps:
 
        draftgate propose-tools <name> <name> ...
 
-   A name left out changes nothing about what is reviewed. It is only missing from the list I choose
-   from below.
+   A name left out changes nothing about what is reviewed. The list I choose from below holds every
+   tool draftgate reviews by default either way; a name adds the "SAME TOOL, different server"
+   section, and a tool added to tools.json only when a name carries it.
 
 2. Ask me ONE question, with two options in this order: "Review everything (recommended)" and
    "Let me choose". Use AskUserQuestion if you have it, otherwise ask in plain text and wait.
@@ -56,26 +57,27 @@ Steps:
        in this order: "Ask me again" and "Don't review them". Never take a missing or empty answer
        as a choice: only "Don't review it" and "Don't review them" decline a heading.
 
-3. My own tools. Look through your MCP tools for ones from servers I set up myself: a name that
-   does not start with `mcp__claude_ai_` (claude.ai's connectors) or `mcp__plugin_` (plugins'
-   servers), and does not end in one of the names `--known` printed. If you have none, skip this
+3. Other tools that send messages. Look through your MCP tools for ones draftgate does not know: a
+   name that does not start with `mcp__claude_ai_` (claude.ai's connectors) or `mcp__plugin_`
+   (plugins' servers), and does not end in one of the names `--known` printed. Their servers may be
+   mine or a vendor's, and you can't tell which: never call them my own. If you have none, skip this
    step and say nothing.
 
-   Otherwise ask me ONE question, in these words: "Do you want draftgate to review any of your own
-   tools?", with two options in this order: "No" and "Yes".
+   Otherwise ask me ONE question, in these words: "Do you want draftgate to review other tools
+   that look like they send messages?", with two options in this order: "No" and "Yes".
    - No: go on to step 4.
-   - Yes: first tell me, in these words: "draftgate hands your tool the message as you approved it,
-     in the destination's format: for Jira an ADF document as a JSON string, with contentFormat
-     "adf" beside it; for Slack, Linear and GitHub markdown. Your tool has to take that as it is,
-     or it sends something other than what you approved. How to build one:
-     https://github.com/Jakuboola/draftgate/blob/main/docs/gating-your-own-sends.md"
+   - Yes: first run:
+
+         draftgate propose-tools --format
+
+     and show me what it printed, exactly, in a code block, adding nothing.
      Then pick, from those servers' tools, the ones whose name or description says they send a
      message, comment or note to people. Leave out one whose short name (the part after the
-     server's `__`) a tool of another server you have also ends in: draftgate reviews a tool of
-     your own by that short name under every server, so it would review that tool too. For each one
+     server's `__`) a tool of another server you have also ends in: draftgate reviews a tool it
+     adds by that short name under every server, so it would review that tool too. For each one
      left out, tell me in one line: "<the full tool name> shares its name with <the other tool>, so
-     setup can't add it." With none left, tell me in one line, "None of your own tools looks like it
-     sends messages.", and go on to step 4. For each one, one question per call:
+     setup can't add it." With none left, tell me in one line, "None of the other tools looks like
+     it sends messages.", and go on to step 4. For each one, one question per call:
      1. "Should draftgate review <the full tool name>? <what its description says it does, in one
         line>", with two options in this order: "Review it" and "Don't review it".
      2. Only for "Review it": "Where does <the full tool name> send?", with four options in this
@@ -120,8 +122,8 @@ Steps:
 
    Only if that output says "Claude Code's user settings hold a draftgate entry the plugin does not
    need", ask me ONE question, in these words: "Claude Code's settings still hold an old draftgate
-   entry, which can open a second review window for every send, or stop reviewing my own tools
-   after an update. Replace it?", with two options in
+   entry, which can open a second review window for every send, or stop reviewing the tools I
+   added after an update. Replace it?", with two options in
    this order: "Replace it (recommended)" and "Leave it". If the output does not say it, skip this
    question, and if you already ran `draftgate register` above, skip it too: that run replaced the
    old entry as well.

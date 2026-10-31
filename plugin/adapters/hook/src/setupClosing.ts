@@ -22,7 +22,10 @@ export interface ClosingFacts {
   map: ToolMap;
   /** The tool halves `tools.json` declines that route something: a decline of nothing is no choice. */
   declined: readonly string[];
-  /** The mapped tools the plugin's own matcher cannot match, which the extra-tools entry reviews. */
+  /**
+   * The mapped tools the plugin's own matcher cannot match, which the extra-tools entry reviews: the
+   * tools the person added, which setup cannot tell from a vendor's, so it never calls them theirs.
+   */
   ownTools: readonly string[];
   /** Whether reviews write the log: an empty `DRAFTGATE_AUDIT_LOG` turns it off. */
   logged: boolean;
@@ -58,7 +61,7 @@ export function setupClosing(facts: ClosingFacts): string {
   const { names, oneTool } = declinedNames(facts.declined);
   const notReviewed =
     names.length === 0 ? 'none you declined' : `${names.join('; ')} (you declined ${oneTool ? 'it' : 'them'})`;
-  // Without the operator's own tools, which the next line names: "Also reviewed" adds to this.
+  // Without the tools the person added, which the next line names: "Also reviewed" adds to this.
   const reviewed = Object.keys(facts.map).length - facts.ownTools.length;
   const lines = [
     'draftgate is set up.',
@@ -74,7 +77,7 @@ export function setupClosing(facts: ClosingFacts): string {
   ];
   if (facts.ownTools.length > 0) {
     const own = facts.ownTools.map(oneLine).join(', ');
-    lines.push(`Also reviewed: ${own} (your own tool${facts.ownTools.length === 1 ? '' : 's'}).`);
+    lines.push(`Also reviewed: ${own} (${facts.ownTools.length === 1 ? 'a tool' : 'tools'} you added).`);
   }
   lines.push(
     facts.logged
@@ -84,12 +87,14 @@ export function setupClosing(facts: ClosingFacts): string {
     'Ask Claude to run:',
     ...commandTable(COMMANDS),
     '',
-    // Setup chooses from the tool list of the session it runs in. A server added for one project
-    // (its `.mcp.json`, `docs/gating-your-own-sends.md`; or `claude mcp add` there, which
-    // `~/.claude.json` keeps per project) is in that list only when Claude Code starts there.
-    'Setup saw only the connectors loaded in this session. A server added for one project (its',
-    `.mcp.json, or claude mcp add there) loads only when Claude Code starts in that folder: run`,
-    `${typed(REMEDY.pluginSetup)} there for those, and again after adding a connector.`
+    // The headings are every tool draftgate knows, but other tools come from the tool list of the
+    // session setup runs in. A server added for one project (its `.mcp.json`,
+    // `docs/gating-your-own-sends.md`; or `claude mcp add` there, which `~/.claude.json` keeps per
+    // project) is in that list only when Claude Code starts there.
+    'Setup looked for other tools that send messages only in the connectors loaded in this',
+    'session. A server added for one project (its .mcp.json, or claude mcp add there) loads only',
+    `when Claude Code starts in that folder: run ${typed(REMEDY.pluginSetup)} there for those, and again`,
+    'after adding a connector.'
   );
   return lines.join('\n') + '\n';
 }

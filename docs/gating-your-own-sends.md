@@ -64,9 +64,10 @@ entry, its review says "Internal note" and that the reporter never sees it. The 
 such entry, because the server key is yours. The same name under a server nobody mapped is still
 reviewed, with the audience shown as unknown.
 
-Or let setup write it: `/draftgate:setup`, run where your server is loaded, offers the send tools of
-servers you set up yourself, asks where each one sends, and adds the entry with the field its
-message is in (`draftgate propose-tools --add <tool> <destination> <field>`).
+Or let setup write it: `/draftgate:setup`, run where your server is loaded, offers the other tools
+there that look like they send messages (not claude.ai's connectors or plugins' servers), asks where
+each one sends, and adds the entry with the field its message is in (`draftgate propose-tools --add
+<tool> <destination> <field>`). `draftgate propose-tools --format` prints what such a tool is handed.
 
 Then run `/draftgate:setup` in Claude Code. The plugin's matcher covers every tool half draftgate
 knows, under any server. For a tool with a new half, setup adds one settings entry whose matcher is
