@@ -20,7 +20,7 @@ import { OLD_ENTRY, PLUGIN_HOOK_TIMEOUT_S } from '../src/main';
 import { checkoutBlock } from './checkoutEntry';
 import { PLUGIN_LAUNCHER_IN_ROOT, PLUGIN_ROOT_REF, extraToolsBlock } from '../src/pluginHooks';
 import { DEFAULT_TOOL_MAP } from '../src/toolMap';
-import { CHOICE_HALVES } from '../src/reconcile';
+import { CHOICE_HALVES, OTHER_TOOL_FORMAT } from '../src/reconcile';
 
 const REPO = join(import.meta.dir, '../../..');
 const dir = realpathSync(mkdtempSync(join(tmpdir(), 'draftgate-plugindoctor-')));
@@ -375,8 +375,8 @@ describe('doctor, from the plugin: what it advises', () => {
  */
 describe('doctor --setup: what setup ends with', () => {
   const DEFAULT_COUNT = Object.keys(DEFAULT_TOOL_MAP).length;
-  /** The closing, with the one line that differs per answer. */
-  const closing = (reviewed: string) =>
+  /** The closing, with the line that differs per answer and what ends it when a tool was added. */
+  const closing = (reviewed: string, tail = '') =>
     [
       'draftgate is set up.',
       '',
@@ -396,7 +396,7 @@ describe('doctor --setup: what setup ends with', () => {
       'when Claude Code starts in that folder: run /draftgate:setup there for those, and again',
       'after adding a connector.',
       '',
-    ].join('\n');
+    ].join('\n') + tail;
   /** A machine whose reviews write the log, as a user's do: the harness turns it off by default. */
   const logging = (m: ReturnType<typeof machine>) => {
     m.env.DRAFTGATE_AUDIT_LOG = join(m.env.HOME!, 'audit.jsonl');
@@ -419,7 +419,8 @@ describe('doctor --setup: what setup ends with', () => {
     expect(r.stdout).toBe(
       closing(
         `Reviewed: ${DEFAULT_COUNT - 1} send tools. Not reviewed: Jira work log notes (you declined them).\n` +
-          `Also reviewed: ${NOTE_TOOL} (a tool you added).`
+          `Also reviewed: ${NOTE_TOOL} (a tool you added).`,
+        `\nFor ${NOTE_TOOL}:\n${OTHER_TOOL_FORMAT}`
       )
     );
   });

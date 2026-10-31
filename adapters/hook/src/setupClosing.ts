@@ -6,6 +6,12 @@
  * count and name comes from the merged map, `tools.json`'s declines and the tools the extra-tools
  * entry covers.
  *
+ * With a tool the person added, it ends with what that tool is handed and the guide's link
+ * (`OTHER_TOOL_FORMAT`, what `--format` prints). Setup shows `--format`'s output before the person
+ * picks a tool, but an agent can leave a command's output collapsed; the closing is the text setup
+ * always shows, so the link reaches the person here even then. A route whose body the review
+ * keeps as plain text (`reviewPlan`) is handed it unconverted, so the note never names one.
+ *
  * Pure, like `doctorReport`: facts in, text out.
  */
 
@@ -13,8 +19,9 @@ import { profiles } from '../../../core/src/index';
 import { REMEDY, typed } from '../../../core/src/remedies';
 import { USER_COMMANDS } from '../../../cli/src/args';
 import { AUDIT_ENV } from '../../../cli/src/audit';
+import { blockFieldOf, reviewPlan } from '../../../cli/src/reviewPlan';
 import { commandTable, either, oneLine } from '../../../cli/src/text';
-import { CHOICE_GROUPS } from './reconcile';
+import { CHOICE_GROUPS, OTHER_TOOL_FORMAT } from './reconcile';
 import type { ToolMap } from './toolMap';
 
 export interface ClosingFacts {
@@ -96,5 +103,15 @@ export function setupClosing(facts: ClosingFacts): string {
     `when Claude Code starts in that folder: run ${typed(REMEDY.pluginSetup)} there for those, and again`,
     'after adding a connector.'
   );
-  return lines.join('\n') + '\n';
+  const text = lines.join('\n') + '\n';
+  // The tools the format note is true of: every one whose body the review converts. The plan decides
+  // markdown or text, as it does for the review itself.
+  const converts = (tool: string) => {
+    const route = facts.map[tool];
+    return route !== undefined && blockFieldOf(reviewPlan(route.destination, route))?.kind === 'markdown';
+  };
+  const converted = facts.ownTools.filter(converts).map(oneLine);
+  if (converted.length === 0) return text;
+  const which = converted.length === 1 ? converted[0] : `each of ${converted.join(', ')}`;
+  return `${text}\nFor ${which}:\n${OTHER_TOOL_FORMAT}`;
 }
