@@ -52,6 +52,7 @@ import {
   inspectRegistration,
   classifyEntry,
   parseSettings,
+  firesBesidePlugin,
   settingsPaths,
   settingsObject,
   settingsSources,
@@ -994,10 +995,11 @@ async function writeToolsAnswer(o: {
     // The link entry is old when there is none to write, or when it fires beside the plugin's hook
     // for one tool (a half it names that the plugin infers): two windows per send, which only
     // `register` narrows. A version folder's is old either way.
-    const userSettings = resolve(userSettingsPath(process.env, homedir));
-    const firesTwice = report.firesTwice.some((h) => resolve(h.source) === userSettings);
+    const twice =
+      root !== null &&
+      firesBesidePlugin(report.firesTwice, join(root, PLUGIN_HOOKS_IN_ROOT), userSettingsPath(process.env, homedir));
     const replaced = (await replacedByRegister(registered.block)).filter(
-      (hook) => registered.block === null || firesTwice || hook !== join(registered.link, HOOK_IN_REPO)
+      (hook) => registered.block === null || twice || hook !== join(registered.link, HOOK_IN_REPO)
     );
     if (replaced.length > 0) {
       lines.push(

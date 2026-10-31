@@ -11,7 +11,9 @@
 import { toolAudienceProbed } from '../../../core/src/index';
 import type { DestinationName } from '../../../core/src/index';
 import { oneLine } from '../../../cli/src/text';
-import type { RegisteredHook, RegistrationReport } from './registration';
+import { join } from 'node:path';
+import { firesBesidePlugin, type RegisteredHook, type RegistrationReport } from './registration';
+import { PLUGIN_HOOKS_IN_ROOT } from './pluginHooks';
 import { matcherCovers, restates, shadowLine } from './toolMap';
 import { asSeconds, clampRemedy, type Deadline } from './reviewTimeout';
 import type { Shadow, ToolMap } from './toolMap';
@@ -393,8 +395,8 @@ export function doctorReport(input: DoctorInput): { text: string; ok: boolean } 
       lines.push('    either decides the call: two review windows on screen for one send, and the one');
       // From the plugin, beside it only the entry `register` writes: setup rewrites that one to
       // cover just the tools the plugin cannot match. The plugin's own cannot be removed.
-      const userSettings = input.plugin?.userSettings;
-      if (fromPlugin && report.firesTwice.filter((h) => h.source !== userSettings).length <= 1) {
+      const { plugin } = input;
+      if (plugin?.root != null && firesBesidePlugin(report.firesTwice, join(plugin.root, PLUGIN_HOOKS_IN_ROOT), plugin.userSettings)) {
         lines.push(`    you ignore can veto the one you used. Run ${REMEDY.pluginSetup} in Claude Code: it`);
         lines.push("    narrows draftgate's entry in your user settings to the tools the plugin cannot match.");
       } else {

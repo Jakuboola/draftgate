@@ -369,6 +369,21 @@ export function firesTwiceOf(ours: readonly RegisteredHook[], gated: readonly st
   return ours.filter((a) => ours.some((b) => b !== a && overlap(a.matcher, b.matcher)));
 }
 
+/**
+ * Whether the only entries firing twice are the plugin's own and the user settings' (the extra-tools
+ * entry `register` writes): then `register`, which rewrites only that file, narrows it and the
+ * second window goes. A duplicate anywhere else is not its to mend. Paths compared resolved.
+ */
+export function firesBesidePlugin(
+  firesTwice: readonly RegisteredHook[],
+  pluginHooksPath: string,
+  userSettings: string
+): boolean {
+  const [plugin, user] = [resolve(pluginHooksPath), resolve(userSettings)];
+  const sources = firesTwice.map((h) => resolve(h.source));
+  return sources.includes(plugin) && sources.includes(user) && sources.every((s) => s === plugin || s === user);
+}
+
 export interface RegistrationReport {
   /** Files looked at, in the order read. `problem` is set for one that exists and did not parse. */
   scanned: { path: string; present: boolean; problem?: string }[];

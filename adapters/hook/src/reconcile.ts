@@ -209,8 +209,9 @@ export const UNANSWERED = 'the answer leaves these unanswered';
 
 /**
  * The `declined` list after a setup answer, or a refusal. `chosen` (`--decline`) and `reviewed`
- * (`--review`) are the full answer for the halves shown; a half declined earlier and not shown (its
- * connector not loaded here) stays declined.
+ * (`--review`) are the full answer for the halves shown: every heading's, so a decline of one is
+ * answered whether or not its connector is loaded here. A half declined earlier and not shown (one
+ * only `tools.json` routes, with no given name carrying it, or one nothing routes) stays declined.
  *
  * An answer names every half shown, each once (`--review-all` names them all): a question whose
  * answer never came back would otherwise be read as one, declining what the person never declined
@@ -384,9 +385,10 @@ export function describeReconciliation(
   lines.push('');
   // What is reviewed comes from the map and the registered matchers, never from these names; saying
   // otherwise would have setup pass every name it has.
-  lines.push('  CHOOSE lists every tool draftgate knows. The other lists compare only the names it was');
-  lines.push('  GIVEN: a connector not loaded in that session is missing from them, but what is reviewed');
-  lines.push('  does not depend on the names given here.');
+  lines.push('  CHOOSE lists every tool draftgate reviews by default, and a tool added to tools.json when');
+  lines.push('  a name given carries it. The other lists compare only the names it was GIVEN: a connector');
+  lines.push('  not loaded in that session is missing from them, but what is reviewed does not depend on');
+  lines.push('  the names given here.');
   return lines.join('\n') + '\n';
 }
 

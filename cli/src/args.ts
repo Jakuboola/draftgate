@@ -400,8 +400,7 @@ tool names with them. ${SETUP} runs it.
                         review a tool draftgate does not know, of a server you added (not a
                         claude.ai connector or a plugin's), its message read from <field>.
                         <destination> is one of: ${Object.keys(profiles).join(', ')}. The tool must
-                        take what draftgate hands it: for jira, an ADF document as a JSON string
-                        with contentFormat "adf"; markdown for the rest. Then run ${SETUP} again
+                        take what draftgate hands it, which --format prints. Then run ${SETUP} again
   --format              print what a tool added with --add is handed, and how to build one
 `,
 

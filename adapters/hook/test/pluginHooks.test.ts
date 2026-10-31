@@ -35,7 +35,7 @@ import { PLUGIN_REVIEW_CEILING_MS } from '../src/reviewTimeout';
 import { checkoutBlock } from './checkoutEntry';
 import { assembledRoot as assemble } from './pluginRoot';
 import { BUN_PLACES, FIND_BUN, PLUGIN_FAIL_CLOSED_SCRIPT, commandTokens, readCommand, shQuote } from '../src/hookCommand';
-import { inspectRegistration, type SettingsRead } from '../src/registration';
+import { firesBesidePlugin, inspectRegistration, type SettingsRead } from '../src/registration';
 import { reviewDeadline } from '../src/reviewTimeout';
 import { DEFAULT_TOOL_MAP, matcherFor, mergeToolConfig, toolHalvesOf, type ToolMap } from '../src/toolMap';
 import { HOOK_IN_REPO, PLUGIN_LINK_BASENAME, SETUP_NAMES_BASENAME } from '../../../cli/src/hookModes';
@@ -594,6 +594,17 @@ describe('the extra-tools entry, read back beside the plugin\'s', () => {
     }
   });
 
+  test('only a duplicate of the plugin\'s and the user settings\' entries is register\'s to narrow', () => {
+    const at = (source: string) => ({ source, matcher: 'm', failClosed: true });
+    const [plugin, user, project] = [at(pluginHooksPath), at(settingsPath), at('/project/.claude/settings.json')];
+    expect(firesBesidePlugin([plugin, user], pluginHooksPath, settingsPath)).toBe(true);
+    // The same file, spelled unresolved.
+    expect(firesBesidePlugin([plugin, at('/home/.claude/../.claude/settings.json')], pluginHooksPath, settingsPath)).toBe(true);
+    for (const twice of [[user, project], [plugin, project], [plugin, user, project], [], [user]]) {
+      expect(firesBesidePlugin(twice, pluginHooksPath, settingsPath), twice.map((h) => h.source).join(' ')).toBe(false);
+    }
+  });
+
   test('an entry beside the plugin that covers the plugin\'s tools too fires twice', () => {
     const wide = { ...extraToolsBlock(withNote, root, PLUGIN_HOOK_TIMEOUT_S)!, matcher: matcherFor(withNote) };
     const report = inspect(settings(wide));
@@ -838,7 +849,7 @@ describe('setup\'s commands, through bin/draftgate', () => {
     expect(skill).not.toContain('contentFormat');
   });
 
-  test('what a tool added with --add is handed, as --format prints it and --add\'s help says it', () => {
+  test('what a tool added with --add is handed, as --format prints it, the one copy', () => {
     const m = machine('propose-format');
     const r = m.draftgate('propose-tools', '--format');
     expect(r.status).toBe(0);
@@ -852,14 +863,14 @@ describe('setup\'s commands, through bin/draftgate', () => {
         'How to build one that does: https://github.com/Jakuboola/draftgate/blob/main/docs/gating-your-own-sends.md\n'
     );
     // Held to the profiles: each extra field one sets on approve, and markdown for the rest, by name.
-    const help = COMMAND_HELP['propose-tools'].replace(/\s+/g, ' ');
     const said = r.stdout.replace(/\s+/g, ' ');
-    for (const text of [said, help]) {
-      for (const p of Object.values(profiles)) {
-        for (const [key, value] of Object.entries(p.extraToolInput)) expect(text).toContain(`${key} "${value}"`);
-      }
-      expect(text).toMatch(/markdown/);
+    for (const p of Object.values(profiles)) {
+      for (const [key, value] of Object.entries(p.extraToolInput)) expect(said).toContain(`${key} "${value}"`);
     }
+    // One copy: --add's help points here rather than saying it again.
+    const help = COMMAND_HELP['propose-tools'].replace(/\s+/g, ' ');
+    expect(help).toContain('which --format prints');
+    expect(help).not.toContain('contentFormat');
     const plain = Object.values(profiles).filter((p) => Object.keys(p.extraToolInput).length === 0);
     expect(said).toContain(`for ${plain.slice(0, -1).map((p) => p.displayName).join(', ')} and ${plain.at(-1)!.displayName} markdown`);
     // The link is to a guide this repository has.

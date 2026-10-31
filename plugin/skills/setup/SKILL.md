@@ -36,7 +36,8 @@ Steps:
        draftgate propose-tools <name> <name> ...
 
    A name left out changes nothing about what is reviewed. The list I choose from below holds every
-   tool draftgate knows either way: the names add only the "SAME TOOL, different server" section.
+   tool draftgate reviews by default either way; a name adds the "SAME TOOL, different server"
+   section, and a tool added to tools.json only when a name carries it.
 
 2. Ask me ONE question, with two options in this order: "Review everything (recommended)" and
    "Let me choose". Use AskUserQuestion if you have it, otherwise ask in plain text and wait.

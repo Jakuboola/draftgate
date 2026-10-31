@@ -174,6 +174,9 @@ describe('doctorReport', () => {
     expect(ok).toBe(false);
     expect(text).toContain('registered 2 times');
     expect(text).not.toContain('Nothing to register');
+    // Neither is the plugin's, so setup cannot narrow one: whoever wrote them takes one out.
+    expect(text).toContain('Remove all but one.');
+    expect(text).not.toContain('narrows draftgate');
   });
 
   // A decline is the operator's recorded choice, so it is a FACT and never moves the exit.

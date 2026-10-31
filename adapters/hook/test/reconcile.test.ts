@@ -138,11 +138,11 @@ describe('what the report says', () => {
     const text = describeReconciliation(
       reconcileTools(['mcp__atlassian__save_comment'], map), Object.keys(map).length, {}, 't.json'
     );
-    expect(text).toContain('CHOOSE lists every tool draftgate knows.');
-    expect(text).toContain('compare only the names it was\n  GIVEN');
+    expect(text).toContain('CHOOSE lists every tool draftgate reviews by default');
+    expect(text).toContain('compare only the names it was GIVEN');
     expect(text).toContain('missing from them');
     // ...and only from them: the names given never decide what is reviewed.
-    expect(text).toContain('does not depend on the names given here');
+    expect(text).toContain('does not depend on\n  the names given here');
     expect(text).not.toContain('will not be gated');
   });
 
