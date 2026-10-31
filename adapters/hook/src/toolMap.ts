@@ -220,7 +220,7 @@ export const DEFAULT_TOOL_MAP: ToolMap = disclosingEverything({
   },
 
   /*
-   * GitHub's seven write tools, read off the live `Github_MCP` schemas. Every one spells the body
+   * GitHub's eight write tools, read off the live `Github_MCP` schemas. Every one spells the body
    * `body`. `issue_number` and `pullNumber` are in the profile's default list, so each route adds
    * only what is particular to it.
    *
@@ -232,7 +232,8 @@ export const DEFAULT_TOOL_MAP: ToolMap = disclosingEverything({
    *     `update_pull_request` can change only `state` or `base`.
    *   - `pull_request_review_write`'s `resolve_thread`, `unresolve_thread` and `delete_pending`
    *     carry only a `threadId`.
-   * `add_comment_to_pending_review` has no flag: its schema makes `body` required.
+   * `add_comment_to_pending_review` and `update_issue_comment` have no flag: their schemas make
+   * `body` required.
    *
    * A title with no body is reviewed, not allowed: `plausibleProseField` excludes the route's own
    * `proseFields`, so the review runs with the title and no draft. Without that exclusion the title
@@ -245,6 +246,13 @@ export const DEFAULT_TOOL_MAP: ToolMap = disclosingEverything({
     // `comment_id` makes a reaction one to a comment rather than the issue; `reaction` is what is
     // sent when there is no body.
     contextFields: ['comment_id', 'reaction'],
+    schemaOwner: 'connector',
+  },
+  // Rewrites an existing issue or pull request conversation comment: `body` is required with
+  // `minLength: 1`, and `comment_id` is the comment whose text it replaces.
+  mcp__claude_ai_Github_MCP__update_issue_comment: {
+    destination: 'github',
+    contextFields: ['comment_id'],
     schemaOwner: 'connector',
   },
   mcp__claude_ai_Github_MCP__issue_write: {

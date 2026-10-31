@@ -379,9 +379,10 @@ settings. It takes no options.
 draftgate propose-tools --known
 draftgate propose-tools --drop <tool name>...
 draftgate propose-tools --add <tool name> <destination> <field>
+draftgate propose-tools --format
 
-Compare a session's MCP tool names with the tools draftgate reviews, and list the ones you can
-choose not to review. ${SETUP} runs it.
+List every tool draftgate reviews, to choose which to keep reviewing, and compare a session's MCP
+tool names with them. ${SETUP} runs it.
 
   --known               list the short tool names draftgate knows. A name that does not end in
                         one of them changes nothing here
@@ -396,11 +397,12 @@ choose not to review. ${SETUP} runs it.
   --drop <tool name>... take these entries out of ~/.draftgate/tools.json, so draftgate's own entry
                         for the tool applies. Only an entry for one of draftgate's own tools
   --add <tool name> <destination> <field>
-                        review a tool of a server you set up yourself (not a claude.ai connector
-                        or a plugin's), its message read from <field>. <destination> is one of:
-                        ${Object.keys(profiles).join(', ')}. The tool must take what draftgate hands
-                        it: for jira, an ADF document as a JSON string with contentFormat "adf";
-                        markdown for the rest. Then run ${SETUP} again
+                        review a tool draftgate does not know, of a server you added (not a
+                        claude.ai connector or a plugin's), its message read from <field>.
+                        <destination> is one of: ${Object.keys(profiles).join(', ')}. The tool must
+                        take what draftgate hands it: for jira, an ADF document as a JSON string
+                        with contentFormat "adf"; markdown for the rest. Then run ${SETUP} again
+  --format              print what a tool added with --add is handed, and how to build one
 `,
 
   review: `draftgate review --dest <name> --in <path> [options]

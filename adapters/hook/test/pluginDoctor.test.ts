@@ -20,6 +20,7 @@ import { OLD_ENTRY, PLUGIN_HOOK_TIMEOUT_S } from '../src/main';
 import { checkoutBlock } from './checkoutEntry';
 import { PLUGIN_LAUNCHER_IN_ROOT, PLUGIN_ROOT_REF, extraToolsBlock } from '../src/pluginHooks';
 import { DEFAULT_TOOL_MAP } from '../src/toolMap';
+import { CHOICE_GROUPS } from '../src/reconcile';
 
 const REPO = join(import.meta.dir, '../../..');
 const dir = realpathSync(mkdtempSync(join(tmpdir(), 'draftgate-plugindoctor-')));
@@ -27,6 +28,14 @@ afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
 const NOTE_TOOL = 'mcp__notes__post_internal_note';
 const SESSION = ['mcp__claude_ai_Slack__slack_send_message', NOTE_TOOL];
+/**
+ * A whole answer declining `declined`: every heading's tools, whatever the names, plus the note
+ * tool, a half only `tools.json` routes that `SESSION` carries.
+ */
+const declining = (...declined: string[]) => [
+  '--review', ...[...CHOICE_GROUPS.flatMap((g) => g.halves), 'post_internal_note'].filter((h) => !declined.includes(h)),
+  '--decline', ...declined,
+];
 const withNote = { ...DEFAULT_TOOL_MAP, [NOTE_TOOL]: DEFAULT_TOOL_MAP['mcp__claude_ai_Atlassian_Rovo__addCommentToJiraIssue']! };
 
 /** A plugin version folder: `plugin/`'s files and a copy of the runtime, with a window when asked. */
@@ -252,7 +261,7 @@ describe('doctor, from the plugin: what it advises', () => {
     expect(m.draftgate('propose-tools', ...SESSION, '--review-all', '--write').stdout).not.toContain(OLD_ENTRY);
   });
 
-  test("beside the entry for your own tools, only the other install's is an old entry", () => {
+  test("beside the entry for tools you added, only the other install's is an old entry", () => {
     const m = withTool('leftover-and-own');
     expect(m.draftgate('register').status).toBe(0);
     const settings = m.readSettings();
@@ -272,13 +281,13 @@ describe('doctor, from the plugin: what it advises', () => {
     expect(m.draftgate('register').status).toBe(0);
 
     // The tool declined: the entry written for it covers nothing anyone wants, and register drops it.
-    const declined = m.draftgate('propose-tools', ...SESSION, '--review', 'slack_send_message', '--decline', 'post_internal_note', '--write').stdout;
+    const declined = m.draftgate('propose-tools', ...SESSION, ...declining('post_internal_note'), '--write').stdout;
     expect(declined).toContain(`${OLD_ENTRY}, which runs:\n  ${join(m.link, HOOK_IN_REPO)}\n`);
     expect(m.draftgate('register').stdout).toContain('is not needed and was removed');
     expect(lstatSync(m.link, { throwIfNoEntry: false })).toBeUndefined();
   });
 
-  test('the entry for your own tools, its link at another version, is named, and setup points it here', () => {
+  test('the entry for tools you added, its link at another version, is named, and setup points it here', () => {
     const m = withTool('stale');
     const old = pluginRoot('stale-old-version');
     const fromOld = spawnSync(join(old, PLUGIN_LAUNCHER_IN_ROOT), ['register'], { encoding: 'utf8', env: m.env, cwd: m.project });
@@ -287,7 +296,7 @@ describe('doctor, from the plugin: what it advises', () => {
     const r = m.draftgate('doctor');
     expect(r.status).toBe(1);
     expect(r.stdout).toContain(
-      `NOTE: the entry for your own tools in ${m.settings} runs the plugin through ${m.link},\n` +
+      `NOTE: the entry for the tools you added in ${m.settings} runs the plugin through ${m.link},\n` +
         `    which points at ${old}, not this plugin version.\n    \`/draftgate:setup\` points it at this one`
     );
     expect(r.stdout).toContain(`      ${NOTE_TOOL}\n    Run \`/draftgate:setup\``);
@@ -382,9 +391,10 @@ describe('doctor --setup: what setup ends with', () => {
       '  draftgate doctor   check the gate is working',
       '  draftgate help     the command list',
       '',
-      'Setup saw only the connectors loaded in this session. A server added for one project (its',
-      '.mcp.json, or claude mcp add there) loads only when Claude Code starts in that folder: run',
-      '/draftgate:setup there for those, and again after adding a connector.',
+      'Setup looked for other tools that send messages only in the connectors loaded in this',
+      'session. A server added for one project (its .mcp.json, or claude mcp add there) loads only',
+      'when Claude Code starts in that folder: run /draftgate:setup there for those, and again',
+      'after adding a connector.',
       '',
     ].join('\n');
   /** A machine whose reviews write the log, as a user's do: the harness turns it off by default. */
@@ -393,12 +403,12 @@ describe('doctor --setup: what setup ends with', () => {
     return m;
   };
 
-  test("setup's answers reach the closing: a declined group, a decline of nothing, a tool of your own", () => {
+  test("setup's answers reach the closing: a declined group, a decline of nothing, a tool added", () => {
     // The wording of each line is `setupClosing.test.ts`'s; this is the wiring from the files setup
     // writes. A decline that routes nothing is no choice, so the closing does not name it.
     const m = logging(withTool('closing-answers'));
     const session = ['mcp__claude_ai_Atlassian_Rovo__addWorklogToJiraIssue', ...SESSION];
-    const answer = ['--review', 'post_internal_note', 'slack_send_message', '--decline', 'addWorklogToJiraIssue', '--write'];
+    const answer = [...declining('addWorklogToJiraIssue'), '--write'];
     expect(m.draftgate('propose-tools', ...session, ...answer).status).toBe(0);
     const tools = JSON.parse(readFileSync(join(m.env.DRAFTGATE_HOME!, 'tools.json'), 'utf8'));
     m.tools({ ...tools, declined: [...tools.declined, 'slack_send_mesage'] });
@@ -409,12 +419,12 @@ describe('doctor --setup: what setup ends with', () => {
     expect(r.stdout).toBe(
       closing(
         `Reviewed: ${DEFAULT_COUNT - 1} send tools. Not reviewed: Jira work log notes (you declined them).\n` +
-          `Also reviewed: ${NOTE_TOOL} (your own tool).`
+          `Also reviewed: ${NOTE_TOOL} (a tool you added).`
       )
     );
   });
 
-  test('an entry for your own tools that does not follow the plugin: a problem, so no closing', () => {
+  test('an entry for tools you added that does not follow the plugin: a problem, so no closing', () => {
     // As step 4's "Leave it" keeps it: covered now, gone after the next update. Plain doctor notes it.
     const m = logging(withTool('closing-folder'));
     m.writeSettings({ ...m.readSettings(), hooks: { PreToolUse: [extraToolsBlock(withNote, m.root, PLUGIN_HOOK_TIMEOUT_S)!] } });
@@ -422,8 +432,8 @@ describe('doctor --setup: what setup ends with', () => {
     const r = m.draftgate('doctor', '--setup');
     expect(r.status).toBe(1);
     expect(r.stdout).not.toContain('draftgate is set up.');
-    expect(r.stdout).toContain(`  PROBLEM: the entry for your own tools in ${m.settings} names one plugin version's folder,`);
-    expect(r.stdout).toContain('1 problem(s): the entry for your own tools does not follow the plugin.');
+    expect(r.stdout).toContain(`  PROBLEM: the entry for the tools you added in ${m.settings} names one plugin version's folder,`);
+    expect(r.stdout).toContain('1 problem(s): the entry for the tools you added does not follow the plugin.');
   });
 
   test('a problem: no closing, the report that names it, and exit 1', () => {
@@ -446,7 +456,7 @@ describe('doctor --setup: what setup ends with', () => {
   });
 });
 
-describe('an entry for your own tools that names a version folder', () => {
+describe('an entry for tools you added that names a version folder', () => {
   /** The entry as `register` wrote it naming `root` itself, with this machine's tool in tools.json. */
   const named = (name: string, root: (m: ReturnType<typeof machine>) => string) => {
     const m = withTool(name);
@@ -459,7 +469,7 @@ describe('an entry for your own tools that names a version folder', () => {
     const r = m.draftgate('doctor');
     expect(r.status).toBe(0);
     expect(r.stdout).toContain(
-      `NOTE: the entry for your own tools in ${m.settings} names one plugin version's folder,\n` +
+      `NOTE: the entry for the tools you added in ${m.settings} names one plugin version's folder,\n` +
         `    ${m.root}, so it does not follow draftgate's updates.\n    \`/draftgate:setup\` points it at this one`
     );
     // Covered, so nothing is offered; named as an entry register replaces, so setup asks.
@@ -473,7 +483,7 @@ describe('an entry for your own tools that names a version folder', () => {
     expect(readlinkSync(m.link)).toBe(m.root);
     const after = m.draftgate('doctor').stdout;
     expect(after).toContain('No problems found.');
-    expect(after).not.toContain('NOTE: the entry for your own tools');
+    expect(after).not.toContain('NOTE: the entry for the tools you added');
     expect(m.draftgate('propose-tools', ...SESSION, '--review-all', '--write').stdout).not.toContain(OLD_ENTRY);
   });
 
@@ -486,7 +496,7 @@ describe('an entry for your own tools that names a version folder', () => {
   });
 });
 
-describe('the entry for your own tools follows a plugin update', () => {
+describe('the entry for tools you added follows a plugin update', () => {
   test('a new session points it at the new version, which reviews, with the old folder removed', () => {
     const m = withTool('follow');
     expect(m.draftgate('register').status).toBe(0);
@@ -544,7 +554,7 @@ describe('doctor, from a checkout, beside an enabled plugin', () => {
 });
 
 describe('uninstall and version, from the plugin', () => {
-  test('the entry for your own tools goes; the plugin is named, still reviewing, with its uninstall', () => {
+  test('the entry for tools you added goes; the plugin is named, still reviewing, with its uninstall', () => {
     const m = withTool('uninstall');
     expect(m.draftgate('register').status).toBe(0);
     expect(m.readSettings().hooks.PreToolUse).toHaveLength(1);

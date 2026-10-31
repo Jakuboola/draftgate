@@ -28,7 +28,7 @@ describe('the declines, in plain words', () => {
   });
 
   test('groups in the order setup asks them, then single tools', () => {
-    const declined = ['add_issue_comment', 'addWorklogToJiraIssue', 'issue_write', 'post_note', 'save_issue'];
+    const declined = ['add_issue_comment', 'addWorklogToJiraIssue', 'issue_write', 'post_note', 'save_issue', 'update_issue_comment'];
     expect(declinedNames(declined).names).toEqual([
       'Jira work log notes',
       'Linear new and edited issues',
@@ -44,33 +44,37 @@ describe('the declines, in plain words', () => {
 });
 
 describe('the closing', () => {
+  const ALL = Object.keys(DEFAULT_TOOL_MAP).length;
+
   test('nothing declined', () => {
-    expect(reviewedLine(setupClosing(facts))).toBe('Reviewed: 18 send tools. Not reviewed: none you declined.');
+    expect(reviewedLine(setupClosing(facts))).toBe(`Reviewed: ${ALL} send tools. Not reviewed: none you declined.`);
   });
 
   test('one tool is "it", a group or several are "them"', () => {
     expect(reviewedLine(setupClosing({ ...facts, declined: ['createJiraIssue'] }))).toBe(
-      'Reviewed: 18 send tools. Not reviewed: createJiraIssue (you declined it).'
+      `Reviewed: ${ALL} send tools. Not reviewed: createJiraIssue (you declined it).`
     );
     expect(reviewedLine(setupClosing({ ...facts, declined: ['addWorklogToJiraIssue', 'save_customer_need'] }))).toBe(
-      'Reviewed: 18 send tools. Not reviewed: Jira work log notes; Linear customer requests (you declined them).'
+      `Reviewed: ${ALL} send tools. Not reviewed: Jira work log notes; Linear customer requests (you declined them).`
     );
   });
 
-  test('one reviewed tool is singular, and so is one tool of your own, which it does not count', () => {
+  test('one reviewed tool is singular, and so is one tool the person added, which it does not count', () => {
     const text = setupClosing({
       ...facts,
       map: { mcp__a__addCommentToJiraIssue: JIRA_ROUTE, mcp__notes__post_note: JIRA_ROUTE },
       ownTools: ['mcp__notes__post_note'],
     });
     expect(text).toContain('\nReviewed: 1 send tool. ');
-    expect(text).toContain('\nAlso reviewed: mcp__notes__post_note (your own tool).\n');
+    expect(text).toContain('\nAlso reviewed: mcp__notes__post_note (a tool you added).\n');
   });
 
-  test('several tools of your own share the line', () => {
+  test('several tools added share the line', () => {
     const text = setupClosing({ ...facts, map: withOwn('mcp__a__one', 'mcp__b__two'), ownTools: ['mcp__a__one', 'mcp__b__two'] });
-    expect(text).toContain('\nReviewed: 18 send tools. ');
-    expect(text).toContain('\nAlso reviewed: mcp__a__one, mcp__b__two (your own tools).\n');
+    expect(text).toContain(`\nReviewed: ${ALL} send tools. `);
+    expect(text).toContain('\nAlso reviewed: mcp__a__one, mcp__b__two (tools you added).\n');
+    // Setup cannot tell who built a server, so a vendor's tool added there is never called the person's own.
+    expect(text).not.toMatch(/your own/);
   });
 
   test('a destination with nothing left to review is not promised a window', () => {
@@ -82,7 +86,7 @@ describe('the closing', () => {
     expect(nothing).not.toContain('a window shows the message');
   });
 
-  test('no tool of your own, no line for them', () => {
+  test('no tool added, no line for them', () => {
     expect(setupClosing(facts)).not.toContain('Also reviewed');
   });
 

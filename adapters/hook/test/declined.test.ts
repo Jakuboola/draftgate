@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 
 const HOOK_SELF = fileURLToPath(new URL('../src/main.ts', import.meta.url));
 import {
-  UNANSWERED, declinedAfter, describeReconciliation, proposalsFor, proposedToolsJson, reconcileTools,
+  CHOICE_GROUPS, UNANSWERED, declinedAfter, describeReconciliation, proposalsFor, proposedToolsJson, reconcileTools,
 } from '../src/reconcile';
 import {
   DEFAULT_TOOL_MAP,
@@ -34,6 +34,9 @@ const SLACK = 'mcp__claude_ai_Slack__slack_send_message';
 const SLACK_ALIAS = 'mcp__slack__slack_send_message';
 const JIRA = 'mcp__claude_ai_Atlassian_Rovo__addCommentToJiraIssue';
 const LINEAR = 'mcp__claude_ai_Linear__save_comment';
+
+/** Every heading's tool halves but `named`: the rest of a whole answer. */
+const othersThan = (...named: string[]) => CHOICE_GROUPS.flatMap((g) => g.halves).filter((h) => !named.includes(h));
 
 const declining = (...halves: string[]) =>
   mergeToolConfig(DEFAULT_TOOL_MAP, { declined: halves }, 'tools.json');
@@ -189,13 +192,16 @@ describe('reconcile: the checklist and the answer', () => {
     expect(describeReconciliation(r, 1, {}, '/t.json')).toContain('[ ] slack_send_message');
   });
 
-  test('the answer is WHOLE for what was shown, and leaves what was not', () => {
-    const { map, declined, declinedRoutes } = declining('slack_send_message', 'save_comment');
-    // This session has no Linear connector, so `save_comment` was never on the checklist.
+  test('every heading is shown, a connector this session lacks included, and the answer is WHOLE', () => {
+    // `retired_tool` is a decline no heading shows: no route uses it, so the answer leaves it.
+    const { map, declined, declinedRoutes } = declining('slack_send_message', 'save_comment', 'retired_tool');
+    // This session has no Linear connector, so `save_comment` reaches the checklist through its heading.
     const r = reconcileTools([SLACK, JIRA], map, { declined, declinedRoutes, shadows: [] });
-    expect(declinedAfter(r, declined, [], ['addCommentToJiraIssue', 'slack_send_message'])).toEqual({ declined: ['save_comment'] });
-    expect(declinedAfter(r, declined, ['addCommentToJiraIssue'], ['slack_send_message'])).toEqual({
-      declined: ['addCommentToJiraIssue', 'save_comment'],
+    const linear = r.halves.find((h) => h.half === 'save_comment');
+    expect(linear).toEqual({ half: 'save_comment', destination: 'linear', group: 'Linear: comments', connectors: 0, declined: true });
+    expect(declinedAfter(r, declined, [], othersThan())).toEqual({ declined: ['retired_tool'] });
+    expect(declinedAfter(r, declined, ['addCommentToJiraIssue', 'save_comment'], othersThan('addCommentToJiraIssue', 'save_comment'))).toEqual({
+      declined: ['addCommentToJiraIssue', 'retired_tool', 'save_comment'],
     });
   });
 
@@ -218,18 +224,18 @@ describe('reconcile: the checklist and the answer', () => {
       expect(after, `${chosen} / ${reviewed}`).toHaveProperty('error');
       if (!('error' in after)) continue;
       // It names what is open, under the heading setup asks about it by.
-      expect(after.error).toContain('  Slack: messages, sent now or scheduled: slack_send_message\n');
-      if (!reviewed.includes('save_comment')) expect(after.error).toContain('  Linear: comments: save_comment\n');
+      expect(after.error).toContain('  Slack: messages, sent now or scheduled: slack_schedule_message slack_send_message\n');
+      expect(after.error).toContain(
+        reviewed.includes('save_comment') ? '  Linear: comments: save_diff_comment\n' : '  Linear: comments: save_comment save_diff_comment\n'
+      );
     }
     // Nothing named: no answer reached it, so Slack's earlier decline stands.
     expect(declinedAfter(r, declined, [], [])).toHaveProperty('error');
     // Answered whole, it is taken.
-    expect(declinedAfter(r, declined, ['addCommentToJiraIssue'], ['save_comment', 'slack_send_message'])).toEqual({
+    expect(declinedAfter(r, declined, ['addCommentToJiraIssue'], othersThan('addCommentToJiraIssue'))).toEqual({
       declined: ['addCommentToJiraIssue'],
     });
-    expect(declinedAfter(r, declined, [], ['addCommentToJiraIssue', 'save_comment', 'slack_send_message'])).toEqual({
-      declined: [],
-    });
+    expect(declinedAfter(r, declined, [], othersThan())).toEqual({ declined: [] });
   });
 
   test('setup asks which to review, one question per call, and asks again on the words the refusal uses', () => {
@@ -291,9 +297,10 @@ describe('--propose-tools --decline, through the real entry point', () => {
       writeFileSync(join(home, 'tools.json'), '{}');
       const run = (...args: string[]) =>
         spawnSync('bun', [HOOK_SELF, ...args], { env: { ...process.env, DRAFTGATE_HOME: home }, encoding: 'utf8' });
+      const reviewing = othersThan('slack_send_message');
       for (const args of [
-        ['--propose-tools', SLACK, JIRA, '--decline', 'slack_send_message', '--review', 'addCommentToJiraIssue'],
-        ['--review', 'addCommentToJiraIssue', '--decline', 'slack_send_message', '--propose-tools', SLACK, JIRA],
+        ['--propose-tools', SLACK, JIRA, '--decline', 'slack_send_message', '--review', ...reviewing],
+        ['--review', ...reviewing, '--decline', 'slack_send_message', '--propose-tools', SLACK, JIRA],
       ]) {
         const out = run(...args);
         expect(out.status, args.join(' ')).toBe(0);
@@ -330,8 +337,8 @@ describe('--propose-tools --decline, through the real entry point', () => {
         expect(r.status, answer.join(' ')).toBe(1);
         expect(r.stdout).toBe('');
         expect(r.stderr).toContain('the answer leaves these unanswered, so it was not taken:\n');
-        expect(r.stderr).toContain('  Linear: comments: save_comment\n');
-        expect(r.stderr).toContain('  GitHub: issues and issue comments: add_issue_comment\n');
+        expect(r.stderr).toContain('  Linear: comments: save_comment save_diff_comment\n');
+        expect(r.stderr).toContain('  GitHub: issues and issue comments: add_issue_comment issue_write update_issue_comment\n');
         expect(readFileSync(file, 'utf8')).toBe('{}');
       }
       const both = run('--propose-tools', ...names, '--review-all', '--decline', 'slack_send_message', '--write');
@@ -340,7 +347,7 @@ describe('--propose-tools --decline, through the real entry point', () => {
       expect(readFileSync(file, 'utf8')).toBe('{}');
       // The whole answer is written.
       const whole = run(
-        '--propose-tools', ...names, '--review', 'addCommentToJiraIssue', 'save_comment',
+        '--propose-tools', ...names, '--review', ...othersThan('slack_send_message', 'add_issue_comment'),
         '--decline', 'slack_send_message', 'add_issue_comment', '--write'
       );
       expect(whole.status).toBe(0);

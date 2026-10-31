@@ -26,8 +26,8 @@ import {
   pluginRootOf,
   uncoveredByPlugin,
 } from '../src/pluginHooks';
-import { PLUGIN_HOOK_TIMEOUT_S } from '../src/main';
-import { NOT_OWN_SERVERS } from '../src/reconcile';
+import { OLD_ENTRY, PLUGIN_HOOK_TIMEOUT_S } from '../src/main';
+import { CHOICE_GROUPS, NOT_OWN_SERVERS, OTHER_TOOLS_GUIDE, otherToolFormat } from '../src/reconcile';
 import { COMMAND_HELP } from '../../../cli/src/args';
 import { profiles } from '../../../core/src/index';
 import { SESSION_VAR } from '../src/setupNames';
@@ -669,10 +669,18 @@ describe('setup\'s commands, through bin/draftgate', () => {
     };
   };
   const SESSION = ['mcp__claude_ai_Slack__slack_send_message', 'mcp__claude_ai_Linear__save_customer_need', NOTE_TOOL];
+  /**
+   * A whole answer declining `declined`: the checklist holds every heading's tools whatever the
+   * names, plus `own`, the halves only `tools.json` routes that a given name carries.
+   */
+  const declining = (declined: string[], own: string[] = []) => [
+    '--review', ...[...CHOICE_GROUPS.flatMap((g) => g.halves), ...own].filter((h) => !declined.includes(h)),
+    '--decline', ...declined,
+  ];
 
   test('--write records the answer, and names nothing to add when the plugin covers every tool', () => {
     const m = machine('write-plain');
-    const r = m.draftgate('propose-tools', ...SESSION, '--review', 'slack_send_message', '--decline', 'save_customer_need', '--write');
+    const r = m.draftgate('propose-tools', ...SESSION, ...declining(['save_customer_need']), '--write');
     expect(r.status).toBe(0);
     expect(r.stdout).toContain(`wrote ${m.toolsFile} (1 tool(s) declined)`);
     expect(JSON.parse(readFileSync(m.toolsFile, 'utf8')).declined).toEqual(['save_customer_need']);
@@ -722,6 +730,38 @@ describe('setup\'s commands, through bin/draftgate', () => {
     expect(out.stdout).toContain(`Removed ${link}, `);
     expect(m.hooks()).toBeUndefined();
     expect(lstatSync(link, { throwIfNoEntry: false })).toBeUndefined();
+  });
+
+  test('an added tool draftgate comes to know: its entry fires twice until setup narrows it', () => {
+    // A tool added with --add whose half the default map routes too, under an entry whose matcher
+    // still names it: the plugin infers the half now, so each send through it opens two windows.
+    const ADDED = 'mcp__github__update_issue_comment';
+    const m = machine('known-later', {
+      [NOTE_TOOL]: 'jira',
+      [ADDED]: { destination: 'github', bodyField: 'body', contextFields: ['*'] },
+    });
+    expect(m.draftgate('register').status).toBe(0);
+    const narrow = m.hooks().PreToolUse;
+    expect(narrow[0].matcher).not.toContain('update_issue_comment');
+    const wide = { ...narrow[0], matcher: matcherFor({ [NOTE_TOOL]: withNote[NOTE_TOOL]!, [ADDED]: withNote[NOTE_TOOL]! }) };
+    const json = JSON.parse(readFileSync(m.settings, 'utf8'));
+    json.hooks.PreToolUse = [wide];
+    writeFileSync(m.settings, JSON.stringify(json, null, 2) + '\n');
+
+    const doctor = m.draftgate('doctor');
+    expect(doctor.status).toBe(1);
+    expect(doctor.stdout).toContain('registered 2 times');
+    // From the plugin, whose own entry nobody can take out, the way out is setup.
+    expect(doctor.stdout).toContain('one you used. Run `/draftgate:setup` in Claude Code: it\n');
+    expect(doctor.stdout).not.toContain('Remove all but one');
+    // Setup's answer names the entry for replacing, and register writes the narrow one back.
+    const write = m.inSession('session-a')('propose-tools', ...SESSION, '--review-all', '--write');
+    expect(write.stdout).toContain(OLD_ENTRY);
+    expect(m.draftgate('register').status).toBe(0);
+    expect(m.hooks().PreToolUse).toEqual(narrow);
+    const after = m.draftgate('doctor');
+    expect(after.status).toBe(0);
+    expect(after.stdout).not.toContain('registered 2 times');
   });
 
   test('an entry and a plugin file whose statusMessage differs from this one\'s are still draftgate\'s', () => {
@@ -780,30 +820,56 @@ describe('setup\'s commands, through bin/draftgate', () => {
     const write = m.inSession('session-a')('propose-tools', ...SESSION, '--review-all', '--write');
     expect(write.stdout).toContain(`draftgate can't watch these by default:\n  ${OWN}\n`);
     expect(m.draftgate('register').status).toBe(0);
-    expect(m.draftgate('doctor', '--setup').stdout).toContain(`Also reviewed: ${OWN} (your own tool).`);
+    expect(m.draftgate('doctor', '--setup').stdout).toContain(`Also reviewed: ${OWN} (a tool you added).`);
   });
 
-  test("setup offers only the servers --add takes, and links the guide that exists", () => {
+  test("setup offers only the servers --add takes, never calls their tools the person's own, and shows the caveat as printed", () => {
     const skill = readFileSync(join(REPO, 'plugin', 'skills', 'setup', 'SKILL.md'), 'utf8').replace(/\s+/g, ' ');
     for (const { prefix } of NOT_OWN_SERVERS) expect(skill).toContain(`\`${prefix}\``);
-    expect(skill).toContain('"Do you want draftgate to review any of your own tools?"');
+    expect(skill).toContain('"Do you want draftgate to review other tools that look like they send messages?"');
+    // Setup cannot tell a vendor's server from the person's: the words it gives never say whose.
+    expect(skill).not.toMatch(/your own|of my own|my own tools/);
     // The destinations it offers are the ones --add takes.
     const names = Object.values(profiles).map((p) => `"${p.displayName}"`);
     expect(skill).toContain(`options in this order: ${names.slice(0, -1).join(', ')} and ${names.at(-1)}.`);
-    // What a tool of your own receives, as setup and --add's help say it: each extra field a
-    // profile sets on approve, and markdown for the rest, named in the sentence.
+    // The caveat is a command's output, shown as printed: the skill holds no copy to paraphrase.
+    expect(skill).toContain('draftgate propose-tools --format and show me what it printed, exactly, in a code block');
+    expect(skill).not.toContain(OTHER_TOOLS_GUIDE);
+    expect(skill).not.toContain('contentFormat');
+  });
+
+  test('what a tool added with --add is handed, as --format prints it and --add\'s help says it', () => {
+    const m = machine('propose-format');
+    const r = m.draftgate('propose-tools', '--format');
+    expect(r.status).toBe(0);
+    expect(r.stderr).toBe('');
+    expect(r.stdout).toBe(otherToolFormat());
+    // Pinned: the words setup shows, with the link on its own line's end.
+    expect(r.stdout).toBe(
+      'draftgate hands the tool the message as you approved it, in the destination\'s format: for Jira an\n' +
+        'ADF document as a JSON string, with contentFormat "adf" beside it; for Slack, Linear and GitHub\n' +
+        'markdown. The tool has to take that as it is, or it sends something other than what you approved.\n' +
+        'How to build one that does: https://github.com/Jakuboola/draftgate/blob/main/docs/gating-your-own-sends.md\n'
+    );
+    // Held to the profiles: each extra field one sets on approve, and markdown for the rest, by name.
     const help = COMMAND_HELP['propose-tools'].replace(/\s+/g, ' ');
-    for (const text of [skill, help]) {
+    const said = r.stdout.replace(/\s+/g, ' ');
+    for (const text of [said, help]) {
       for (const p of Object.values(profiles)) {
         for (const [key, value] of Object.entries(p.extraToolInput)) expect(text).toContain(`${key} "${value}"`);
       }
       expect(text).toMatch(/markdown/);
     }
     const plain = Object.values(profiles).filter((p) => Object.keys(p.extraToolInput).length === 0);
-    expect(skill).toContain(`for ${plain.slice(0, -1).map((p) => p.displayName).join(', ')} and ${plain.at(-1)!.displayName} markdown`);
-    const guide = skill.match(/https:\/\/github\.com\/Jakuboola\/draftgate\/blob\/main\/([^\s"]+)/);
+    expect(said).toContain(`for ${plain.slice(0, -1).map((p) => p.displayName).join(', ')} and ${plain.at(-1)!.displayName} markdown`);
+    // The link is to a guide this repository has.
+    const guide = said.match(/https:\/\/github\.com\/Jakuboola\/draftgate\/blob\/main\/(\S+)/);
     expect(guide?.[1]).toBe('docs/gating-your-own-sends.md');
     expect(existsSync(join(REPO, guide![1]!))).toBe(true);
+    // It runs alone, like --known: beside an answer one of the two would be dropped.
+    const both = m.draftgate('propose-tools', '--format', '--known');
+    expect(both.status).toBe(1);
+    expect(both.stderr).toContain('--format takes nothing else');
   });
 
   test('propose-tools runs no other mode handed to it', () => {
@@ -834,7 +900,7 @@ describe('setup\'s commands, through bin/draftgate', () => {
     writeFileSync(real, '{}');
     mkdirSync(join(m.toolsFile, '..'), { recursive: true });
     symlinkSync(real, m.toolsFile);
-    const answer = ['--review', 'slack_send_message', '--decline', 'save_customer_need', '--write'];
+    const answer = [...declining(['save_customer_need']), '--write'];
     expect(m.draftgate('propose-tools', ...SESSION, ...answer).status).toBe(0);
     expect(lstatSync(m.toolsFile).isSymbolicLink()).toBe(true);
     expect(JSON.parse(readFileSync(real, 'utf8')).declined).toEqual(['save_customer_need']);
@@ -868,7 +934,7 @@ describe('setup\'s commands, through bin/draftgate', () => {
     expect(shown.stdout).toBe(twice.draftgate('propose-tools', ...names).stdout.replaceAll(twice.home, once.home));
     expect(statSync(once.keptFile).mode & 0o777).toBe(0o600);
 
-    const answer = ['--review', 'post_internal_note', 'save_issue', 'slack_send_message', '--decline', 'save_customer_need', '--write'];
+    const answer = [...declining(['save_customer_need'], ['post_internal_note']), '--write'];
     const written = run('propose-tools', ...answer);
     expect(written.status).toBe(0);
     expect(written.stdout).toBe(twice.draftgate('propose-tools', ...names, ...answer).stdout.replaceAll(twice.home, once.home));
@@ -912,7 +978,7 @@ describe('setup\'s commands, through bin/draftgate', () => {
     const names = ['mcp__dummy__slack_send_message', ...SESSION];
     expect(run('propose-tools', ...names).status).toBe(0);
     const kept = readFileSync(m.keptFile, 'utf8');
-    for (const preview of [[], ['--review-all'], ['--decline', 'slack_send_message', '--review', 'save_customer_need']]) {
+    for (const preview of [[], ['--review-all'], declining(['slack_send_message'])]) {
       const r = run('propose-tools', ...preview);
       expect(r.status, preview.join(' ')).toBe(0);
       expect(r.stdout).toStartWith(`draftgate: reconciled ${names.length} tool name(s)`);

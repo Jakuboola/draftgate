@@ -57,17 +57,27 @@ Claude Code's `PreToolUse` adapter, wrapping the CLI as a subprocess.
   `--review ... --decline ... --write` it writes the answer's `tools.json` itself (the setup skill
   has only `Bash(draftgate *)`) and names the tools no registered matcher covers. `draftgate
   propose-tools` is the same mode.
+- **The checklist holds every heading** (`CHOICE_GROUPS`), whatever names were given: a decline is
+  by tool half and applies under every server in every folder, so a connector the session did not
+  load is still the person's to choose. The names add only the "same tool, different server"
+  proposals, and a heading for a half only `tools.json` routes. Every default half is in exactly
+  one group (`reconcile.test.ts`).
 - **An answer names every tool on the checklist** (`declinedAfter`), under `--review` or
   `--decline`, or is `--review-all`; one left out refuses the whole answer and writes nothing.
   Setup asks one question per call, and an answer that never came back must not read as a decline,
   or as a re-enable of a tool the person declined.
-- `--add <name> <destination> <field>` writes a tool of the operator's own (`ownToolEntry`), only
-  after the person says yes in setup. `ownToolRoute` takes only a server the person set up (not
+- `--add <name> <destination> <field>` writes a tool draftgate does not know (`ownToolEntry`), only
+  after the person says yes in setup. `ownToolRoute` takes only a server the person added (not
   `NOT_OWN_SERVERS`: claude.ai's connectors, plugins' servers), a half draftgate neither routes nor
   declines, and no existing entry. Whether the tool is a send is the person's answer; the code
-  never guesses it. The tool must take the destination's format as given
-  (`docs/gating-your-own-sends.md`), and a wrong field only asks: an operator route has no
-  missing-body fail-open.
+  never guesses it. Setup cannot tell who built a server (a vendor's in a project's `.mcp.json`
+  passes the prefix check), so no user-facing text calls such a tool the person's own: setup's
+  section, the closing and `--doctor` say "the tools you added". The tool must take the
+  destination's format as given (`docs/gating-your-own-sends.md`), and a wrong field only asks: an
+  operator route has no missing-body fail-open.
+- `--format` prints what such a tool is handed and the guide's link (`otherToolFormat`); setup
+  shows it as printed, never in its own words: an agent asked to repeat words paraphrases them,
+  and can drop the link.
 - A `tools.json` entry named like a default entry replaces it whole (`mergeToolConfig`), so a
   field the default gains later, `bodyOptional` say, never reaches that tool. `ToolConfig.shadows`
   holds each one with what it says differently (`routeDifferences`), and `--doctor` names them in
@@ -189,5 +199,5 @@ Claude Code's `PreToolUse` adapter, wrapping the CLI as a subprocess.
   printed. Its counts and names come from the merged map, `tools.json`'s declines and the tools the
   extra-tools entry covers, never from the agent. With a problem it prints the report and exits 1,
   so setup never says it is done when the doctor would not. Under `--setup` an entry for the
-  operator's own tools that does not follow the plugin is a problem, not a note: the closing would
+  tools the person added that does not follow the plugin is a problem, not a note: the closing would
   call those tools reviewed while every send through them asks, or after the next update.

@@ -656,7 +656,7 @@ describe('what --doctor says', () => {
   test("a switch that stops only the extra-tools entry beside the plugin is a problem", () => {
     const { text, ok } = hooksDoctor(hooksReport([doc('managed', { strictPluginOnlyCustomization: true })], ['plugin', 'user']));
     expect(ok).toBe(false);
-    expect(text).toContain('the entry for your own tools in your settings');
+    expect(text).toContain('the entry for the tools you added in your settings');
   });
 
   test('a managed switch says who can change it, and the way back that leaves the gate running', () => {

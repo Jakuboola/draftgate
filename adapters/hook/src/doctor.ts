@@ -165,7 +165,7 @@ function hooksSection(hooks: HooksReport, lines: string[], problems: string[]): 
   } else {
     if (hooks.stoppingPart.length > 0) {
       problems.push("hooks off for the plugin's extra-tools entry");
-      lines.push("  PROBLEM: the plugin's hook runs, and the entry for your own tools in your settings");
+      lines.push("  PROBLEM: the plugin's hook runs, and the entry for the tools you added in your settings");
       lines.push('    does not, so the tools only it covers send with no review:');
       for (const s of hooks.stoppingPart) lines.push(switchLine(s));
       lines.push('');
@@ -391,7 +391,15 @@ export function doctorReport(input: DoctorInput): { text: string; ok: boolean } 
       lines.push(`  PROBLEM: registered ${report.firesTwice.length} times, and both entries fire.`);
       lines.push('    Claude Code runs two matching PreToolUse entries CONCURRENTLY, and a deny from');
       lines.push('    either decides the call: two review windows on screen for one send, and the one');
-      lines.push('    you ignore can veto the one you used. Remove all but one.');
+      // From the plugin, beside it only the entry `register` writes: setup rewrites that one to
+      // cover just the tools the plugin cannot match. The plugin's own cannot be removed.
+      const userSettings = input.plugin?.userSettings;
+      if (fromPlugin && report.firesTwice.filter((h) => h.source !== userSettings).length <= 1) {
+        lines.push(`    you ignore can veto the one you used. Run ${REMEDY.pluginSetup} in Claude Code: it`);
+        lines.push("    narrows draftgate's entry in your user settings to the tools the plugin cannot match.");
+      } else {
+        lines.push('    you ignore can veto the one you used. Remove all but one.');
+      }
     }
     // Only with a registration found: with none, every mapped tool is uncovered and the paragraph
     // above says so.
@@ -777,14 +785,14 @@ function followSection(
   for (const e of [...ours.map((h) => ({ ...h, present: true })), ...others]) {
     if (e.pluginRoot === undefined || e.pluginRoot === link.path) continue;
     lines.push('');
-    lines.push(`  ${label}: the entry for your own tools in ${shown(e.source)} names one plugin version's folder,`);
+    lines.push(`  ${label}: the entry for the tools you added in ${shown(e.source)} names one plugin version's folder,`);
     lines.push(`    ${shown(e.pluginRoot)}${e.present ? '' : ', which is gone'}, so it does not follow draftgate's updates.`);
     lines.push(`    ${fix(e.source)}`);
   }
   // An entry through the link that does not lead to this root: one that did would be ours.
   for (const o of others.filter((e) => e.pluginRoot === link.path)) {
     lines.push('');
-    lines.push(`  ${label}: the entry for your own tools in ${shown(o.source)} runs the plugin through ${shown(link.path)},`);
+    lines.push(`  ${label}: the entry for the tools you added in ${shown(o.source)} runs the plugin through ${shown(link.path)},`);
     if (link.at.kind === 'notLink') {
       // Not draftgate's to replace, so setup cannot mend it until it is moved.
       lines.push('    which is not a link: something else is there, so every send through those tools asks.');
@@ -798,7 +806,7 @@ function followSection(
     );
     lines.push(`    ${fix(o.source)}`);
   }
-  if (problems !== null && lines.length > before) problems.push('the entry for your own tools does not follow the plugin');
+  if (problems !== null && lines.length > before) problems.push('the entry for the tools you added does not follow the plugin');
 }
 
 /** The files read and the verdict, which every report ends with. */

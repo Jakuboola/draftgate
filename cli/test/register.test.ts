@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { HOOK_ENTRY, PLUGIN_LINK_BASENAME } from '../src/hookModes';
 import { PLUGIN_HOOK_TIMEOUT_S, loadToolMap } from '../../adapters/hook/src/main';
 import { PLUGIN_LAUNCHER_IN_ROOT, extraToolsBlock } from '../../adapters/hook/src/pluginHooks';
+import { DEFAULT_TOOL_MAP } from '../../adapters/hook/src/toolMap';
 import { checkoutBlock } from '../../adapters/hook/test/checkoutEntry';
 import { assembledRoot } from '../../adapters/hook/test/pluginRoot';
 
@@ -299,7 +300,9 @@ describe('draftgate doctor', () => {
     expect(after[0]!.code).toBe(after[1]!.code);
     expect(after[0]!.stdout).toBe(after[1]!.stdout);
     expect(after[0]!.stdout).toContain(`REGISTERED in ${m.settings}`);
-    expect(after[0]!.stdout).toContain('All 19 mapped tools are covered by a registered matcher.');
+    // The default map and NOTE_TOOL.
+    const mapped = Object.keys(DEFAULT_TOOL_MAP).length + 1;
+    expect(after[0]!.stdout).toContain(`All ${mapped} mapped tools are covered by a registered matcher.`);
   }, DOCTOR_TIMEOUT_MS);
 
   /*

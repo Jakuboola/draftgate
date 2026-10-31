@@ -1285,6 +1285,30 @@ describe('end to end through a REAL CLI subprocess', () => {
     const SLACK_SEND = 'mcp__claude_ai_Slack__slack_send_message';
     const WORKLOG_TOOL = 'mcp__claude_ai_Atlassian_Rovo__addWorklogToJiraIssue';
 
+    // An edit to a comment publishes its new text, as a new comment does: reviewed under any
+    // server, its message read from `body` and sent back whole.
+    for (const tool of ['mcp__claude_ai_Github_MCP__update_issue_comment', 'mcp__github__update_issue_comment']) {
+      test(`${tool} is reviewed, its body read and sent back as approved`, () => {
+        const input = { owner: 'Jakuboola', repo: 'draftgate', comment_id: 42, body: 'Fixed in the **next** release.' };
+        const d = decisionOf(runHook(hookPayload(tool, input), 'auto-approve'));
+        expect(d.permissionDecision).toBe('allow');
+        expect(d.updatedInput).toEqual(input);
+        const row = lastAudit();
+        expect(row.toolName).toBe(tool);
+        expect(row.outcome).toBe('approved');
+        expect(row.before).toBe(input.body);
+        expect(row.context.comment_id).toBe(42);
+      });
+    }
+
+    test('an update_issue_comment with no body is asked about, never sent unreviewed', () => {
+      // `body` is required in its schema, so no `bodyOptional`: a call without one is not "no message".
+      const d = decisionOf(
+        runHook(hookPayload('mcp__claude_ai_Github_MCP__update_issue_comment', { owner: 'o', repo: 'r', comment_id: 1 }), 'auto-reject')
+      );
+      expect(d.permissionDecision).toBe('ask');
+    });
+
     test('text only in issue_fields is ASKED about, never allowed as a call with no message', () => {
       // Read as a call with no message, this would be `allow` and the reject surface would never run.
       const r = runHook(
