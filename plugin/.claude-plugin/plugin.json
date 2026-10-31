@@ -1,6 +1,6 @@
 {
   "name": "draftgate",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Holds each message your agent sends to Jira, Slack, Linear or GitHub and shows it in a window, drawn the way that destination will draw it, until you approve it. macOS 26 or newer.",
   "author": { "name": "Jakuboola" },
   "repository": "https://github.com/Jakuboola/draftgate",
