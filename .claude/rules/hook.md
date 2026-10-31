@@ -77,7 +77,10 @@ Claude Code's `PreToolUse` adapter, wrapping the CLI as a subprocess.
   operator route has no missing-body fail-open.
 - `--format` prints what such a tool is handed and the guide's link (`OTHER_TOOL_FORMAT`); setup
   shows it as printed, never in its own words: an agent asked to repeat words paraphrases them,
-  and can drop the link.
+  and can drop the link. An agent can also leave a command's output collapsed, so with a tool the
+  person added, setup's closing ends with the same text: the closing is what setup always shows.
+  It leaves out a route whose body the review keeps as plain text (`reviewPlan`), which is handed
+  it unconverted.
 - A `tools.json` entry named like a default entry replaces it whole (`mergeToolConfig`), so a
   field the default gains later, `bodyOptional` say, never reaches that tool. `ToolConfig.shadows`
   holds each one with what it says differently (`routeDifferences`), and `--doctor` names them in

@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import { CHOICE_GROUPS, CHOICE_HALVES } from '../src/reconcile';
+import { CHOICE_GROUPS, CHOICE_HALVES, OTHER_TOOLS_GUIDE, OTHER_TOOL_FORMAT } from '../src/reconcile';
 import { declinedNames, setupClosing } from '../src/setupClosing';
 import { DEFAULT_TOOL_MAP, type ToolMap } from '../src/toolMap';
 
@@ -86,8 +86,31 @@ describe('the closing', () => {
     expect(nothing).not.toContain('a window shows the message');
   });
 
-  test('no tool added, no line for them', () => {
-    expect(setupClosing(facts)).not.toContain('Also reviewed');
+  test('no tool added, no line for them, and no format note or guide link', () => {
+    const text = setupClosing(facts);
+    expect(text).not.toContain('Also reviewed');
+    expect(text).not.toContain(OTHER_TOOLS_GUIDE);
+  });
+
+  test("a tool added: the closing ends with --format's text, the guide's link in it", () => {
+    // The text setup always shows, so the link is not lost when the agent leaves --format collapsed.
+    const one = setupClosing({ ...facts, map: withOwn('mcp__notes__post_note'), ownTools: ['mcp__notes__post_note'] });
+    expect(one.endsWith(`\n\nFor mcp__notes__post_note:\n${OTHER_TOOL_FORMAT}`)).toBe(true);
+    const two = setupClosing({ ...facts, map: withOwn('mcp__a__one', 'mcp__b__two'), ownTools: ['mcp__a__one', 'mcp__b__two'] });
+    expect(two.endsWith(`\n\nFor each of mcp__a__one, mcp__b__two:\n${OTHER_TOOL_FORMAT}`)).toBe(true);
+  });
+
+  test('a plain-body tool is handed its text unconverted, so the format note never names it', () => {
+    const plain = { ...JIRA_ROUTE, bodyFormat: 'plain' as const };
+    const only = setupClosing({ ...facts, map: { ...DEFAULT_TOOL_MAP, mcp__a__plain: plain }, ownTools: ['mcp__a__plain'] });
+    expect(only).toContain('\nAlso reviewed: mcp__a__plain (a tool you added).\n');
+    expect(only).not.toContain(OTHER_TOOLS_GUIDE);
+    const mixed = setupClosing({
+      ...facts,
+      map: { ...withOwn('mcp__b__converted'), mcp__a__plain: plain },
+      ownTools: ['mcp__a__plain', 'mcp__b__converted'],
+    });
+    expect(mixed.endsWith(`\n\nFor mcp__b__converted:\n${OTHER_TOOL_FORMAT}`)).toBe(true);
   });
 
   test('a name out of tools.json cannot break the closing onto a forged line', () => {
