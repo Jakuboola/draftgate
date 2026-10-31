@@ -75,7 +75,7 @@ Claude Code's `PreToolUse` adapter, wrapping the CLI as a subprocess.
   section, the closing and `--doctor` say "the tools you added". The tool must take the
   destination's format as given (`docs/gating-your-own-sends.md`), and a wrong field only asks: an
   operator route has no missing-body fail-open.
-- `--format` prints what such a tool is handed and the guide's link (`otherToolFormat`); setup
+- `--format` prints what such a tool is handed and the guide's link (`OTHER_TOOL_FORMAT`); setup
   shows it as printed, never in its own words: an agent asked to repeat words paraphrases them,
   and can drop the link.
 - A `tools.json` entry named like a default entry replaces it whole (`mergeToolConfig`), so a

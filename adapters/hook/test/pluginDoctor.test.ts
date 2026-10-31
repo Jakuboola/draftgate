@@ -20,7 +20,7 @@ import { OLD_ENTRY, PLUGIN_HOOK_TIMEOUT_S } from '../src/main';
 import { checkoutBlock } from './checkoutEntry';
 import { PLUGIN_LAUNCHER_IN_ROOT, PLUGIN_ROOT_REF, extraToolsBlock } from '../src/pluginHooks';
 import { DEFAULT_TOOL_MAP } from '../src/toolMap';
-import { CHOICE_GROUPS } from '../src/reconcile';
+import { CHOICE_HALVES } from '../src/reconcile';
 
 const REPO = join(import.meta.dir, '../../..');
 const dir = realpathSync(mkdtempSync(join(tmpdir(), 'draftgate-plugindoctor-')));
@@ -33,7 +33,7 @@ const SESSION = ['mcp__claude_ai_Slack__slack_send_message', NOTE_TOOL];
  * tool, a half only `tools.json` routes that `SESSION` carries.
  */
 const declining = (...declined: string[]) => [
-  '--review', ...[...CHOICE_GROUPS.flatMap((g) => g.halves), 'post_internal_note'].filter((h) => !declined.includes(h)),
+  '--review', ...[...CHOICE_HALVES, 'post_internal_note'].filter((h) => !declined.includes(h)),
   '--decline', ...declined,
 ];
 const withNote = { ...DEFAULT_TOOL_MAP, [NOTE_TOOL]: DEFAULT_TOOL_MAP['mcp__claude_ai_Atlassian_Rovo__addCommentToJiraIssue']! };

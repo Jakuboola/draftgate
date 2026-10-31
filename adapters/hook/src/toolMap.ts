@@ -220,7 +220,7 @@ export const DEFAULT_TOOL_MAP: ToolMap = disclosingEverything({
   },
 
   /*
-   * GitHub's eight write tools, read off the live `Github_MCP` schemas. Every one spells the body
+   * GitHub's write tools, read off the live `Github_MCP` schemas. Every one spells the body
    * `body`. `issue_number` and `pullNumber` are in the profile's default list, so each route adds
    * only what is particular to it.
    *

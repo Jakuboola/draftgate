@@ -35,7 +35,7 @@ import { isPlainObject } from '../../../cli/src/json';
 import { REGEX_META, declinedHalfOf, matcherCovers, resolveRoute, toolHalvesOf, type ToolMap } from './toolMap';
 import { HOOK_IN_CHECKOUT, readCommand } from './hookCommand';
 import type { SettingsScope } from './hookSwitches';
-import { isPluginFailClosed } from './pluginHooks';
+import { PLUGIN_HOOKS_IN_ROOT, isPluginFailClosed } from './pluginHooks';
 
 /**
  * The `PreToolUse` event default, in ms, when an entry sets no `timeout`. Verified in 2.1.260 and
@@ -372,14 +372,16 @@ export function firesTwiceOf(ours: readonly RegisteredHook[], gated: readonly st
 /**
  * Whether the only entries firing twice are the plugin's own and the user settings' (the extra-tools
  * entry `register` writes): then `register`, which rewrites only that file, narrows it and the
- * second window goes. A duplicate anywhere else is not its to mend. Paths compared resolved.
+ * second window goes. A duplicate anywhere else is not its to mend, and from no plugin root there
+ * is no plugin entry. Paths compared resolved.
  */
 export function firesBesidePlugin(
   firesTwice: readonly RegisteredHook[],
-  pluginHooksPath: string,
+  pluginRoot: string | null,
   userSettings: string
 ): boolean {
-  const [plugin, user] = [resolve(pluginHooksPath), resolve(userSettings)];
+  if (pluginRoot === null) return false;
+  const [plugin, user] = [resolve(pluginRoot, PLUGIN_HOOKS_IN_ROOT), resolve(userSettings)];
   const sources = firesTwice.map((h) => resolve(h.source));
   return sources.includes(plugin) && sources.includes(user) && sources.every((s) => s === plugin || s === user);
 }

@@ -27,7 +27,7 @@ import {
   uncoveredByPlugin,
 } from '../src/pluginHooks';
 import { OLD_ENTRY, PLUGIN_HOOK_TIMEOUT_S } from '../src/main';
-import { CHOICE_GROUPS, NOT_OWN_SERVERS, OTHER_TOOLS_GUIDE, otherToolFormat } from '../src/reconcile';
+import { CHOICE_HALVES, NOT_OWN_SERVERS, OTHER_TOOLS_GUIDE, OTHER_TOOL_FORMAT } from '../src/reconcile';
 import { COMMAND_HELP } from '../../../cli/src/args';
 import { profiles } from '../../../core/src/index';
 import { SESSION_VAR } from '../src/setupNames';
@@ -597,12 +597,14 @@ describe('the extra-tools entry, read back beside the plugin\'s', () => {
   test('only a duplicate of the plugin\'s and the user settings\' entries is register\'s to narrow', () => {
     const at = (source: string) => ({ source, matcher: 'm', failClosed: true });
     const [plugin, user, project] = [at(pluginHooksPath), at(settingsPath), at('/project/.claude/settings.json')];
-    expect(firesBesidePlugin([plugin, user], pluginHooksPath, settingsPath)).toBe(true);
+    expect(firesBesidePlugin([plugin, user], root, settingsPath)).toBe(true);
     // The same file, spelled unresolved.
-    expect(firesBesidePlugin([plugin, at('/home/.claude/../.claude/settings.json')], pluginHooksPath, settingsPath)).toBe(true);
+    expect(firesBesidePlugin([plugin, at('/home/.claude/../.claude/settings.json')], root, settingsPath)).toBe(true);
     for (const twice of [[user, project], [plugin, project], [plugin, user, project], [], [user]]) {
-      expect(firesBesidePlugin(twice, pluginHooksPath, settingsPath), twice.map((h) => h.source).join(' ')).toBe(false);
+      expect(firesBesidePlugin(twice, root, settingsPath), twice.map((h) => h.source).join(' ')).toBe(false);
     }
+    // From a checkout there is no plugin entry for it to sit beside.
+    expect(firesBesidePlugin([plugin, user], null, settingsPath)).toBe(false);
   });
 
   test('an entry beside the plugin that covers the plugin\'s tools too fires twice', () => {
@@ -685,7 +687,7 @@ describe('setup\'s commands, through bin/draftgate', () => {
    * names, plus `own`, the halves only `tools.json` routes that a given name carries.
    */
   const declining = (declined: string[], own: string[] = []) => [
-    '--review', ...[...CHOICE_GROUPS.flatMap((g) => g.halves), ...own].filter((h) => !declined.includes(h)),
+    '--review', ...[...CHOICE_HALVES, ...own].filter((h) => !declined.includes(h)),
     '--decline', ...declined,
   ];
 
@@ -854,14 +856,7 @@ describe('setup\'s commands, through bin/draftgate', () => {
     const r = m.draftgate('propose-tools', '--format');
     expect(r.status).toBe(0);
     expect(r.stderr).toBe('');
-    expect(r.stdout).toBe(otherToolFormat());
-    // Pinned: the words setup shows, with the link on its own line's end.
-    expect(r.stdout).toBe(
-      'draftgate hands the tool the message as you approved it, in the destination\'s format: for Jira an\n' +
-        'ADF document as a JSON string, with contentFormat "adf" beside it; for Slack, Linear and GitHub\n' +
-        'markdown. The tool has to take that as it is, or it sends something other than what you approved.\n' +
-        'How to build one that does: https://github.com/Jakuboola/draftgate/blob/main/docs/gating-your-own-sends.md\n'
-    );
+    expect(r.stdout).toBe(OTHER_TOOL_FORMAT);
     // Held to the profiles: each extra field one sets on approve, and markdown for the rest, by name.
     const said = r.stdout.replace(/\s+/g, ' ');
     for (const p of Object.values(profiles)) {

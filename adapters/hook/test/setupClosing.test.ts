@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import { CHOICE_GROUPS } from '../src/reconcile';
+import { CHOICE_GROUPS, CHOICE_HALVES } from '../src/reconcile';
 import { declinedNames, setupClosing } from '../src/setupClosing';
 import { DEFAULT_TOOL_MAP, type ToolMap } from '../src/toolMap';
 
@@ -38,7 +38,7 @@ describe('the declines, in plain words', () => {
   });
 
   test('every group declined names every heading and nothing else', () => {
-    const all = CHOICE_GROUPS.flatMap((g) => g.halves);
+    const all = CHOICE_HALVES;
     expect(declinedNames(all).names).toHaveLength(CHOICE_GROUPS.length);
   });
 });

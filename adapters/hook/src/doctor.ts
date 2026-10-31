@@ -11,9 +11,7 @@
 import { toolAudienceProbed } from '../../../core/src/index';
 import type { DestinationName } from '../../../core/src/index';
 import { oneLine } from '../../../cli/src/text';
-import { join } from 'node:path';
 import { firesBesidePlugin, type RegisteredHook, type RegistrationReport } from './registration';
-import { PLUGIN_HOOKS_IN_ROOT } from './pluginHooks';
 import { matcherCovers, restates, shadowLine } from './toolMap';
 import { asSeconds, clampRemedy, type Deadline } from './reviewTimeout';
 import type { Shadow, ToolMap } from './toolMap';
@@ -393,15 +391,13 @@ export function doctorReport(input: DoctorInput): { text: string; ok: boolean } 
       lines.push(`  PROBLEM: registered ${report.firesTwice.length} times, and both entries fire.`);
       lines.push('    Claude Code runs two matching PreToolUse entries CONCURRENTLY, and a deny from');
       lines.push('    either decides the call: two review windows on screen for one send, and the one');
-      // From the plugin, beside it only the entry `register` writes: setup rewrites that one to
-      // cover just the tools the plugin cannot match. The plugin's own cannot be removed.
+      // The plugin's own entry cannot be removed, so beside it setup narrows the other.
       const { plugin } = input;
-      if (plugin?.root != null && firesBesidePlugin(report.firesTwice, join(plugin.root, PLUGIN_HOOKS_IN_ROOT), plugin.userSettings)) {
-        lines.push(`    you ignore can veto the one you used. Run ${REMEDY.pluginSetup} in Claude Code: it`);
-        lines.push("    narrows draftgate's entry in your user settings to the tools the plugin cannot match.");
-      } else {
-        lines.push('    you ignore can veto the one you used. Remove all but one.');
-      }
+      const narrows = plugin !== undefined && firesBesidePlugin(report.firesTwice, plugin.root, plugin.userSettings);
+      lines.push(
+        `    you ignore can veto the one you used. ${narrows ? `Run ${REMEDY.pluginSetup} in Claude Code: it` : 'Remove all but one.'}`
+      );
+      if (narrows) lines.push("    narrows draftgate's entry in your user settings to the tools the plugin cannot match.");
     }
     // Only with a registration found: with none, every mapped tool is uncovered and the paragraph
     // above says so.

@@ -8,7 +8,7 @@
 
 import { describe, expect, test } from 'bun:test';
 import {
-  CHOICE_GROUPS, answeredToolsJson, declinedAfter, describeReconciliation, groupOf, knownHalves, ownToolRoute,
+  CHOICE_GROUPS, CHOICE_HALVES, answeredToolsJson, declinedAfter, describeReconciliation, groupOf, knownHalves, ownToolRoute,
   proposedToolsJson, reconcileTools,
 } from '../src/reconcile';
 import { profiles } from '../../../core/src/index';
@@ -250,7 +250,7 @@ describe('the choice groups', () => {
   test('every half the default map routes is in exactly one group, and no group names another', () => {
     // A default tool without a group would be asked about under its raw name; a group naming a half
     // nothing routes reads as coverage.
-    const grouped = CHOICE_GROUPS.flatMap((g) => g.halves);
+    const grouped = CHOICE_HALVES;
     expect([...grouped].sort()).toEqual(toolHalvesOf(DEFAULT_TOOL_MAP));
     expect(new Set(grouped).size).toBe(grouped.length);
     expect(new Set(CHOICE_GROUPS.map((g) => g.label)).size).toBe(CHOICE_GROUPS.length);
@@ -274,7 +274,7 @@ describe('the choice groups', () => {
     expect(r.halves.map((h) => h.group)).toEqual(
       CHOICE_GROUPS.flatMap((g) => g.halves.map(() => g.label))
     );
-    const halves = CHOICE_GROUPS.flatMap((g) => g.halves).length;
+    const halves = CHOICE_HALVES.length;
     const text = describeReconciliation(r, 1, {}, '/t.json');
     expect(text).toContain(`CHOOSE which to review -- ${halves} tool(s) in ${CHOICE_GROUPS.length} group(s), x = reviewed:`);
     // The heading, then its tools indented under it; one no given name carries says so.

@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 
 const HOOK_SELF = fileURLToPath(new URL('../src/main.ts', import.meta.url));
 import {
-  CHOICE_GROUPS, UNANSWERED, declinedAfter, describeReconciliation, proposalsFor, proposedToolsJson, reconcileTools,
+  CHOICE_HALVES, UNANSWERED, declinedAfter, describeReconciliation, proposalsFor, proposedToolsJson, reconcileTools,
 } from '../src/reconcile';
 import {
   DEFAULT_TOOL_MAP,
@@ -36,7 +36,7 @@ const JIRA = 'mcp__claude_ai_Atlassian_Rovo__addCommentToJiraIssue';
 const LINEAR = 'mcp__claude_ai_Linear__save_comment';
 
 /** Every heading's tool halves but `named`: the rest of a whole answer. */
-const othersThan = (...named: string[]) => CHOICE_GROUPS.flatMap((g) => g.halves).filter((h) => !named.includes(h));
+const othersThan = (...named: string[]) => CHOICE_HALVES.filter((h) => !named.includes(h));
 
 const declining = (...halves: string[]) =>
   mergeToolConfig(DEFAULT_TOOL_MAP, { declined: halves }, 'tools.json');

@@ -106,6 +106,9 @@ export const CHOICE_GROUPS: readonly { label: string; halves: readonly string[] 
   },
 ];
 
+/** Every half a heading names, in the order setup asks. */
+export const CHOICE_HALVES: readonly string[] = CHOICE_GROUPS.flatMap((g) => g.halves);
+
 /** The heading a half is asked about under, and where that heading sorts. */
 export function groupOf(half: string, destination: DestinationName): { label: string; order: number } {
   const order = CHOICE_GROUPS.findIndex((g) => g.halves.includes(half));
@@ -143,6 +146,7 @@ export function reconcileTools(
   const choices = new Map<string, HalfChoice>();
   /** Where each half's group sorts, read once, with its label, when the half's row is made. */
   const orderOf = new Map<string, number>();
+  /** A half's row, made by its first call: a later call's destination and decline change nothing. */
   const rowFor = (half: string, destination: DestinationName, isDeclined: boolean): HalfChoice => {
     let row = choices.get(half);
     if (row === undefined) {
@@ -153,11 +157,8 @@ export function reconcileTools(
     }
     return row;
   };
-  const count = (half: string, destination: DestinationName, isDeclined: boolean) => {
-    rowFor(half, destination, isDeclined).connectors++;
-  };
   // Every heading, given names or not. Its destination is the default entry's, which its label names.
-  for (const half of CHOICE_GROUPS.flatMap((g) => g.halves)) {
+  for (const half of CHOICE_HALVES) {
     rowFor(half, DEFAULT_TOOL_MAP[entryForHalf(DEFAULT_TOOL_MAP, half)!]!.destination, config.declined.includes(half));
   }
   for (const name of [...new Set(names)].sort()) {
@@ -167,7 +168,7 @@ export function reconcileTools(
       const routes = config.declinedRoutes;
       const from = entryForHalf(routes, half!);
       if (from === null) continue;
-      count(half!, routes[from]!.destination, true);
+      rowFor(half!, routes[from]!.destination, true).connectors++;
       if (!Object.hasOwn(routes, name)) {
         out.proposedIfEnabled.push({ name, matches: from, route: { ...routes[from]! } });
       }
@@ -176,7 +177,7 @@ export function reconcileTools(
     // `Object.hasOwn`, not `in`: `--propose-tools toString constructor` would print "GATED already".
     if (Object.hasOwn(map, name)) {
       out.gated.push(name);
-      if (half !== null) count(half, map[name]!.destination, false);
+      if (half !== null) rowFor(half, map[name]!.destination, false).connectors++;
       continue;
     }
     if (half === null) { out.notMcp.push(name); continue; }
@@ -184,7 +185,7 @@ export function reconcileTools(
     const matches = entryForHalf(map, half);
     if (matches === null) { out.unknown.push(name); continue; }
     out.proposed.push({ name, matches, route: { ...map[matches]! } });
-    count(half, map[matches]!.destination, false);
+    rowFor(half, map[matches]!.destination, false).connectors++;
   }
   // By group, then by half; a half no group names sorts last, by its own heading.
   out.halves = [...choices.values()].sort(
@@ -397,18 +398,14 @@ export const OTHER_TOOLS_GUIDE = 'https://github.com/Jakuboola/draftgate/blob/ma
 
 /**
  * What a tool `--add` reviews is handed on approval, and where to read how to build one that takes
- * it: `--format` prints it, and setup shows it as printed before it adds a tool. An agent asked to
- * repeat words paraphrases them and can drop the link; a command's output it shows as printed.
- * `pluginHooks.test.ts` holds it to the profiles' `extraToolInput`.
+ * it: `--format` prints it, for setup to show as printed. `pluginHooks.test.ts` holds it to the
+ * profiles' `extraToolInput`.
  */
-export function otherToolFormat(): string {
-  return (
-    'draftgate hands the tool the message as you approved it, in the destination\'s format: for Jira an\n' +
-    'ADF document as a JSON string, with contentFormat "adf" beside it; for Slack, Linear and GitHub\n' +
-    'markdown. The tool has to take that as it is, or it sends something other than what you approved.\n' +
-    `How to build one that does: ${OTHER_TOOLS_GUIDE}\n`
-  );
-}
+export const OTHER_TOOL_FORMAT =
+  'draftgate hands the tool the message as you approved it, in the destination\'s format: for Jira an\n' +
+  'ADF document as a JSON string, with contentFormat "adf" beside it; for Slack, Linear and GitHub\n' +
+  'markdown. The tool has to take that as it is, or it sends something other than what you approved.\n' +
+  `How to build one that does: ${OTHER_TOOLS_GUIDE}\n`;
 
 /**
  * The servers whose tools setup does not offer for `--add`, by the prefix Claude Code gives their
@@ -428,9 +425,9 @@ export function ownToolEntry(destination: DestinationName, bodyField: string): R
 
 /**
  * The destination `--add` reviews a tool as, or why it refuses the tool. Only a tool of a server the
- * person added (not `NOT_OWN_SERVERS`), ending in a half draftgate neither routes nor declines (one that does is reviewed,
- * or declined, already), with no `tools.json` entry yet, to a destination draftgate has. The loader
- * checks the rest when it is written.
+ * person added (not `NOT_OWN_SERVERS`), ending in a half draftgate neither routes nor declines
+ * (one that does is reviewed, or declined, already), with no `tools.json` entry yet, to a
+ * destination draftgate has. The loader checks the rest when it is written.
  */
 export function ownToolRoute(
   name: string,
