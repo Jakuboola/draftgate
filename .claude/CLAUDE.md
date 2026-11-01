@@ -215,5 +215,5 @@ Where facts live:
   `tools/atlassian-tokens` for `tokens:jira`.
 - The review window is draftgate's own host on the system WebKit: macOS 26 and newer, compiled with
   the Command Line Tools' `clang`.
-- `electron` 44.3.0 is a dev tool (rulers, icon) in `tools/electron/`, installed there on first use,
+- `electron` 44.9.1 is a dev tool (rulers, icon) in `tools/electron/`, installed there on first use,
   on no review's path and not in the root install.
