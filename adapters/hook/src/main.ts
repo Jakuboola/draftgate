@@ -972,6 +972,16 @@ async function writeToolsAnswer(o: {
       `${REMEDY.dropToolEntries} with their names drops them, so draftgate's own entry applies.`
     );
   }
+  // Never written unasked: it lets a call through unreviewed. Setup asks, and `--allow-no-message` writes.
+  if (written.asksOnNoMessage.length > 0) {
+    lines.push(
+      '',
+      `${NO_MESSAGE}:`,
+      ...written.asksOnNoMessage.map((name) => `  ${oneLine(name)}`),
+      '',
+      `${REMEDY.allowNoMessage} with their names lets those calls through unreviewed.`
+    );
+  }
   const root = pluginRootOf(process.env, HOOK, realpathOrNull);
   const registered = registrationHere(written.map, root);
   const { unregistered: uncovered, firesTwice } = inspectHere(written, process.cwd(), process.env, root);
@@ -1014,6 +1024,10 @@ async function writeToolsAnswer(o: {
 
 /** The words `/draftgate:setup` asks about overriding entries on (`plugin/skills/setup/SKILL.md`). */
 export const OVERRIDES = "tools.json overrides draftgate's own entry for these";
+
+/** The words `/draftgate:setup` asks about letting a call with no message through on. */
+export const NO_MESSAGE =
+  "These ask you even when a call carries no message (only labels, a status or an assignee), which draftgate's own entry for the same tool lets through";
 
 /**
  * Write `text` as `tools.json`, after checking that reviews can load it, through a symlink. The
@@ -1094,6 +1108,54 @@ async function dropToolEntries(names: string[], toolsPath: string): Promise<numb
 }
 
 /**
+ * `--propose-tools --allow-no-message <name>...`: write `"bodyOptional": true` into `tools.json`
+ * entries that ask on a call with no message where draftgate's own entry for the same tool lets it
+ * through (`ToolConfig.asksOnNoMessage`). Setup runs it only after the person says yes. Any other
+ * name is refused, and nothing is written: the flag on any other tool would be a claim about a
+ * schema nobody checked.
+ */
+async function allowNoMessage(names: string[], toolsPath: string): Promise<number> {
+  if (names.length === 0) {
+    process.stderr.write(`draftgate: --allow-no-message needs the tools.json entries to change, by their full names.\n`);
+    return 1;
+  }
+  const read = readToolsOnce(toolsPath, 'changed', false);
+  if (read === null) return 1;
+  const { tools, existing } = read;
+  const asking = new Set(tools.asksOnNoMessage);
+  const stray = names.filter((name) => !asking.has(name));
+  if (stray.length > 0) {
+    process.stderr.write(
+      `draftgate: ${stray.map((n) => `"${oneLine(n)}"`).join(', ')} is not a tools.json entry that asks ` +
+        "on a call with no message where draftgate's own entry for the tool lets it through, so nothing " +
+        'was changed.\n'
+    );
+    return 1;
+  }
+  const changed = new Set(names);
+  const next: Record<string, unknown> = {};
+  for (const [name, value] of Object.entries(existing)) {
+    if (!changed.has(name)) {
+      next[name] = value;
+      continue;
+    }
+    // A short form (`"linear"`) and `{"destination": "linear"}` are the same route.
+    const entry = typeof value === 'string' ? { destination: value } : (value as Record<string, unknown>);
+    const { destination, ...rest } = entry;
+    next[name] = { destination, bodyOptional: true, ...rest };
+  }
+  if (writeToolsFile(JSON.stringify(next, null, 2), toolsPath, 'changing them') === null) return 1;
+  await printStdout(
+    [
+      `draftgate: in ${toolsPath}, a call with no message now goes through unreviewed for:`,
+      ...[...changed].sort().map((n) => `  ${oneLine(n)}`),
+      'A call that carries a message is still reviewed.',
+    ].join('\n') + '\n'
+  );
+  return 0;
+}
+
+/**
  * `--propose-tools --add <name> <destination> <field>`: a tool of the operator's own, reviewed as
  * `destination` with its message read from `field` (`ownToolEntry`). Setup runs it only after the
  * person says yes and picks the destination; `register` then adds the settings entry that reviews it.
@@ -1144,7 +1206,10 @@ async function replacedByRegister(block: HookBlock | null): Promise<string[]> {
  * `draftgate propose-tools` passes its arguments as they are, and an `--unregister` among them would
  * otherwise run that mode.
  */
-const PROPOSE_FLAGS = ['--propose-tools', '--decline', '--review', '--review-all', '--write', '--known', '--drop', '--add', '--format'];
+const PROPOSE_FLAGS = [
+  '--propose-tools', '--decline', '--review', '--review-all', '--write', '--known', '--drop', '--allow-no-message',
+  '--add', '--format',
+];
 
 export async function main(argv: string[]): Promise<number> {
   if (argv.includes('--propose-tools')) {
@@ -1154,7 +1219,8 @@ export async function main(argv: string[]): Promise<number> {
       process.stderr.write(
         `draftgate: ${REMEDY.proposeTools} does not take ${other}. Pass tool names after it ` +
           'and tool halves after --review and --decline (or --review-all), space-separated, --write to write the answer, --known ' +
-          'alone to list the tool halves it knows, --drop and the tools.json entries to drop, --add ' +
+          'alone to list the tool halves it knows, --drop and the tools.json entries to drop, --allow-no-message ' +
+          'and the tools.json entries to let a call with no message through on, --add ' +
           'and a tool draftgate does not know, its destination and the field its message is in, or --format ' +
           'alone for what such a tool is handed.\n'
       );
@@ -1213,12 +1279,13 @@ export async function main(argv: string[]): Promise<number> {
     // `~/.claude.json` has no claude.ai-managed connectors.
     //
     // Each flag owns the bare arguments after it, in either order: tool names after
-    // `--propose-tools`, tool halves after `--decline` and `--review`, entries after `--drop`, a
-    // tool of the operator's own after `--add`. `--write` owns none.
+    // `--propose-tools`, tool halves after `--decline` and `--review`, entries after `--drop` and
+    // `--allow-no-message`, a tool of the operator's own after `--add`. `--write` owns none.
     let names: string[] = [];
     let chosen: string[] | undefined;
     let reviewing: string[] | undefined;
     let dropping: string[] | undefined;
+    let quieting: string[] | undefined;
     let adding: string[] | undefined;
     let into: string[] | undefined;
     let write = false;
@@ -1234,17 +1301,19 @@ export async function main(argv: string[]): Promise<number> {
       else if (arg === '--decline') into = chosen ??= [];
       else if (arg === '--review') into = reviewing ??= [];
       else if (arg === '--drop') into = dropping ??= [];
+      else if (arg === '--allow-no-message') into = quieting ??= [];
       else if (arg === '--add') into = adding ??= [];
       else into?.push(arg);
     }
     const toolsPath = join(draftgateHome(), CONFIG_BASENAME);
-    // `--add`, `--drop`, `--known` and `--format` each run alone: beside names, an answer or another
-    // of them, one of the two would be dropped while exiting 0.
+    // `--add`, `--drop`, `--allow-no-message`, `--known` and `--format` each run alone: beside names,
+    // an answer or another of them, one of the two would be dropped while exiting 0.
     const given = {
       names: names.length > 0,
       answer: chosen !== undefined || reviewing !== undefined || reviewAll || write,
       add: adding !== undefined,
       drop: dropping !== undefined,
+      allowNoMessage: quieting !== undefined,
       known,
       format,
     };
@@ -1260,6 +1329,12 @@ export async function main(argv: string[]): Promise<number> {
     if (dropping !== undefined) {
       if (!alone('drop')) return refuse('--drop takes nothing else: only the tools.json entries to drop.');
       return dropToolEntries(dropping, toolsPath);
+    }
+    if (quieting !== undefined) {
+      if (!alone('allowNoMessage')) {
+        return refuse('--allow-no-message takes nothing else: only the tools.json entries to change.');
+      }
+      return allowNoMessage(quieting, toolsPath);
     }
     // What a tool `--add` reviews is handed, for setup to show as printed (`OTHER_TOOL_FORMAT`).
     if (format) {
@@ -1365,6 +1440,7 @@ export async function main(argv: string[]): Promise<number> {
       declinedUnrouted: tools.declinedUnrouted,
       dormant: tools.dormant,
       shadows: tools.shadows,
+      asksOnNoMessage: tools.asksOnNoMessage,
       expectedMatchers: registeredMatchers(registered, toolMap),
       configPath: config.path,
       configPresent: config.present,
