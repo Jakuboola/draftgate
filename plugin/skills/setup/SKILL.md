@@ -140,6 +140,16 @@ Steps:
    - Then, only if I chose "Use draftgate's" for any, run `draftgate propose-tools --drop` with
      the full tool name of each one I chose, space-separated.
 
+   Only if that output says "These ask you even when a call carries no message (only labels, a
+   status or an assignee), which draftgate's own entry for the same tool lets through", ask me ONE
+   question, in these words: "<the tool names it lists> ask you even when a call carries no
+   message, like a label or status change. Let those calls through without asking? A call with a
+   message is still reviewed.", with two options in this order: "Let them through (recommended)"
+   and "Keep asking". If the output does not say it, skip this question.
+   - Let them through: run `draftgate propose-tools --allow-no-message` with the full tool name of
+     each one it lists, space-separated.
+   - Keep asking: run nothing.
+
 6. Run:
 
        draftgate doctor --setup

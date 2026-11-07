@@ -378,6 +378,7 @@ settings. It takes no options.
   'propose-tools': `draftgate propose-tools <tool name>... [--review <tool>... --decline <tool>... | --review-all] [--write]
 draftgate propose-tools --known
 draftgate propose-tools --drop <tool name>...
+draftgate propose-tools --allow-no-message <tool name>...
 draftgate propose-tools --add <tool name> <destination> <field>
 draftgate propose-tools --format
 
@@ -396,6 +397,10 @@ tool names with them. ${SETUP} runs it.
                         names the ones that override it
   --drop <tool name>... take these entries out of ~/.draftgate/tools.json, so draftgate's own entry
                         for the tool applies. Only an entry for one of draftgate's own tools
+  --allow-no-message <tool name>...
+                        let a call with no message (only labels, a status or an assignee) through
+                        these entries unreviewed, as draftgate's own entry for the same tool does.
+                        Only an entry --write names as asking on one
   --add <tool name> <destination> <field>
                         review a tool draftgate does not know, of a server you added (not a
                         claude.ai connector or a plugin's), its message read from <field>.

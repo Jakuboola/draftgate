@@ -57,6 +57,9 @@ Claude Code's `PreToolUse` adapter, wrapping the CLI as a subprocess.
   `--review ... --decline ... --write` it writes the answer's `tools.json` itself (the setup skill
   has only `Bash(draftgate *)`) and names the tools no registered matcher covers. `draftgate
   propose-tools` is the same mode.
+- `--write` also names each alias that asks on a call with no message where the default it matches
+  lets one through (`ToolConfig.asksOnNoMessage`). Setup asks the person, and only their yes writes
+  the flag (`--allow-no-message`, which refuses any other entry). `--doctor` names them as a note.
 - **The checklist holds every heading** (`CHOICE_GROUPS`), whatever names were given: a decline is
   by tool half and applies under every server in every folder, so a connector the session did not
   load is still the person's to choose. The names add only the "same tool, different server"

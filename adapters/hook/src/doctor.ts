@@ -36,6 +36,8 @@ export interface DoctorInput {
   dormant?: readonly string[];
   /** `tools.json` entries that replace a default entry of the same name. Absent means none. */
   shadows?: readonly Shadow[];
+  /** `tools.json` aliases that ask on a call with no message where draftgate's own entry allows it. */
+  asksOnNoMessage?: readonly string[];
   /**
    * The matchers draftgate expects registered: from a checkout, its entry's for the merged map; from
    * the plugin its own file's and the settings entry's for the tools that file cannot match, when
@@ -449,6 +451,14 @@ export function doctorReport(input: DoctorInput): { text: string; ok: boolean } 
     "replaces draftgate's whole, so a change draftgate makes to its own never reaches the tool.",
     'Each line says what yours does differently. Kept on purpose, that is fine; to use',
     `draftgate's instead, run ${REMEDY.dropToolEntries} with the name:`
+  );
+  // A note: asking is the safe side, and letting a call through unreviewed is the person's choice.
+  note(
+    input.asksOnNoMessage,
+    'these tools.json entries ask you even when a call carries no message (only labels, a',
+    "status or an assignee), which draftgate's own entry for the same tool lets through.",
+    `${REMEDY.pluginSetup} asks whether to let those through, or run ${REMEDY.allowNoMessage}`,
+    'with their names:'
   );
   note(
     report.declinedStillMatched,

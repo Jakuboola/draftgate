@@ -219,7 +219,10 @@ describe('through the real entry point', () => {
       expect(r.stdout).toContain(`so draftgate's own entry applies to:\n  ${SAVE_ISSUE}\n`);
       expect(m.read()).toEqual({ [ALIAS]: 'linear' });
       expect(m.stateOnly()).toBe('allow');
-      expect(m.hook(['--doctor']).stdout).not.toContain('tools.json entries');
+      // The alias is still named, by the no-message note (`noMessage.test.ts`); no shadow is.
+      const after = m.hook(['--doctor']).stdout;
+      expect(after).not.toContain("override draftgate's own entry");
+      expect(after).not.toContain("say just what draftgate's own entry");
     } finally {
       m.done();
     }

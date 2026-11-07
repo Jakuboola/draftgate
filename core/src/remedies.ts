@@ -50,6 +50,12 @@ export const REMEDY = {
    * applies. Followed by the full tool names; it refuses any other entry.
    */
   dropToolEntries: '`draftgate propose-tools --drop`',
+  /**
+   * Write `"bodyOptional": true` into `tools.json` entries that ask on a call with no message where
+   * draftgate's own entry for the same tool lets it through. Followed by the full tool names; it
+   * refuses any other entry.
+   */
+  allowNoMessage: '`draftgate propose-tools --allow-no-message`',
   /** Read the review log: outcomes, warnings, what reviewers edited. */
   digest: '`draftgate digest`',
   /** The commands a user runs; each answers `--help` with its options. */
