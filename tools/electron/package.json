@@ -4,6 +4,6 @@
   "version": "0.0.0",
   "description": "The Electron the rulers (measure:*) and icon:build run under. Not a dependency, not in the plugin tree: installed here on first use by run.ts, never by the root bun install.",
   "devDependencies": {
-    "electron": "44.3.0"
+    "electron": "44.9.1"
   }
 }

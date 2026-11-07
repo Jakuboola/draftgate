@@ -92,7 +92,8 @@ export type SchemaOwner = 'connector' | 'connector-open' | 'operator' | 'inferre
  *
  * Whether a fact reaches a review is settled by its type (`RouteFacts`), so there is no column for
  * it. `bodyOptional` is `false` twice: it is a fail-open, and draftgate neither infers one for an
- * unconfigured server nor writes one on an operator's behalf.
+ * unconfigured server nor proposes one. Setup asks the person about each alias that lacks it
+ * (`ToolConfig.asksOnNoMessage`), and only their yes writes it (`--allow-no-message`).
  */
 export const ROUTE_FACTS: Record<
   Exclude<keyof ToolRoute, 'destination' | 'schemaOwner'>,
@@ -445,6 +446,14 @@ export interface ToolConfig {
    * difference. Sorted by name.
    */
   shadows: Shadow[];
+  /**
+   * `tools.json` entries that ask on a call with no message where draftgate's own entry for the
+   * same tool lets it through: an alias (the same tool half and destination as a `bodyOptional`
+   * default) that does not say `bodyOptional` itself, nor `"bodyOptional": false`. Proposals never
+   * carry the flag (`ROUTE_FACTS`), so setup asks the person, and `--allow-no-message` writes it on
+   * their yes. An entry named like the default is a shadow instead. Sorted.
+   */
+  asksOnNoMessage: string[];
 }
 
 /** A `tools.json` entry for a default tool, and what it says that the default does not. */
@@ -489,6 +498,7 @@ export function mergeToolConfig(base: ToolMap, override: unknown, source: string
   const out: ToolMap = { ...base };
   const dormant: string[] = [];
   const shadows: Shadow[] = [];
+  const asksOnNoMessage: string[] = [];
   for (const [tool, value] of Object.entries(entries)) {
     if (value === null) {
       delete out[tool];
@@ -499,6 +509,7 @@ export function mergeToolConfig(base: ToolMap, override: unknown, source: string
     const isDormant = declinedHalfOf(tool, declined) !== null;
     if (isDormant) dormant.push(tool);
     if (existing === undefined) {
+      if (!isDormant && asksWhereDefaultAllows(tool, typed, value, base)) asksOnNoMessage.push(tool);
       out[tool] = typed;
       continue;
     }
@@ -522,7 +533,23 @@ export function mergeToolConfig(base: ToolMap, override: unknown, source: string
     dormant: dormant.sort(),
     declinedUnrouted: declined.filter((h) => !removed.has(h)),
     shadows: shadows.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),
+    asksOnNoMessage: asksOnNoMessage.sort(),
   };
+}
+
+/**
+ * Does this alias ask on a call with no message where the base entry for its tool half allows it?
+ * `raw` is the entry as written: `"bodyOptional": false` is a choice to ask, which `parseRoute`
+ * reads the same as no flag, so it is checked here.
+ */
+function asksWhereDefaultAllows(tool: string, typed: ToolRoute, raw: unknown, base: ToolMap): boolean {
+  if (typed.bodyOptional === true) return false;
+  if (typeof raw === 'object' && raw !== null && (raw as Record<string, unknown>).bodyOptional === false) return false;
+  const half = toolHalfOf(tool);
+  const from = half === null ? null : entryForHalf(base, half);
+  if (from === null) return false;
+  const route = base[from]!;
+  return route.bodyOptional === true && route.destination === typed.destination;
 }
 
 /**

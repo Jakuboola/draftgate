@@ -1,8 +1,8 @@
 {
  "version": 1,
- "stamp": "2515b732253a40357c40c13474210361bccae5d9d16cd385e19444576e613fbd",
+ "stamp": "8da00672d6ff6338d1d9517ab597394c759e2bd2b24e43a1eb9866e45e49f71e",
  "inputs": {
-  "bun.lock": "f03a0efd080da0db0173edd7988ab157213fa7bd2420ba2d6e373b2905c184cf",
+  "bun.lock": "5154c2c3a772df12a3b556a66c821ba253efb5e2ace04c80c360f8cd5c95d658",
   "cli/src/buildSurface.ts": "0ad69378e18637b8017f0dcb6aac8fb6df50e793d8f10202e980875673a32194",
   "cli/src/claudePlugin.ts": "659994b9c2aba0fb800d1e37fc6bfb999e2a1a7d990255335dfd1bcbf507710b",
   "cli/src/json.ts": "8145fa248e60d9d8000011742177b9af9f7be351dad672324e9a9bbe14424f90",
@@ -35,7 +35,7 @@
   "core/src/profiles/linear.ts": "e61c2c14b3bcad7a4772349fb4c1ef3c79f75265f1e93d2877b480273b094e14",
   "core/src/profiles/slack.ts": "7aaefe065b1743dccdef2c671ce5884dca3003bb58cdae6c45f9f87ebc438b60",
   "core/src/prosemirror.ts": "aa21c03afd77fd3d67fbf475cc2d284237c70e5a2f5feb84ff02ff4bd9495c28",
-  "core/src/remedies.ts": "8e63624fc8c1c358248cb57dfa86365f72abb9bf0aeeb6677443f944ad39d5f3",
+  "core/src/remedies.ts": "6daa62b7bdc21c576e3330bf570a5cf95e28f4541b4e261f952d763decf71c7d",
   "core/src/render.ts": "9ccb27992cc7936a2b69628e77202e725873d5cb7ad3a21b1c9bae56f51526c4",
   "core/src/reviewFields.ts": "70f98fa821a8642c9832f03d50ada92364d2158fb5a6ecb964678fe164688914",
   "core/src/warnings.ts": "19e41fd00119ad910f3d2e164d3d6f5f938e205c178584373d96aa4bf882c222",
